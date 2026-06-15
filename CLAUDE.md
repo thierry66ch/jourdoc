@@ -146,8 +146,8 @@ WEBDAV_USER=ton@email.com
 WEBDAV_PASSWORD=xxxxxxxxx          # mot de passe d'application KDrive
 
 # Chemins spécifiques à JourDoc (configurables sans toucher au code)
-WEBDAV_PATH_UPLOADS=/Apps_data/JourDoc/uploads
-WEBDAV_PATH_INBOX=/Apps_data/JourDoc/inbox
+WEBDAV_PATH_UPLOADS=/pogil.ch/Apps_datas/JourDoc/uploads
+WEBDAV_PATH_INBOX=/pogil.ch/Apps_datas/JourDoc/inbox
 ```
 
 Pour RandoLib (futur projet), ce sera `WEBDAV_PATH_TRACKS` et `WEBDAV_PATH_INBOX`
@@ -202,8 +202,8 @@ WEBDAV_USER=ton@email.com
 WEBDAV_PASSWORD=                   # mot de passe d'application KDrive (pas le mdp principal)
 
 # Chemins WebDAV JourDoc
-WEBDAV_PATH_UPLOADS=/Apps_data/JourDoc/uploads
-WEBDAV_PATH_INBOX=/Apps_data/JourDoc/inbox
+WEBDAV_PATH_UPLOADS=/pogil.ch/Apps_datas/JourDoc/uploads
+WEBDAV_PATH_INBOX=/pogil.ch/Apps_datas/JourDoc/inbox
 
 # Todoist
 TODOIST_CLIENT_ID=
