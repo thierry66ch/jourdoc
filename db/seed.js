@@ -17,7 +17,7 @@ if (existsSync(envPath)) {
   }
 }
 
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 const { default: sql } = await import('./db.js')
 
 // ── Paramètres à ajuster ──────────────────────────────────────

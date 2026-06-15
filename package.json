@@ -16,7 +16,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@neondatabase/serverless": "^0.10.4",
-    "bcrypt": "^5.1.1",
+    "bcryptjs": "^2.4.3",
     "@pogil/shared": "file:packages/shared",
     "@tiptap/extension-link": "^3.25.0",
     "@tiptap/extension-underline": "^3.25.0",

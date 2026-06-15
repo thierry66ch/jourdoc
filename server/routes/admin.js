@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import nodemailer from 'nodemailer'
 import sql from '../../db/db.js'
