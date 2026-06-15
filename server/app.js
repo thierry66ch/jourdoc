@@ -34,7 +34,7 @@ app.use('*', cors({
 
 app.route('/api/auth',    authRoutes)
 app.route('/api/admin',   adminRoutes)
-app.route('/api',         portalRoutes)
+app.route('/api/me',      portalRoutes)
 app.route('/api/jourdoc', jourdocRoutes)
 app.route('/api/jourdoc', inboxRoutes)
 
