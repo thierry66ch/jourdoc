@@ -1,0 +1,55 @@
+{
+  "login": {
+    "title": "Connexion",
+    "subtitle": "Bienvenue sur pogil apps",
+    "email": "Email ou nom d'utilisateur",
+    "password": "Mot de passe",
+    "submit": "Se connecter",
+    "forgotPassword": "Mot de passe oublié ?",
+    "error": "Identifiants incorrects"
+  },
+  "portal": {
+    "title": "Mes applications",
+    "greeting": "Bonjour, {{name}} !",
+    "subtitle": "Vos applications pogil",
+    "logout": "Déconnexion",
+    "noApps": "Aucune application disponible"
+  },
+  "admin": {
+    "title": "Administration",
+    "login": "Connexion admin",
+    "loginSubtitle": "Accès réservé aux administrateurs",
+    "otp": "Code OTP",
+    "otpSent": "Un code OTP a été envoyé à votre adresse e-mail",
+    "verify": "Vérifier",
+    "backToLogin": "Retour",
+    "users": "Utilisateurs",
+    "addUser": "Ajouter",
+    "edit": "Modifier",
+    "username": "Nom d'utilisateur",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "access": "Accès",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "cancel": "Annuler",
+    "confirmDelete": "Supprimer l'utilisateur {{name}} ?",
+    "passwordOptional": "laisser vide pour ne pas modifier",
+    "settings": {
+      "title": "Mes identifiants",
+      "newEmail": "Nouvel e-mail",
+      "newEmailPlaceholder": "Laisser vide pour ne pas modifier",
+      "newPassword": "Nouveau mot de passe",
+      "newPasswordPlaceholder": "Laisser vide pour ne pas modifier",
+      "confirmPassword": "Confirmer le mot de passe",
+      "confirmPasswordPlaceholder": "Répéter le nouveau mot de passe",
+      "requestOtp": "Valider par OTP",
+      "otpSent": "Un code OTP a été envoyé à votre adresse e-mail actuelle. Saisissez-le pour confirmer les modifications.",
+      "success": "Vos identifiants ont été mis à jour.",
+      "errorEmpty": "Indiquez au moins un nouveau e-mail ou un nouveau mot de passe.",
+      "errorPasswordMismatch": "Les mots de passe ne correspondent pas.",
+      "errorRequest": "Une erreur est survenue. Veuillez réessayer.",
+      "errorOtp": "Code OTP invalide ou expiré."
+    }
+  }
+}

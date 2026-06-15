@@ -1,0 +1,57 @@
+// Constantes partagées entre le frontend et le backend
+
+export const APP_SLUGS = {
+  JOURDOC: 'jourdoc',
+}
+
+export const ROLES = {
+  OWNER: 'owner',
+  MEMBER: 'member',
+}
+
+export const API_ROUTES = {
+  AUTH_LOGIN: '/api/auth/login',
+  AUTH_LOGOUT: '/api/auth/logout',
+  ADMIN_LOGIN: '/api/admin/login',
+  ADMIN_VERIFY_OTP: '/api/admin/verify-otp',
+  ADMIN_SETTINGS_REQUEST_OTP: '/api/admin/settings/request-otp',
+  ADMIN_SETTINGS_CONFIRM: '/api/admin/settings/confirm',
+  ME_APPS: '/api/me/apps',
+  ME_WORKSPACES: (slug) => `/api/me/apps/${slug}/workspaces`,
+  JD_WS:           (wsId) => `/api/jourdoc/${wsId}`,
+  JD_OBJETS:       (wsId) => `/api/jourdoc/${wsId}/objets`,
+  JD_OBJET:        (wsId, id) => `/api/jourdoc/${wsId}/objets/${id}`,
+  JD_OBJET_NOTES:  (wsId, id) => `/api/jourdoc/${wsId}/objets/${id}/notes`,
+  JD_THEMES:       (wsId) => `/api/jourdoc/${wsId}/themes`,
+  JD_THEME:        (wsId, id) => `/api/jourdoc/${wsId}/themes/${id}`,
+  JD_THEME_NOTES:  (wsId, id) => `/api/jourdoc/${wsId}/themes/${id}/notes`,
+  JD_NOTES:        (wsId) => `/api/jourdoc/${wsId}/notes`,
+  JD_NOTE:         (wsId, id) => `/api/jourdoc/${wsId}/notes/${id}`,
+  JD_MEDIAS:       (wsId) => `/api/jourdoc/${wsId}/medias`,
+  JD_MEDIA:        (wsId, id) => `/api/jourdoc/${wsId}/medias/${id}`,
+  JD_NOTE_MEDIAS:  (wsId, noteId) => `/api/jourdoc/${wsId}/notes/${noteId}/medias`,
+  JD_MEDIA_NOTES:  (wsId, mediaId) => `/api/jourdoc/${wsId}/medias/${mediaId}/notes`,
+  JD_IMPORT_OBJETS:   (wsId) => `/api/jourdoc/${wsId}/import/objets`,
+  JD_IMPORT_THEMES:   (wsId) => `/api/jourdoc/${wsId}/import/themes`,
+  JD_WORKSPACES:      () => `/api/jourdoc/workspaces`,
+  JD_WS_MEMBERS:      (wsId) => `/api/jourdoc/${wsId}/members`,
+  JD_WS_MEMBER:       (wsId, uid) => `/api/jourdoc/${wsId}/members/${uid}`,
+  JD_NOTES_SEARCH: (wsId) => `/api/jourdoc/${wsId}/notes/search`,
+  JD_NOTE_LIENS:   (wsId, noteId) => `/api/jourdoc/${wsId}/notes/${noteId}/liens`,
+  JD_NOTE_LIEN:    (wsId, noteId, cibleId) => `/api/jourdoc/${wsId}/notes/${noteId}/liens/${cibleId}`,
+  JD_WS_TODOIST:       (wsId) => `/api/jourdoc/${wsId}/todoist`,
+  JD_WS_TODOIST_PROJS: (wsId) => `/api/jourdoc/${wsId}/todoist/projects`,
+  JD_NOTE_TODOIST:         (wsId, noteId) => `/api/jourdoc/${wsId}/notes/${noteId}/todoist`,
+  JD_NOTE_TODOIST_CLOSE:   (wsId, noteId) => `/api/jourdoc/${wsId}/notes/${noteId}/todoist/close`,
+  JD_NOTE_TODOIST_DETAILS: (wsId, noteId) => `/api/jourdoc/${wsId}/notes/${noteId}/todoist/details`,
+  JD_NOTE_TODOIST_IMPORT:  (wsId, noteId) => `/api/jourdoc/${wsId}/notes/${noteId}/todoist/import`,
+  JD_NOTE_TODOIST_LINK:    (wsId, noteId) => `/api/jourdoc/${wsId}/notes/${noteId}/todoist/link`,
+  JD_WS_TODOIST_SYNC:      (wsId) => `/api/jourdoc/${wsId}/todoist/sync`,
+  JD_WS_TODOIST_TASKS:     (wsId) => `/api/jourdoc/${wsId}/todoist/tasks`,
+  JD_WS_SEARCH_DEPTH:      (wsId) => `/api/jourdoc/${wsId}/search-depth`,
+  JD_ANALYSE:              (wsId) => `/api/jourdoc/${wsId}/analyse`,
+  JD_WS_EXPORT:            (wsId, fmt, medias) => `/api/jourdoc/${wsId}/export?format=${fmt}&medias=${medias?1:0}`,
+  JD_ELEMENTS:             (wsId) => `/api/jourdoc/${wsId}/elements`,
+  JD_ELEMENT:              (wsId, id) => `/api/jourdoc/${wsId}/elements/${id}`,
+  JD_ELEMENTS_MERGE:       (wsId) => `/api/jourdoc/${wsId}/elements/merge`,
+}
