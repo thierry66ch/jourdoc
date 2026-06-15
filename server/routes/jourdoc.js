@@ -1,8 +1,5 @@
 import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
-import sharp from 'sharp'
-import heicConvert from 'heic-convert'
-import ExifReader from 'exifreader'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import { uploadFile, downloadFile, deleteFile } from '../../packages/storage/index.js'
@@ -739,8 +736,9 @@ function detectMagicFormat(buf) {
   return null
 }
 
-function extractExifDate(buffer) {
+async function extractExifDate(buffer) {
   try {
+    const { default: ExifReader } = await import('exifreader')
     const tags = ExifReader.load(buffer, { expanded: false })
     const raw = (tags['DateTimeOriginal'] ?? tags['DateTime'] ?? tags['DateTimeDigitized'])?.description
     if (raw && /^\d{4}:\d{2}:\d{2}/.test(raw)) return raw.slice(0, 10).replace(/:/g, '-')
@@ -754,6 +752,7 @@ async function processImage(buffer, ext) {
   const isActuallyHeic = HEIC_EXTS.has(ext) && magic !== 'jpeg' && magic !== 'png' && magic !== 'webp'
   const outExt = HEIC_EXTS.has(ext) ? 'jpg' : (ext === 'jpeg' ? 'jpg' : ext)
   try {
+    const { default: sharp } = await import('sharp')
     const img = sharp(buffer)
     const meta = await img.metadata()
     const needsResize = (meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM
@@ -768,6 +767,7 @@ async function processImage(buffer, ext) {
   } catch {
     if (isActuallyHeic) {
       try {
+        const { default: heicConvert } = await import('heic-convert')
         const jpegBuf = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.9 }))
         return { buf: jpegBuf, outExt: 'jpg', size: jpegBuf.length }
       } catch (e2) {

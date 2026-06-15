@@ -1,7 +1,5 @@
 import { Hono } from 'hono'
 import { randomUUID } from 'crypto'
-import sharp from 'sharp'
-import ExifReader from 'exifreader'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import sql from '../../db/db.js'
 import { listInbox, downloadFile, moveFromInbox } from '../../packages/storage/index.js'
@@ -47,6 +45,7 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
       // Extraction date EXIF avant traitement
       let datePrise = null
       try {
+        const { default: ExifReader } = await import('exifreader')
         const tags = ExifReader.load(buffer, { expanded: false })
         const raw = (tags['DateTimeOriginal'] ?? tags['DateTime'])?.description
         if (raw && /^\d{4}:\d{2}:\d{2}/.test(raw)) datePrise = raw.slice(0, 10).replace(/:/g, '-')
@@ -56,6 +55,7 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
       // Traitement image
       if (typeMedia === 'photo') {
         try {
+          const { default: sharp } = await import('sharp')
           const meta = await sharp(buffer).metadata()
           const needsResize = (meta.width ?? 0) > 1600 || (meta.height ?? 0) > 1600
           if (needsResize || origExt === 'heic' || origExt === 'heif') {
