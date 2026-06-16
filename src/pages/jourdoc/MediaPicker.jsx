@@ -55,6 +55,7 @@ export default function MediaPicker({ wsId, token, date, selectedIds, onToggle }
             <MediaCard
               key={m.id}
               media={m}
+              src={`/api/jourdoc/${wsId}/medias/${m.id}/file`}
               size="sm"
               selected={selectedIds.includes(m.id)}
               onSelect={() => onToggle(m.id, m)}

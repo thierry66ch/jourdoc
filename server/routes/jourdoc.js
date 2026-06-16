@@ -816,8 +816,8 @@ jourdoc.post('/:wsId/medias', async (c) => {
     const { buf, outExt, size } = await processImage(rawBuf, ext)
     const filename = `${randomUUID()}.${outExt}`
 
-    // Upload vers KDrive WebDAV
-    const filepath = await uploadFile(process.env.WEBDAV_PATH_UPLOADS, filename, buf, file.type || null)
+    // Upload vers KDrive WebDAV (sous-dossier par workspace)
+    const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, file.type || null)
 
     const [r] = await sql`
       INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise)
@@ -854,8 +854,10 @@ jourdoc.get('/:wsId/medias/:id/file', async (c) => {
   const [media] = await sql`SELECT * FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
   if (!media) return c.json({ error: 'Not found' }, 404)
 
-  const dir = process.env.WEBDAV_PATH_UPLOADS
-  const filename = media.fichier.split('/').pop()
+  // Dériver dir depuis fichier (compatible flat et sous-dossiers par workspace)
+  const lastSlash = media.fichier.lastIndexOf('/')
+  const dir = media.fichier.substring(0, lastSlash)
+  const filename = media.fichier.substring(lastSlash + 1)
   const buf = await downloadFile(dir, filename)
 
   const mimeType = media.mime_type || (media.type_media === 'pdf' ? 'application/pdf' : 'image/jpeg')
@@ -871,9 +873,11 @@ jourdoc.delete('/:wsId/medias/:id', async (c) => {
   const [media] = await sql`SELECT * FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
   if (!media) return c.json({ error: 'Not found' }, 404)
 
-  const filename = media.fichier.split('/').pop()
+  const lastSlash = media.fichier.lastIndexOf('/')
+  const dir = media.fichier.substring(0, lastSlash)
+  const filename = media.fichier.substring(lastSlash + 1)
   try {
-    await deleteFile(process.env.WEBDAV_PATH_UPLOADS, filename)
+    await deleteFile(dir, filename)
   } catch { /* fichier déjà absent */ }
   await sql`DELETE FROM jd_medias WHERE id=${id}`
   return c.json({ ok: true })
@@ -1369,8 +1373,10 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   if (withMedias) {
     for (const m of rawMedias) {
       try {
-        const filename = m.fichier.split('/').pop()
-        const buf = await downloadFile(process.env.WEBDAV_PATH_UPLOADS, filename)
+        const lastSlash = m.fichier.lastIndexOf('/')
+        const dir = m.fichier.substring(0, lastSlash)
+        const filename = m.fichier.substring(lastSlash + 1)
+        const buf = await downloadFile(dir, filename)
         zipFiles.push({ name: `medias/${m.nom_original ?? filename}`, data: buf })
       } catch { /* fichier manquant */ }
     }

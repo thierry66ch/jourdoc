@@ -148,6 +148,7 @@ export default function NoteView() {
               <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '.5rem' }}>
                 {note.medias.map(m => (
                   <MediaCard key={m.id} media={m} size="sm"
+                    src={`/api/jourdoc/${wsId}/medias/${m.id}/file`}
                     onExpand={() => setLbIdx(photoMedias.findIndex(pm => pm.id === m.id))}
                     onNotes={() => navigate(`/jourdoc/${wsId}/media/${m.id}`)}
                   />

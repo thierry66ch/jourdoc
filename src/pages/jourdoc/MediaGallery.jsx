@@ -273,6 +273,7 @@ export default function MediaGallery() {
                 <MediaCard
                   key={m.id}
                   media={m}
+                  src={`/api/jourdoc/${wsId}/medias/${m.id}/file`}
                   selected={selected.has(m.id)}
                   onExpand={() => setLightboxIdx(flatMedias.findIndex(x => x.id === m.id))}
                   onSelect={() => toggleSelect(m.id)}

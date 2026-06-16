@@ -23,20 +23,22 @@ async function wsCheck(c, next) {
 inbox.use('/:wsId/*', wsCheck)
 
 inbox.get('/:wsId/inbox', async (c) => {
-  const files = await listInbox(process.env.WEBDAV_PATH_INBOX)
+  const wsId = c.get('wsId')
+  const files = await listInbox(`${process.env.WEBDAV_PATH_INBOX}/${wsId}`)
   return c.json({ files })
 })
 
 inbox.post('/:wsId/inbox/scan', async (c) => {
   const wsId  = c.get('wsId')
-  const files = await listInbox(process.env.WEBDAV_PATH_INBOX)
+  const inboxPath = `${process.env.WEBDAV_PATH_INBOX}/${wsId}`
+  const files = await listInbox(inboxPath)
 
   const integrated = []
   const errors = []
 
   for (const file of files) {
     try {
-      let buffer = await downloadFile(process.env.WEBDAV_PATH_INBOX, file.filename)
+      let buffer = await downloadFile(inboxPath, file.filename)
       let mimetype = file.mime || 'application/octet-stream'
       const origExt = file.filename.includes('.') ? file.filename.split('.').pop().toLowerCase() : 'bin'
       let outExt = origExt === 'heic' || origExt === 'heif' ? 'jpg' : origExt
@@ -69,9 +71,9 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
 
       const destName = `${randomUUID()}.${outExt}`
       const fichier = await moveFromInbox(
-        process.env.WEBDAV_PATH_INBOX,
+        inboxPath,
         file.filename,
-        process.env.WEBDAV_PATH_UPLOADS,
+        `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`,
         destName
       )
 

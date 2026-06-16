@@ -14,9 +14,9 @@ const PDF_ICON = (
  * onNotes   → navigue vers les notes liées
  * onDelete  → supprime le média
  */
-export default function MediaCard({ media, selected, onExpand, onSelect, onNotes, onDelete, size = 'md' }) {
+export default function MediaCard({ media, src, selected, onExpand, onSelect, onNotes, onDelete, size = 'md' }) {
   const isPhoto = media.type_media !== 'pdf'
-  const url = `/${media.fichier}`
+  const url = src ?? `/${media.fichier}`
   const sz = size === 'sm' ? 'media-card--sm' : size === 'lg' ? 'media-card--lg' : ''
 
   // Si pas de lightbox disponible, le clic image → sélection
