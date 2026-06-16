@@ -23,230 +23,242 @@ npm start            # prod locale : sert API + static sur port 3000
 
 Déploiement : `git push` → Vercel détecte et déploie automatiquement (~35s).
 
+**Build number** : incrémenter `build.json` à chaque déploiement significatif,
+puis committer avec le code.
+
+```bash
+node -e "
+const b = JSON.parse(require('fs').readFileSync('build.json'));
+b.build++; b.date = new Date().toISOString();
+require('fs').writeFileSync('build.json', JSON.stringify(b, null, 2));
+console.log('Build', b.build);
+"
+```
+
 ## Architecture
 
 ```
-jourdoc/                        ← repo racine (plus de monorepo)
+jourdoc-v2-scaffold/
 ├── src/                        ← React 18 + Vite (front)
-│   ├── pages/jourdoc/          ← tous les composants JourDoc (portés de V1)
+│   ├── pages/jourdoc/          ← tous les composants JourDoc
+│   ├── pages/admin/            ← dashboard admin
+│   ├── pages/Login.jsx         ← login user
+│   ├── pages/ForgotPassword.jsx
+│   ├── pages/ResetPassword.jsx
 │   ├── context/AuthContext.jsx
-│   └── main.jsx
-├── api/                        ← Hono 4 en mode Vercel serverless
-│   └── index.js                ← point d'entrée unique (voir §Hono/Vercel)
+│   └── main.jsx                ← router React
+├── api/
+│   └── index.js                ← adaptateur Vercel→Hono (voir §Hono/Vercel)
 ├── packages/
-│   └── storage/                ← module WebDAV mutualisé (voir §Storage)
+│   ├── storage/index.js        ← module WebDAV mutualisé
+│   └── shared/src/index.js     ← API_ROUTES + constantes partagées
 ├── server/
-│   └── routes/jourdoc.js       ← routes portées de V1 (logique inchangée)
+│   ├── app.js                  ← montage des routes Hono
+│   ├── middleware/
+│   │   ├── authMiddleware.js   ← JWT user (accepte aussi ?t= query param)
+│   │   └── adminMiddleware.js  ← JWT admin
+│   └── routes/
+│       ├── auth.js             ← login/logout/forgot-password/reset-password
+│       ├── admin.js            ← CRUD users, settings admin OTP
+│       ├── portal.js           ← /api/me/apps + /api/me/apps/:slug/workspaces
+│       ├── jourdoc.js          ← toutes les routes métier JourDoc
+│       └── inbox.js            ← scan inbox WebDAV
 ├── db/
-│   ├── schema.sql              ← schéma PostgreSQL (porté depuis SQLite)
-│   └── db.js                   ← client Neon (@neondatabase/serverless)
+│   ├── schema.sql              ← schéma PostgreSQL complet
+│   ├── db.js                   ← client Neon
+│   ├── migrations/             ← migrations numérotées (001_, 002_…)
+│   └── seed.js                 ← données initiales (admin + user)
+├── build.json                  ← { "build": N, "date": "..." }
 ├── vite.config.js
-├── vercel.json
-└── .env.example
+└── vercel.json
 ```
 
-## Hono sur Vercel (adaptation serverless)
+## Hono sur Vercel — adaptateur manuel
 
-En V1, Hono tournait avec `@hono/node-server` (process persistant).
-Sur Vercel, chaque requête est une fonction serverless. Le changement est minimal :
+`hono/vercel` handle ne fonctionne **pas** avec le runtime Node.js de Vercel car il
+reçoit `IncomingMessage` et non une Web API `Request`. L'adaptateur est fait à la
+main dans `api/index.js` :
 
 ```js
-// api/index.js
-import { handle } from 'hono/vercel'
-import app from '../server/app.js'
-export const config = { runtime: 'nodejs20.x' }
-export default handle(app)
-```
-
-`server/app.js` contient l'app Hono avec toutes les routes montées — identique
-à V1 sauf que `@hono/node-server` n'est plus utilisé.
-
-`vercel.json` :
-```json
-{
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/index.js" },
-    { "source": "/(.*)",     "destination": "/index.html"   }
-  ]
+export const config = { runtime: 'nodejs' }
+export default async function handler(req, res) {
+  // Reconstruit une Web API Request depuis IncomingMessage
+  // Passe à app.fetch(), retranscrit la Response dans res
 }
 ```
+
+Ne jamais revenir à `import { handle } from 'hono/vercel'` — ça timeout.
+
+## Auth — JWT
+
+Deux niveaux :
+- **User** : `authMiddleware` vérifie `Authorization: Bearer <token>` **ou** `?t=<token>`
+  (query param nécessaire pour les `<img src>` et `<iframe src>` qui ne peuvent pas
+  envoyer de headers). Utiliser `mediaUrl(wsId, id, token)` de `hooks.js` pour
+  construire les URLs media.
+- **Admin** : `adminMiddleware` vérifie le rôle `admin` dans le JWT.
 
 ## Base de données — PostgreSQL via Neon
 
-Driver : `@neondatabase/serverless` (optimisé pour les fonctions serverless,
-gère le connection pooling).
+Driver : `@neondatabase/serverless`. Syntaxe :
 
 ```js
-// db/db.js
-import { neon } from '@neondatabase/serverless'
-const sql = neon(process.env.DATABASE_URL)
-export default sql
-```
-
-Utilisation dans les routes :
-```js
-import sql from '../db/db.js'
+// Tagged template (requêtes simples)
 const notes = await sql`SELECT * FROM jd_notes WHERE workspace_id = ${wsId}`
+
+// Fonction avec paramètres dynamiques (WHERE dynamique)
+const rows = await sql(queryString, paramsArray)
 ```
 
-**Important** : `node:sqlite` (V1) est remplacé par des requêtes SQL taguées.
-Les requêtes elles-mêmes sont quasi identiques — PostgreSQL et SQLite partagent
-la même syntaxe pour les opérations courantes. Différences à surveiller :
-- `INTEGER PRIMARY KEY AUTOINCREMENT` → `SERIAL PRIMARY KEY` (ou `BIGSERIAL`)
-- `BOOLEAN` : SQLite stocke 0/1, PostgreSQL a un vrai type BOOLEAN
-- `DATETIME DEFAULT CURRENT_TIMESTAMP` → `TIMESTAMPTZ DEFAULT NOW()`
-- Pas de `ALTER TABLE` idempotent en PG — utiliser des migrations numérotées
+**Jamais** `sql.unsafe()` — c'est l'API de postgres.js, pas de Neon.
 
-Le schéma complet est dans `db/schema.sql`. Les migrations post-init sont dans
-`db/migrations/` (fichiers numérotés `001_xxx.sql`, `002_xxx.sql`…).
+### Types PostgreSQL à surveiller
 
-## Module Storage — WebDAV via KDrive
+- Les colonnes `DATE` retournent des objets `Date` JS, pas des strings.
+  Utiliser `fmtDate()` dans `jourdoc.js` pour normaliser en `'YYYY-MM-DD'`.
+- `COALESCE(col, FALSE)` exige que `col` soit BOOLEAN, pas TEXT.
+  Si une colonne SQLite était stockée en TEXT, migrer avec
+  `ALTER COLUMN ... TYPE BOOLEAN USING (col IN ('true','1','TRUE'))`.
+- Les alias CTE : `desc`, `order`, `group` sont des mots réservés PostgreSQL.
+  Utiliser `descendants`, `ancestors`, etc.
+- `SERIAL` / sequences : après import avec `OVERRIDING SYSTEM VALUE`,
+  réinitialiser avec `SELECT setval(seq, max(id)) FROM table`.
 
-Toutes les opérations fichiers passent par `packages/storage/index.js`.
-Ce module est l'unique endroit qui connaît WebDAV. Les routes Hono appellent
-ses fonctions sans savoir comment les fichiers sont stockés.
+## Module Storage — WebDAV KDrive
 
 ```js
-// packages/storage/index.js
-import { createClient } from 'webdav'
-
-function getClient() {
-  return createClient(process.env.WEBDAV_URL, {
-    username: process.env.WEBDAV_USER,
-    password: process.env.WEBDAV_PASSWORD,
-  })
-}
-
-export async function uploadFile(appPath, filename, buffer, mimetype) { ... }
-export async function downloadFile(appPath, filename) { ... }
-export async function listFiles(appPath) { ... }
-export async function deleteFile(appPath, filename) { ... }
-export async function listInbox(appPath) { ... }
-export async function moveFromInbox(appPath, filename, destPath) { ... }
+// packages/storage/index.js — fonctions disponibles :
+uploadFile(appPath, filename, buffer, mimetype)   // → fullPath stocké en DB
+downloadFile(appPath, filename)                    // → Buffer
+listFiles(appPath)                                 // → [{filename, size, …}]
+deleteFile(appPath, filename)
+listInbox(inboxPath)
+moveFromInbox(inboxPath, filename, destPath, destName)  // déplace sans conversion
 ```
 
-`appPath` est toujours une variable d'environnement, jamais hardcodé :
+**Structure des fichiers en base** : `fichier` contient le chemin WebDAV complet,
+ex: `/pogil.ch/Apps_datas/JourDoc/uploads/2/uuid.jpg`.
+Le proxy dérive `dir` et `filename` par `lastIndexOf('/')`.
+
+**Sous-dossiers par workspace** : uploads à `WEBDAV_PATH_UPLOADS/{wsId}/`,
+inbox à `WEBDAV_PATH_INBOX/{wsId}/`.
+
+**WEBDAV_URL** : utiliser `https://connect.drive.infomaniak.com` (URL générique).
+**Ne pas** utiliser l'URL user-spécifique `https://NNNN.connect.kdrive.infomaniak.com`
+— le chemin `/pogil.ch/…` n'y est pas accessible.
+
+## Traitement images
+
+- `sharp` : resize, conversion JPEG — disponible sur Vercel mais **sans support HEIC**
+  (libheif absent dans Lambda).
+- `heic-convert` : conversion HEIC→JPEG — à utiliser **en premier** pour HEIC,
+  puis sharp pour le resize éventuel.
+- `exifreader` : extraction date EXIF — fonction `async`, toujours `await`.
+- Tous ces modules doivent être importés dynamiquement (`await import(…)`)
+  pour ne pas bloquer l'init serverless.
+
+## Middleware Hono — wildcard
+
+En Hono v4, le wildcard pour `.use()` doit être `'/path/*'` et non `'/path*'`.
 
 ```js
-// Dans une route Hono :
-import { uploadFile, listInbox } from '../packages/storage/index.js'
-
-// Upload média JourDoc
-await uploadFile(process.env.WEBDAV_PATH_UPLOADS, filename, buffer, mimetype)
-
-// Scan inbox JourDoc
-const files = await listInbox(process.env.WEBDAV_PATH_INBOX)
+admin.use('/settings/*', adminMiddleware)  // ✓
+admin.use('/settings*',  adminMiddleware)  // ✗ — route non trouvée (404)
 ```
 
-### Chemins WebDAV (variables d'environnement)
-
-```bash
-WEBDAV_URL=https://connect.drive.infomaniak.com
-WEBDAV_USER=ton@email.com
-WEBDAV_PASSWORD=xxxxxxxxx          # mot de passe d'application KDrive
-
-# Chemins spécifiques à JourDoc (configurables sans toucher au code)
-WEBDAV_PATH_UPLOADS=/pogil.ch/Apps_datas/JourDoc/uploads
-WEBDAV_PATH_INBOX=/pogil.ch/Apps_datas/JourDoc/inbox
-```
-
-Pour RandoLib (futur projet), ce sera `WEBDAV_PATH_TRACKS` et `WEBDAV_PATH_INBOX`
-avec `/Apps_data/RandoLib/tracks` et `/Apps_data/RandoLib/inbox`.
-
-### Scan inbox automatique
-
-Un endpoint dédié déclenche le scan de l'inbox et l'intégration des fichiers
-trouvés. Appelable manuellement depuis l'UI ou via un cron Vercel.
+## Routes montées dans app.js
 
 ```js
-// server/routes/inbox.js
-app.get('/api/jourdoc/:wsId/inbox/scan', authMiddleware, async (c) => {
-  const files = await listInbox(process.env.WEBDAV_PATH_INBOX)
-  // Pour chaque fichier : créer un média en DB, déplacer vers uploads/
-  ...
-})
+app.route('/api/auth',    authRoutes)    // login, logout, forgot/reset-password
+app.route('/api/admin',   adminRoutes)   // login admin, users, settings
+app.route('/api/me',      portalRoutes)  // apps + workspaces (pas /api !)
+app.route('/api/jourdoc', jourdocRoutes) // toutes les routes métier
+app.route('/api/jourdoc', inboxRoutes)   // inbox séparé, même préfixe
 ```
-
-## Auth — identique à V1
-
-JWT maison, deux niveaux (user / admin), OTP email pour l'admin.
-Voir V1 CLAUDE.md pour le détail — aucun changement.
-
-Le rate limiting en mémoire (Map) fonctionne en serverless avec une nuance :
-chaque instance Vercel a sa propre Map. Acceptable pour un usage personnel.
-Si besoin, migrer vers un rate limiting Redis/Upstash ultérieurement.
 
 ## Variables d'environnement
 
-Fichier `.env.local` en local (jamais commité). Mêmes valeurs dans
-Vercel → Settings → Environment Variables.
-
 ```bash
-# Base de données
-DATABASE_URL=postgresql://user:password@ep-xxx.eu-central-1.aws.neon.tech/jourdoc?sslmode=require
-
-# Auth
-JWT_SECRET=                        # openssl rand -base64 32
+DATABASE_URL=postgresql://…@ep-xxx.neon.tech/jourdoc?sslmode=require
+JWT_SECRET=
 JWT_EXPIRES_IN=7d
-ADMIN_EMAIL=ton@email.com
+ADMIN_EMAIL=
 
-# Email (OTP admin)
 SMTP_HOST=
 SMTP_PORT=587
 SMTP_USER=
 SMTP_PASS=
 
-# WebDAV KDrive
-WEBDAV_URL=https://connect.drive.infomaniak.com
-WEBDAV_USER=ton@email.com
-WEBDAV_PASSWORD=                   # mot de passe d'application KDrive (pas le mdp principal)
+WEBDAV_URL=https://connect.drive.infomaniak.com   # URL générique, pas user-specific
+WEBDAV_USER=
+WEBDAV_PASSWORD=                                   # mot de passe d'application KDrive
 
-# Chemins WebDAV JourDoc
 WEBDAV_PATH_UPLOADS=/pogil.ch/Apps_datas/JourDoc/uploads
 WEBDAV_PATH_INBOX=/pogil.ch/Apps_datas/JourDoc/inbox
 
-# Todoist
 TODOIST_CLIENT_ID=
 TODOIST_CLIENT_SECRET=
 
-# App
 VITE_API_URL=https://jourdoc.pogil.ch
 ```
 
-## PWA
-
-Identique à V1 : `vite-plugin-pwa`, `injectManifest`, `sw.js` custom.
-Le manifest est servi par une route Hono dédiée avec `Content-Type: application/manifest+json`.
-
 ## Build number & CHANGELOG
 
-Même convention que V1 :
-- `build.json` à la racine : `{ "build": 1, "date": "2026-06-14T..." }`
-- Injecté par Vite via `define` (`__BUILD_NUMBER__`, `__BUILD_DATE__`)
-- Workflow : `build.json` → `npm run build` → `git commit` → `git push`
-- Entrée en tête de `CHANGELOG.dev.md` à chaque itération
+- `build.json` à la racine : `{ "build": N, "date": "ISO" }`
+- Injecté par Vite via `define` : `__BUILD_NUMBER__`, `__BUILD_DATE__`
+- **Incrémenter à chaque déploiement significatif** avant le commit/push
 
 ## Domaine et DNS
 
-- Domaine : `jourdoc.pogil.ch`
-- DNS : CNAME `jourdoc.pogil.ch` → `cname.vercel-dns.com`
-- Configurer dans Vercel : Settings → Domains → ajouter `jourdoc.pogil.ch`
+- `jourdoc.pogil.ch` → CNAME `cname.vercel-dns.com`
+- `VITE_API_URL=https://jourdoc.pogil.ch` dans les env vars Vercel
 
-## Ce qui a changé par rapport à V1
+## Migrations DB
 
-| Composant | V1 | V2 |
-|---|---|---|
-| Hébergement | Infomaniak (monorepo) | Vercel (repo dédié) |
-| Base de données | SQLite (`node:sqlite`) | PostgreSQL (Neon, `@neondatabase/serverless`) |
-| Fichiers | `data/uploads/` local | KDrive WebDAV (`packages/storage/`) |
-| Point d'entrée serveur | `@hono/node-server` | `hono/vercel` handle |
-| Migrations DB | `ALTER TABLE` idempotents dans `db.js` | Fichiers numérotés dans `db/migrations/` |
+Les migrations sont dans `db/migrations/` (numérotées `001_`, `002_`…).
+Appliquer manuellement sur Neon :
 
-## Ce qui N'a PAS changé
+```bash
+node --env-file=.env.local -e "
+import('./db/db.js').then(async ({ default: sql }) => {
+  await sql\`...\`
+  process.exit(0)
+})"
+```
 
-- Stack React 18 + Vite 5 + vite-plugin-pwa
-- Hono 4 (routes, middleware, logique)
-- Auth JWT maison (structure, tokens, OTP)
-- Intégration Todoist
-- Tous les composants React (`src/pages/jourdoc/`)
-- Logique métier (hiérarchies, calendar, analyse…)
+## Pièges connus (session de migration 2026-06-16)
+
+1. **hono/vercel handle** → timeout. Utiliser l'adaptateur manuel dans `api/index.js`.
+2. **sql.unsafe()** → n'existe pas avec Neon. Utiliser `sql(query, params)`.
+3. **DATE PostgreSQL** → objet JS Date, pas string. Normaliser avec `fmtDate()`.
+4. **CTE alias réservés** → `desc`, `order`… Utiliser `descendants`, `ancestors`.
+5. **COALESCE(text_col, FALSE)** → erreur de type. Migrer la colonne en BOOLEAN.
+6. **sharp + HEIC** → non supporté sur Vercel Lambda. Utiliser `heic-convert` d'abord.
+7. **await import() async** → toujours `await extractExifDate()` (fonction async).
+8. **Hono use() wildcard** → `'/path/*'` et non `'/path*'`.
+9. **portalRoutes** → monter sur `/api/me`, pas `/api` (conflit avec autres routes).
+10. **WEBDAV_URL user-specific** → le préfixe `/pogil.ch/` n'est accessible que
+    via l'URL générique `connect.drive.infomaniak.com`.
+11. **mediaUrl()** → utiliser `mediaUrl(wsId, id, token)` de `hooks.js` pour toute
+    URL media dans les composants React (img/iframe ne peuvent pas envoyer de headers).
+12. **Migration self-référentielle** → `jd_objets`, `jd_themes` ont `parent_id`.
+    Trier topologiquement avant INSERT pour éviter les FK violations.
+13. **Sequences après import** → réinitialiser avec `setval` après import avec
+    `OVERRIDING SYSTEM VALUE`.
+
+## État de production (2026-06-16)
+
+Fonctionnalités opérationnelles :
+- Auth user (login, logout, forgot/reset password)
+- Auth admin (login OTP, settings OTP, changement email/mdp)
+- Workspaces (création, accès)
+- Notes, calendrier, objets, thèmes, éléments, liens
+- Médias (upload direct, inbox scan, proxy WebDAV, miniatures)
+- HEIC → JPEG via heic-convert + resize via sharp
+- Todoist (création tâche, liaison, page tâches, consignation)
+- Migration SQLite→Neon + fichiers→KDrive (scripts dans db/)
+
+Workspaces existants :
+- id=1 : "Jardin (test)" — workspace de test conservé
+- id=2 : workspace de production principal
+- id=3 : autre workspace de production
