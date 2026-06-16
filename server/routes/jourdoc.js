@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
-import { uploadFile, downloadFile, deleteFile } from '../../packages/storage/index.js'
+import { uploadFile, downloadFile, deleteFile, listFiles } from '../../packages/storage/index.js'
 
 const jourdoc = new Hono()
 
@@ -845,6 +845,20 @@ jourdoc.get('/:wsId/medias', async (c) => {
 
   const medias = await sql(query, params)
   return c.json({ medias: medias.map(m => ({ ...m, date_prise: fmtDate(m.date_prise) })) })
+})
+
+// Debug: liste le contenu réel d'un dossier WebDAV (à supprimer après diagnostic)
+jourdoc.get('/:wsId/debug/storage', async (c) => {
+  const paths = [
+    process.env.WEBDAV_PATH_UPLOADS,
+    process.env.WEBDAV_PATH_UPLOADS + '/' + c.get('wsId'),
+  ].filter(Boolean)
+  const results = {}
+  for (const p of paths) {
+    try { results[p] = await listFiles(p) }
+    catch (e) { results[p] = { error: e.message } }
+  }
+  return c.json({ env_uploads: process.env.WEBDAV_PATH_UPLOADS, results })
 })
 
 // Proxy de téléchargement — stream le fichier depuis KDrive WebDAV
