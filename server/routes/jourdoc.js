@@ -458,27 +458,27 @@ jourdoc.get('/:wsId/objets/:id/notes', async (c) => {
 
   if (direction === 'down' || direction === 'both') {
     const rows = await sql(`
-      WITH RECURSIVE desc(id, depth) AS (
-        SELECT id, 0 FROM jd_objets WHERE id = ${id} AND workspace_id = ${wsId}
+      WITH RECURSIVE descendants(id, depth) AS (
+        SELECT id, 0 FROM jd_objets WHERE id = $1 AND workspace_id = $2
         UNION ALL
         SELECT o.id, d.depth + 1 FROM jd_objets o
-        JOIN desc d ON o.parent_id = d.id WHERE d.depth < ${maxDepth}
+        JOIN descendants d ON o.parent_id = d.id WHERE d.depth < $3
       )
-      SELECT id FROM desc
-    `)
+      SELECT id FROM descendants
+    `, [id, wsId, maxDepth])
     ids.push(...rows.map(r => r.id))
   }
 
   if (direction === 'up' || direction === 'both') {
     const rows = await sql(`
-      WITH RECURSIVE anc(id, parent_id, depth) AS (
-        SELECT id, parent_id, 0 FROM jd_objets WHERE id = ${id} AND workspace_id = ${wsId}
+      WITH RECURSIVE ancestors(id, parent_id, depth) AS (
+        SELECT id, parent_id, 0 FROM jd_objets WHERE id = $1 AND workspace_id = $2
         UNION ALL
         SELECT o.id, o.parent_id, a.depth + 1 FROM jd_objets o
-        JOIN anc a ON o.id = a.parent_id WHERE a.depth < ${maxDepth}
+        JOIN ancestors a ON o.id = a.parent_id WHERE a.depth < $3
       )
-      SELECT id FROM anc
-    `)
+      SELECT id FROM ancestors
+    `, [id, wsId, maxDepth])
     ids.push(...rows.map(r => r.id))
   }
 
