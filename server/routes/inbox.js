@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { randomUUID } from 'crypto'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import sql from '../../db/db.js'
-import { listInbox, downloadFile, moveFromInbox } from '../../packages/storage/index.js'
+import { listInbox, downloadFile, uploadFile, deleteFile, moveFromInbox } from '../../packages/storage/index.js'
 
 const inbox = new Hono()
 
@@ -43,6 +43,7 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
       const origExt = file.filename.includes('.') ? file.filename.split('.').pop().toLowerCase() : 'bin'
       let outExt = origExt === 'heic' || origExt === 'heif' ? 'jpg' : origExt
       let typeMedia = mimetype.startsWith('image/') || ['jpg','jpeg','png','gif','webp','heic','heif','avif'].includes(origExt) ? 'photo' : 'pdf'
+      let transformed = false
 
       // Extraction date EXIF avant traitement
       let datePrise = null
@@ -60,22 +61,27 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
           const { default: sharp } = await import('sharp')
           const meta = await sharp(buffer).metadata()
           const needsResize = (meta.width ?? 0) > 1600 || (meta.height ?? 0) > 1600
-          if (needsResize || origExt === 'heic' || origExt === 'heif') {
+          const needsConvert = origExt === 'heic' || origExt === 'heif'
+          if (needsResize || needsConvert) {
             const pipeline = sharp(buffer)
             if (needsResize) pipeline.resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
             buffer = await pipeline.jpeg({ quality: 85 }).withMetadata().toBuffer()
-            mimetype = 'image/jpeg'; outExt = 'jpg'
+            mimetype = 'image/jpeg'; outExt = 'jpg'; transformed = true
           }
         } catch { /* conserver buffer original si sharp échoue */ }
       }
 
       const destName = `${randomUUID()}.${outExt}`
-      const fichier = await moveFromInbox(
-        inboxPath,
-        file.filename,
-        `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`,
-        destName
-      )
+      const destPath = `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`
+      let fichier
+      if (transformed) {
+        // Buffer modifié : upload du nouveau contenu + suppression de l'original
+        fichier = await uploadFile(destPath, destName, buffer, mimetype)
+        await deleteFile(inboxPath, file.filename)
+      } else {
+        // Pas de transformation : simple déplacement WebDAV
+        fichier = await moveFromInbox(inboxPath, file.filename, destPath, destName)
+      }
 
       const [media] = await sql`
         INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise, lie)

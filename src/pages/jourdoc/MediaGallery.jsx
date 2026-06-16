@@ -115,6 +115,7 @@ export default function MediaGallery() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [scanMsg, setScanMsg] = useState(null)
   const [dragging, setDragging] = useState(false)
   const [selected, setSelected] = useState(new Set())
   const [lightboxIdx, setLightboxIdx] = useState(-1)
@@ -199,22 +200,24 @@ export default function MediaGallery() {
 
   async function scanInbox() {
     setScanning(true)
+    setScanMsg(null)
     try {
       const res = await fetch(`/api/jourdoc/${wsId}/inbox/scan`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json()
-      if (!res.ok) { alert(`Erreur scan inbox : ${data.detail ?? data.error}`); return }
-      if (data.total === 0) { alert('Inbox vide — aucun fichier à traiter.'); return }
-      const msg = `${data.integrated?.length ?? 0} fichier(s) intégré(s) sur ${data.total}.`
-        + (data.errors?.length ? `\n${data.errors.length} erreur(s) : ${data.errors.map(e => e.file).join(', ')}` : '')
-      alert(msg)
-      await loadMedias()
+      if (!res.ok) { setScanMsg({ type: 'error', text: `Erreur : ${data.detail ?? data.error}` }); return }
+      if (data.total === 0) { setScanMsg({ type: 'info', text: 'Inbox vide.' }); return }
+      const ok = data.integrated?.length ?? 0
+      const errs = data.errors?.length ?? 0
+      setScanMsg({ type: errs ? 'warn' : 'ok', text: `${ok} fichier(s) intégré(s) sur ${data.total}${errs ? ` · ${errs} erreur(s)` : ''}.` })
+      if (ok > 0) await loadMedias()
     } catch (err) {
-      alert(`Erreur réseau : ${err.message}`)
+      setScanMsg({ type: 'error', text: `Erreur réseau : ${err.message}` })
     } finally {
       setScanning(false)
+      setTimeout(() => setScanMsg(null), 5000)
     }
   }
 
@@ -246,6 +249,16 @@ export default function MediaGallery() {
           {scanning ? 'Scan…' : '📥 Inbox'}
         </button>
       </div>
+
+      {scanMsg && (
+        <div style={{
+          padding: '.5rem .75rem', borderRadius: '.4rem', fontSize: '.85rem', marginBottom: '.5rem',
+          background: scanMsg.type === 'ok' ? 'var(--color-success-bg, #d1fae5)' : scanMsg.type === 'error' ? 'var(--color-error-bg, #fee2e2)' : 'var(--color-info-bg, #e0f2fe)',
+          color: scanMsg.type === 'ok' ? 'var(--color-success, #065f46)' : scanMsg.type === 'error' ? 'var(--color-error, #991b1b)' : 'var(--color-info, #0c4a6e)',
+        }}>
+          {scanMsg.text}
+        </div>
+      )}
 
       {/* Filtres secondaires */}
       <div className="media-gallery__filters">
