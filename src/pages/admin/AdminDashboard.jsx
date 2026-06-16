@@ -108,7 +108,6 @@ export default function AdminDashboard() {
       {editingUser !== null && (
         <UserEditor
           user={editingUser}
-          apps={apps}
           adminToken={adminToken}
           onClose={() => { setEditingUser(null); fetchUsers() }}
         />

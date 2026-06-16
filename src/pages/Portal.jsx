@@ -9,37 +9,31 @@ export default function Portal() {
   const { token, logout } = useAuth()
   const navigate = useNavigate()
   const [user, setUser]       = useState(null)
+  const [loading, setLoading] = useState(true)
   const [wsName, setWsName]   = useState('')
   const [saving, setSaving]   = useState(false)
   const [error, setError]     = useState(null)
 
   useEffect(() => {
     async function init() {
-      // Charge le profil utilisateur
-      const meRes = await fetch(API_ROUTES.ME_APPS, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const [meRes, wsRes] = await Promise.all([
+        fetch(API_ROUTES.ME_APPS, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(API_ROUTES.ME_WORKSPACES('jourdoc'), { headers: { Authorization: `Bearer ${token}` } }),
+      ])
       const meData = await meRes.json()
       setUser(meData.user ?? null)
 
-      // Charge les workspaces JourDoc
-      const wsRes = await fetch(API_ROUTES.ME_WORKSPACES('jourdoc'), {
-        headers: { Authorization: `Bearer ${token}` },
-      })
       if (wsRes.ok) {
         const wsData = await wsRes.json()
         const ws = wsData.workspaces ?? []
-        if (ws.length === 1) {
+        if (ws.length > 0) {
           navigate(`/jourdoc/${ws[0].id}`, { replace: true })
-        } else if (ws.length > 1) {
-          // Plusieurs workspaces → on redirige vers le premier
-          // (WorkspaceManager dans JourDocApp permettra d'en changer)
-          navigate(`/jourdoc/${ws[0].id}`, { replace: true })
+          return
         }
-        // ws.length === 0 → afficher le formulaire de création
       }
+      setLoading(false)
     }
-    init().catch(err => setError(err.message))
+    init().catch(err => { setError(err.message); setLoading(false) })
   }, [token, navigate])
 
   async function createWorkspace(e) {
@@ -60,6 +54,8 @@ export default function Portal() {
       setSaving(false)
     }
   }
+
+  if (loading) return null
 
   return (
     <div className="app-layout">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-export default function UserEditor({ user, apps = [], adminToken, onClose }) {
+export default function UserEditor({ user, adminToken, onClose }) {
   const { t } = useTranslation()
   const isNew = !user.id
   const [form, setForm] = useState({
@@ -10,33 +10,19 @@ export default function UserEditor({ user, apps = [], adminToken, onClose }) {
     password:  '',
     is_active: user.is_active ?? true,
   })
-  const [appIds, setAppIds] = useState(new Set(user.app_ids ?? []))
-
   function handleChange(e) {
     const { name, value, type, checked } = e.target
     setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }))
   }
 
-  function toggleApp(appId) {
-    setAppIds(s => { const n = new Set(s); n.has(appId) ? n.delete(appId) : n.add(appId); return n })
-  }
-
   async function handleSave(e) {
     e.preventDefault()
     const url = isNew ? '/api/admin/users' : `/api/admin/users/${user.id}`
-    const body = { ...form, ...(isNew ? { app_ids: [...appIds] } : {}) }
     await fetch(url, {
       method: isNew ? 'POST' : 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-      body: JSON.stringify(body),
+      body: JSON.stringify(form),
     })
-    if (!isNew) {
-      await fetch(`/api/admin/users/${user.id}/access`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
-        body: JSON.stringify({ appIds: [...appIds], workspaceAccess: [] }),
-      })
-    }
     onClose()
   }
 
@@ -71,20 +57,6 @@ export default function UserEditor({ user, apps = [], adminToken, onClose }) {
           <input className="input" name="password" type="password" placeholder={t('login.password')}
             value={form.password} onChange={handleChange} required={isNew} />
         </div>
-
-        {apps.length > 0 && (
-          <div className="form-field">
-            <label className="form-label">Accès aux applications</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '.375rem', marginTop: '.25rem' }}>
-              {apps.map(app => (
-                <label key={app.id} className="checkbox-row" style={{ cursor: 'pointer' }}>
-                  <input type="checkbox" checked={appIds.has(app.id)} onChange={() => toggleApp(app.id)} />
-                  <span>{app.icon ?? '📦'} {app.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
 
         <label className="checkbox-row">
           <input name="is_active" type="checkbox" checked={form.is_active} onChange={handleChange} />
