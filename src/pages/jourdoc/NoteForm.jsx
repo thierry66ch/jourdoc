@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { useJdData, authHeader } from './hooks'
+import { useJdData, authHeader, mediaUrl } from './hooks'
 import HierarchyPicker from './HierarchyPicker'
 import ElementPicker from './ElementPicker'
 import MediaPicker from './MediaPicker'
@@ -331,7 +331,7 @@ export default function NoteForm() {
                   <div key={id} className="jd-media-selected__item">
                     {m.type_media === 'pdf'
                       ? <div className="jd-thumb jd-thumb--pdf" title={m.nom_original}>📄</div>
-                      : <img className="jd-thumb" src={`/${m.fichier}`} alt="" loading="lazy" />
+                      : <img className="jd-thumb" src={mediaUrl(wsId, m.id, token)} alt="" loading="lazy" />
                     }
                     <button type="button" className="jd-media-selected__remove"
                       onClick={() => removeMedia(id)} title="Retirer">×</button>
