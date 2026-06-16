@@ -445,7 +445,7 @@ jourdoc.get('/:wsId/objets/:id/notes', async (c) => {
   let ids = []
 
   if (direction === 'down' || direction === 'both') {
-    const rows = await sql.unsafe(`
+    const rows = await sql(`
       WITH RECURSIVE desc(id, depth) AS (
         SELECT id, 0 FROM jd_objets WHERE id = ${id} AND workspace_id = ${wsId}
         UNION ALL
@@ -458,7 +458,7 @@ jourdoc.get('/:wsId/objets/:id/notes', async (c) => {
   }
 
   if (direction === 'up' || direction === 'both') {
-    const rows = await sql.unsafe(`
+    const rows = await sql(`
       WITH RECURSIVE anc(id, parent_id, depth) AS (
         SELECT id, parent_id, 0 FROM jd_objets WHERE id = ${id} AND workspace_id = ${wsId}
         UNION ALL
@@ -607,7 +607,7 @@ jourdoc.get('/:wsId/notes', async (c) => {
   if (theme_id)  { query += ` AND n.theme_id = $${pi++}`;  params.push(Number(theme_id)) }
   query += ' ORDER BY n.date DESC, n.created_at DESC'
 
-  const notes = await sql.unsafe(query, params)
+  const notes = await sql(query, params)
   return c.json({ notes: await withData(notes) })
 })
 
@@ -830,7 +830,7 @@ jourdoc.get('/:wsId/medias', async (c) => {
   if (lie !== undefined) { query += ` AND lie = $${pi++}`; params.push(lie === '1' || lie === 'true') }
   query += ' ORDER BY date_prise DESC, created_at DESC'
 
-  return c.json({ medias: await sql.unsafe(query, params) })
+  return c.json({ medias: await sql(query, params) })
 })
 
 // Proxy de téléchargement — stream le fichier depuis KDrive WebDAV
@@ -1378,7 +1378,7 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
   const maxDepth = wsConf?.d ?? 3
 
   async function relatedIds(table, rootId, dir) {
-    const all = await sql.unsafe(`SELECT id, parent_id FROM ${table} WHERE workspace_id = $1`, [wsId])
+    const all = await sql(`SELECT id, parent_id FROM ${table} WHERE workspace_id = $1`, [wsId])
     const ids = new Set([rootId])
     if (dir === 'down' || dir === 'both') {
       const dm = new Map([[rootId, 0]]); let added = true
@@ -1413,7 +1413,7 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
   }
   query += ` ORDER BY n.date ASC`
 
-  return c.json({ notes: await sql.unsafe(query, params) })
+  return c.json({ notes: await sql(query, params) })
 })
 
 export default jourdoc

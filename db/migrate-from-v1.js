@@ -74,13 +74,20 @@ function rows(query, params = []) {
   return stmt.all(...params)
 }
 
-// ── 1. Trouver le user V2 (par email) ────────────────────────────────────────
-const [v1User] = rows('SELECT id, email FROM users LIMIT 1')
-console.log(`\nUser V1 : ${v1User.email} (id=${v1User.id})`)
+// ── 1. Trouver le user V2 ────────────────────────────────────────────────────
+// Priorité : même email → même username → premier user actif
+const [v1User] = rows('SELECT id, username, email FROM users LIMIT 1')
+console.log(`\nUser V1 : ${v1User.email} / ${v1User.username} (id=${v1User.id})`)
 
-const [v2User] = await sql`SELECT id, email FROM users WHERE email = ${v1User.email}`
+let [v2User] = await sql`SELECT id, email FROM users WHERE email = ${v1User.email}`
 if (!v2User) {
-  console.error(`Aucun user V2 avec l'email ${v1User.email}. Lance d'abord db/seed.js.`)
+  ;[v2User] = await sql`SELECT id, email FROM users WHERE username = ${v1User.username}`
+}
+if (!v2User) {
+  ;[v2User] = await sql`SELECT id, email FROM users WHERE is_active = TRUE ORDER BY id LIMIT 1`
+}
+if (!v2User) {
+  console.error('Aucun user trouvé en V2. Lance d\'abord db/seed.js.')
   process.exit(1)
 }
 console.log(`User V2 : ${v2User.email} (id=${v2User.id})`)
@@ -124,8 +131,23 @@ for (const ws of workspaces) {
   console.log(`  ✓ Workspace "${ws.name}" (id=${ws.id})`)
 }
 
+// ── Tri topologique pour les tables auto-référentielles ───────────────────────
+function topoSort(items) {
+  const byId = new Map(items.map(r => [r.id, r]))
+  const done = new Set()
+  const result = []
+  function visit(r) {
+    if (done.has(r.id)) return
+    if (r.parent_id && byId.has(r.parent_id)) visit(byId.get(r.parent_id))
+    done.add(r.id)
+    result.push(r)
+  }
+  for (const r of items) visit(r)
+  return result
+}
+
 // ── 5. jd_objets ──────────────────────────────────────────────────────────────
-const objets = rows('SELECT * FROM jd_objets')
+const objets = topoSort(rows('SELECT * FROM jd_objets'))
 console.log(`\nMigration ${objets.length} objet(s)…`)
 for (const o of objets) {
   await sql`
@@ -139,7 +161,7 @@ for (const o of objets) {
 console.log('  ✓')
 
 // ── 6. jd_themes ──────────────────────────────────────────────────────────────
-const themes = rows('SELECT * FROM jd_themes')
+const themes = topoSort(rows('SELECT * FROM jd_themes'))
 console.log(`\nMigration ${themes.length} thème(s)…`)
 for (const t of themes) {
   await sql`
@@ -241,7 +263,7 @@ console.log(`  ✓ jd_note_element (${noteElements.length})`)
 // ── 11. Remettre à jour les séquences SERIAL ──────────────────────────────────
 console.log('\nMise à jour des séquences…')
 for (const table of ['workspaces', 'jd_objets', 'jd_themes', 'jd_elements', 'jd_notes', 'jd_medias']) {
-  await sql.unsafe(`SELECT setval(pg_get_serial_sequence('${table}', 'id'), COALESCE((SELECT MAX(id) FROM ${table}), 1))`)
+  await sql(`SELECT setval(pg_get_serial_sequence('${table}', 'id'), COALESCE((SELECT MAX(id) FROM "${table}"), 1))`)
 }
 console.log('  ✓')
 
