@@ -63,7 +63,7 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
             m.type_media === 'pdf'
               ? <div key={m.id} className="jd-thumb jd-thumb--pdf"
                   onClick={e => e.stopPropagation()} title={m.nom_original}>📄</div>
-              : <img key={m.id} className="jd-thumb" src={`/${m.fichier}`}
+              : <img key={m.id} className="jd-thumb" src={mediaUrl(wsId, m.id, token)}
                   alt="" loading="lazy" title={m.nom_original}
                   onClick={e => {
                     e.stopPropagation()
