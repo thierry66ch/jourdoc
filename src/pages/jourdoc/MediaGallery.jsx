@@ -253,8 +253,9 @@ export default function MediaGallery() {
       {scanMsg && (
         <div style={{
           padding: '.5rem .75rem', borderRadius: '.4rem', fontSize: '.85rem', marginBottom: '.5rem',
-          background: scanMsg.type === 'ok' ? 'var(--color-success-bg, #d1fae5)' : scanMsg.type === 'error' ? 'var(--color-error-bg, #fee2e2)' : 'var(--color-info-bg, #e0f2fe)',
-          color: scanMsg.type === 'ok' ? 'var(--color-success, #065f46)' : scanMsg.type === 'error' ? 'var(--color-error, #991b1b)' : 'var(--color-info, #0c4a6e)',
+          background: scanMsg.type === 'ok' ? '#d1fae5' : scanMsg.type === 'error' ? '#fee2e2' : '#e0f2fe',
+          color: scanMsg.type === 'ok' ? '#065f46' : scanMsg.type === 'error' ? '#991b1b' : '#0c4a6e',
+          border: `1px solid ${scanMsg.type === 'ok' ? '#6ee7b7' : scanMsg.type === 'error' ? '#fca5a5' : '#7dd3fc'}`,
         }}>
           {scanMsg.text}
         </div>

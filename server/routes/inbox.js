@@ -57,18 +57,31 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
 
       // Traitement image
       if (typeMedia === 'photo') {
+        const isHeic = origExt === 'heic' || origExt === 'heif'
+
+        // 1. Conversion HEIC → JPEG via heic-convert (sharp ne supporte pas HEIC sur Vercel)
+        if (isHeic) {
+          try {
+            const { default: heicConvert } = await import('heic-convert')
+            buffer = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.85 }))
+            mimetype = 'image/jpeg'; outExt = 'jpg'; transformed = true
+          } catch (e) {
+            console.error('[inbox] heic-convert failed:', e.message)
+          }
+        }
+
+        // 2. Resize si nécessaire (fonctionne sur JPEG converti ou image native)
         try {
           const { default: sharp } = await import('sharp')
           const meta = await sharp(buffer).metadata()
           const needsResize = (meta.width ?? 0) > 1600 || (meta.height ?? 0) > 1600
-          const needsConvert = origExt === 'heic' || origExt === 'heif'
-          if (needsResize || needsConvert) {
-            const pipeline = sharp(buffer)
-            if (needsResize) pipeline.resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-            buffer = await pipeline.jpeg({ quality: 85 }).withMetadata().toBuffer()
+          if (needsResize) {
+            buffer = await sharp(buffer)
+              .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+              .jpeg({ quality: 85 }).withMetadata().toBuffer()
             mimetype = 'image/jpeg'; outExt = 'jpg'; transformed = true
           }
-        } catch { /* conserver buffer original si sharp échoue */ }
+        } catch { /* pas de resize si sharp indisponible */ }
       }
 
       const destName = `${randomUUID()}.${outExt}`
