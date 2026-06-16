@@ -810,25 +810,20 @@ jourdoc.post('/:wsId/medias', async (c) => {
       if (!ALLOWED_EXTS.has(ext)) continue
 
       const typeMedia = ext === 'pdf' ? 'pdf' : 'photo'
-      console.log('[upload] start', file.name, ext, file.size)
       const rawBuf = Buffer.from(await file.arrayBuffer())
       const exifDate = await extractExifDate(rawBuf)
       const datePrise = exifDate ?? fallbackDate
 
-      console.log('[upload] processing image...')
       const { buf, outExt, size } = await processImage(rawBuf, ext)
       const filename = `${randomUUID()}.${outExt}`
 
-      console.log('[upload] uploading to WebDAV...', filename)
       const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, file.type || null)
-      console.log('[upload] WebDAV done', filepath)
 
       const [r] = await sql`
         INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise)
         VALUES (${wsId}, ${filepath}, ${file.name}, ${typeMedia}, ${file.type || null}, ${size}, ${datePrise})
         RETURNING id
       `
-      console.log('[upload] DB insert done, id=', r.id)
       results.push({ id: r.id, fichier: filepath, nom_original: file.name, type_media: typeMedia, date_prise: datePrise })
     }
 
@@ -856,20 +851,6 @@ jourdoc.get('/:wsId/medias', async (c) => {
   return c.json({ medias: medias.map(m => ({ ...m, date_prise: fmtDate(m.date_prise) })) })
 })
 
-// Debug: liste le contenu réel d'un dossier WebDAV (à supprimer après diagnostic)
-jourdoc.get('/:wsId/debug/storage', async (c) => {
-  const paths = [
-    process.env.WEBDAV_PATH_UPLOADS,
-    process.env.WEBDAV_PATH_UPLOADS + '/' + c.get('wsId'),
-  ].filter(Boolean)
-  const results = {}
-  for (const p of paths) {
-    try { results[p] = await listFiles(p) }
-    catch (e) { results[p] = { error: e.message } }
-  }
-  return c.json({ env_uploads: process.env.WEBDAV_PATH_UPLOADS, results })
-})
-
 // Proxy de téléchargement — stream le fichier depuis KDrive WebDAV
 jourdoc.get('/:wsId/medias/:id/file', async (c) => {
   const wsId = c.get('wsId')
@@ -882,7 +863,6 @@ jourdoc.get('/:wsId/medias/:id/file', async (c) => {
     const lastSlash = media.fichier.lastIndexOf('/')
     const dir = media.fichier.substring(0, lastSlash)
     const filename = media.fichier.substring(lastSlash + 1)
-    console.log('[media/file] fichier=%s dir=%s filename=%s', media.fichier, dir, filename)
     const buf = await downloadFile(dir, filename)
 
     const mimeType = media.mime_type || (media.type_media === 'pdf' ? 'application/pdf' : 'image/jpeg')
@@ -891,8 +871,7 @@ jourdoc.get('/:wsId/medias/:id/file', async (c) => {
     c.header('Cache-Control', 'private, max-age=86400')
     return c.body(buf)
   } catch (err) {
-    console.error('[media/file] download error:', err.message, '| fichier:', media.fichier)
-    return c.json({ error: 'Download failed', detail: err.message, fichier: media.fichier, webdav_url: process.env.WEBDAV_URL ?? '(non défini)' }, 500)
+    return c.json({ error: 'Download failed' }, 500)
   }
 })
 
@@ -1049,7 +1028,6 @@ jourdoc.get('/:wsId/todoist/tasks', wsCheck, async (c) => {
     ORDER BY n.tache_todoist_done ASC, n.tache_todoist_recurrence_done DESC,
              n.tache_todoist_due ASC, n.date DESC
   `
-  console.log('[todoist/tasks] found', notes.length, 'notes for wsId', wsId)
   const withObjets = await Promise.all(notes.map(async n => ({
     ...normalizeNote(n),
     objets: await sql`SELECT o.id, o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${n.id}`,
