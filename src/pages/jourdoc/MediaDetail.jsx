@@ -43,7 +43,7 @@ export default function MediaDetail() {
           {media.type_media === 'pdf' ? (
             <div className="jd-media-detail__pdf">📄<p>{media.nom_original}</p></div>
           ) : (
-            <img src={`/${media.fichier}`} alt={media.nom_original} className="jd-media-detail__img" />
+            <img src={`/api/jourdoc/${wsId}/medias/${media.id}/file`} alt={media.nom_original} className="jd-media-detail__img" />
           )}
           {media.type_media !== 'pdf' && (
             <span className="jd-media-detail__zoom">🔍 Agrandir</span>
@@ -70,7 +70,7 @@ export default function MediaDetail() {
       )}
 
       {lightbox && media && (
-        <Lightbox media={media} onClose={() => setLightbox(false)} />
+        <Lightbox media={media} src={`/api/jourdoc/${wsId}/medias/${media.id}/file`} onClose={() => setLightbox(false)} />
       )}
     </div>
   )

@@ -304,6 +304,7 @@ export default function MediaGallery() {
       {lightboxIdx >= 0 && (
         <Lightbox
           media={flatMedias[lightboxIdx]}
+          src={`/api/jourdoc/${wsId}/medias/${flatMedias[lightboxIdx]?.id}/file`}
           onClose={() => setLightboxIdx(-1)}
           onPrev={lightboxIdx > 0 ? () => setLightboxIdx(i => i - 1) : null}
           onNext={lightboxIdx < flatMedias.length - 1 ? () => setLightboxIdx(i => i + 1) : null}

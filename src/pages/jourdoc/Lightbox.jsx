@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-export default function Lightbox({ media, onClose, onPrev, onNext }) {
+export default function Lightbox({ media, src, onClose, onPrev, onNext }) {
   const touchX = useRef(null)
 
   useEffect(() => {
@@ -38,15 +38,15 @@ export default function Lightbox({ media, onClose, onPrev, onNext }) {
         {media.type_media === 'pdf' ? (
           <div className="lightbox__pdf" onClick={e => e.stopPropagation()}>
             <iframe
-              src={`/${media.fichier}`}
+              src={src}
               title={media.nom_original}
               className="lightbox__pdf-frame"
             />
-            <a href={`/${media.fichier}`} target="_blank" rel="noopener noreferrer"
+            <a href={src} target="_blank" rel="noopener noreferrer"
               className="lightbox__pdf-open">Ouvrir dans un nouvel onglet ↗</a>
           </div>
         ) : (
-          <img src={`/${media.fichier}`} alt={media.nom_original} className="lightbox__img" />
+          <img src={src} alt={media.nom_original} className="lightbox__img" />
         )}
         <div className="lightbox__caption">
           <span>{media.nom_original}</span>

@@ -254,6 +254,7 @@ export default function NoteView() {
       {lbIdx >= 0 && (
         <Lightbox
           media={photoMedias[lbIdx]}
+          src={`/api/jourdoc/${wsId}/medias/${photoMedias[lbIdx]?.id}/file`}
           onClose={() => setLbIdx(-1)}
           onPrev={lbIdx > 0 ? () => setLbIdx(i => i - 1) : null}
           onNext={lbIdx < photoMedias.length - 1 ? () => setLbIdx(i => i + 1) : null}
