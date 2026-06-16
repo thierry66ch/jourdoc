@@ -812,7 +812,7 @@ jourdoc.post('/:wsId/medias', async (c) => {
       const typeMedia = ext === 'pdf' ? 'pdf' : 'photo'
       console.log('[upload] start', file.name, ext, file.size)
       const rawBuf = Buffer.from(await file.arrayBuffer())
-      const exifDate = extractExifDate(rawBuf)
+      const exifDate = await extractExifDate(rawBuf)
       const datePrise = exifDate ?? fallbackDate
 
       console.log('[upload] processing image...')
