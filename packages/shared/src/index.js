@@ -12,6 +12,8 @@ export const ROLES = {
 export const API_ROUTES = {
   AUTH_LOGIN: '/api/auth/login',
   AUTH_LOGOUT: '/api/auth/logout',
+  AUTH_FORGOT_PASSWORD: '/api/auth/forgot-password',
+  AUTH_RESET_PASSWORD: '/api/auth/reset-password',
   ADMIN_LOGIN: '/api/admin/login',
   ADMIN_VERIFY_OTP: '/api/admin/verify-otp',
   ADMIN_SETTINGS_REQUEST_OTP: '/api/admin/settings/request-otp',

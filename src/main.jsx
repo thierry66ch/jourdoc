@@ -22,6 +22,8 @@ import WorkspaceManager from './pages/jourdoc/WorkspaceManager'
 import TodoistTasks from './pages/jourdoc/TodoistTasks'
 import AnalyseView from './pages/jourdoc/AnalyseView'
 import ElementManager from './pages/jourdoc/ElementManager'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 
@@ -42,6 +44,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/" element={<PrivateRoute><Portal /></PrivateRoute>} />

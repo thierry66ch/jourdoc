@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
@@ -11,9 +11,11 @@ export default function Login() {
   const { t } = useTranslation()
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const successMsg = location.state?.message ?? ''
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e) {
@@ -62,6 +64,7 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="auth-form">
+            {successMsg && <p className="msg msg-success">{successMsg}</p>}
             {error && <p className="msg msg-error">{error}</p>}
             <div className="form-field">
               <label className="form-label" htmlFor="identifier">{t('login.email')}</label>
@@ -96,7 +99,7 @@ export default function Login() {
           </form>
 
           <p className="auth-footer">
-            <a href="/forgot-password">{t('login.forgotPassword')}</a>
+            <Link to="/forgot-password">{t('login.forgotPassword')}</Link>
           </p>
         </div>
       </main>
