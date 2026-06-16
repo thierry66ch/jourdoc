@@ -72,20 +72,28 @@ admin.post('/settings/request-otp', async (c) => {
 })
 
 admin.post('/settings/confirm', async (c) => {
-  const adminId = c.get('adminId')
-  const { otp, newEmail, newPassword } = await c.req.json()
-  const [adminUser] = await sql`SELECT * FROM admin WHERE id = ${adminId}`
-  if (!adminUser) return c.json({ error: 'Not found' }, 404)
-  const now = new Date().toISOString()
-  if (adminUser.otp_code !== otp || adminUser.otp_expires < now)
-    return c.json({ error: 'Invalid or expired OTP' }, 401)
-  await sql`UPDATE admin SET otp_code = NULL, otp_expires = NULL WHERE id = ${adminId}`
-  if (newEmail) await sql`UPDATE admin SET email = ${newEmail} WHERE id = ${adminId}`
-  if (newPassword) {
-    const password_hash = await bcrypt.hash(newPassword, 12)
-    await sql`UPDATE admin SET password_hash = ${password_hash} WHERE id = ${adminId}`
+  try {
+    const adminId = c.get('adminId')
+    const body = await c.req.json()
+    const { otp, newEmail, newPassword } = body
+    console.log('[settings/confirm] adminId=%s otp=%s hasEmail=%s hasPassword=%s', adminId, otp, !!newEmail, !!newPassword)
+    const [adminUser] = await sql`SELECT * FROM admin WHERE id = ${adminId}`
+    if (!adminUser) return c.json({ error: 'Not found' }, 404)
+    const now = new Date().toISOString()
+    console.log('[settings/confirm] otp_code=%s otp_expires=%s now=%s', adminUser.otp_code, adminUser.otp_expires, now)
+    if (adminUser.otp_code !== otp || adminUser.otp_expires < now)
+      return c.json({ error: 'Invalid or expired OTP' }, 401)
+    await sql`UPDATE admin SET otp_code = NULL, otp_expires = NULL WHERE id = ${adminId}`
+    if (newEmail) await sql`UPDATE admin SET email = ${newEmail} WHERE id = ${adminId}`
+    if (newPassword) {
+      const password_hash = await bcrypt.hash(newPassword, 12)
+      await sql`UPDATE admin SET password_hash = ${password_hash} WHERE id = ${adminId}`
+    }
+    return c.json({ ok: true })
+  } catch (err) {
+    console.error('[settings/confirm] error:', err.message, err.stack)
+    return c.json({ error: err.message }, 500)
   }
-  return c.json({ ok: true })
 })
 
 admin.get('/apps', async (c) => {
