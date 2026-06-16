@@ -114,6 +114,7 @@ export default function MediaGallery() {
   const [medias, setMedias] = useState([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [scanning, setScanning] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [selected, setSelected] = useState(new Set())
   const [lightboxIdx, setLightboxIdx] = useState(-1)
@@ -196,6 +197,27 @@ export default function MediaGallery() {
   const flatMedias = useMemo(() => groupByDate(medias).flatMap(([, items]) => items), [medias])
   const groups = useMemo(() => groupByDate(medias), [medias])
 
+  async function scanInbox() {
+    setScanning(true)
+    try {
+      const res = await fetch(`/api/jourdoc/${wsId}/inbox/scan`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      if (!res.ok) { alert(`Erreur scan inbox : ${data.detail ?? data.error}`); return }
+      if (data.total === 0) { alert('Inbox vide — aucun fichier à traiter.'); return }
+      const msg = `${data.integrated?.length ?? 0} fichier(s) intégré(s) sur ${data.total}.`
+        + (data.errors?.length ? `\n${data.errors.length} erreur(s) : ${data.errors.map(e => e.file).join(', ')}` : '')
+      alert(msg)
+      await loadMedias()
+    } catch (err) {
+      alert(`Erreur réseau : ${err.message}`)
+    } finally {
+      setScanning(false)
+    }
+  }
+
   const onDragOver  = e => { e.preventDefault(); setDragging(true) }
   const onDragLeave = () => setDragging(false)
   const onDrop = e => { e.preventDefault(); setDragging(false); uploadFiles([...e.dataTransfer.files]) }
@@ -219,6 +241,10 @@ export default function MediaGallery() {
         </div>
         <button className="btn btn-ghost" style={{ padding: '.3rem .6rem', fontSize: '.8rem' }}
           onClick={() => setAnchor(today())}>Aujourd'hui</button>
+        <button className="btn btn-ghost" style={{ padding: '.3rem .6rem', fontSize: '.8rem' }}
+          onClick={scanInbox} disabled={scanning}>
+          {scanning ? 'Scan…' : '📥 Inbox'}
+        </button>
       </div>
 
       {/* Filtres secondaires */}
