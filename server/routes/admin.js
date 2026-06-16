@@ -55,10 +55,11 @@ admin.post('/verify-otp', async (c) => {
   return c.json({ token })
 })
 
-admin.use('/users*', adminMiddleware)
-admin.use('/settings*', adminMiddleware)
+admin.use('/users/*', adminMiddleware)
+admin.use('/settings/*', adminMiddleware)
 
 admin.post('/settings/request-otp', async (c) => {
+  console.log('[settings/request-otp] hit, adminId=', c.get('adminId'))
   const adminId = c.get('adminId')
   const [adminUser] = await sql`SELECT * FROM admin WHERE id = ${adminId}`
   if (!adminUser) return c.json({ error: 'Not found' }, 404)
