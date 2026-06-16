@@ -253,6 +253,18 @@ async function refreshLie(mediaId) {
   await sql`UPDATE jd_medias SET lie = ${Number(r.n) > 0} WHERE id = ${mediaId}`
 }
 
+// PostgreSQL DATE/TIMESTAMPTZ → string 'YYYY-MM-DD' (attendu par le frontend V1)
+function fmtDate(v) {
+  if (!v) return null
+  if (typeof v === 'string') return v.slice(0, 10)
+  if (v instanceof Date) return v.toISOString().slice(0, 10)
+  return null
+}
+
+function normalizeNote(note) {
+  return { ...note, date: fmtDate(note.date) }
+}
+
 async function withData(notes) {
   return Promise.all(notes.map(async note => {
     const [objets, medias, elements] = await Promise.all([
@@ -260,7 +272,7 @@ async function withData(notes) {
       sql`SELECT m.id, m.type_media, m.nom_original, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id WHERE nm.note_id = ${note.id} ORDER BY m.created_at LIMIT 6`,
       sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${note.id} ORDER BY e.nom`,
     ])
-    return { ...note, objets, medias, elements }
+    return { ...normalizeNote(note), objets, medias, elements }
   }))
 }
 
@@ -583,7 +595,7 @@ jourdoc.get('/:wsId/notes/search', async (c) => {
     ORDER BY date DESC, created_at DESC
     LIMIT 25
   `
-  return c.json({ notes })
+  return c.json({ notes: notes.map(normalizeNote) })
 })
 
 jourdoc.get('/:wsId/notes', async (c) => {
@@ -629,7 +641,8 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
     sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${id} ORDER BY e.nom`,
   ])
 
-  return c.json({ note: { ...note, objets, medias, liens, liensEntrants, elements } })
+  const fmtN = n => ({ ...n, date: fmtDate(n.date) })
+  return c.json({ note: { ...normalizeNote(note), objets, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements } })
 })
 
 jourdoc.post('/:wsId/notes', async (c) => {
@@ -830,7 +843,8 @@ jourdoc.get('/:wsId/medias', async (c) => {
   if (lie !== undefined) { query += ` AND lie = $${pi++}`; params.push(lie === '1' || lie === 'true') }
   query += ' ORDER BY date_prise DESC, created_at DESC'
 
-  return c.json({ medias: await sql(query, params) })
+  const medias = await sql(query, params)
+  return c.json({ medias: medias.map(m => ({ ...m, date_prise: fmtDate(m.date_prise) })) })
 })
 
 // Proxy de téléchargement — stream le fichier depuis KDrive WebDAV
@@ -1002,7 +1016,7 @@ jourdoc.get('/:wsId/todoist/tasks', wsCheck, async (c) => {
              n.tache_todoist_due ASC, n.date DESC
   `
   const withObjets = await Promise.all(notes.map(async n => ({
-    ...n,
+    ...normalizeNote(n),
     objets: await sql`SELECT o.id, o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${n.id}`,
   })))
   return c.json({ notes: withObjets })
@@ -1413,7 +1427,8 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
   }
   query += ` ORDER BY n.date ASC`
 
-  return c.json({ notes: await sql(query, params) })
+  const notes = await sql(query, params)
+  return c.json({ notes: notes.map(normalizeNote) })
 })
 
 export default jourdoc
