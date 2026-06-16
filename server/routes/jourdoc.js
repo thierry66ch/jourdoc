@@ -793,42 +793,51 @@ async function processImage(buffer, ext) {
 
 jourdoc.post('/:wsId/medias', async (c) => {
   const wsId = c.get('wsId')
-  const body = await c.req.parseBody({ all: true })
+  try {
+    const body = await c.req.parseBody({ all: true })
 
-  const raw = body['files'] ?? body['file']
-  const files = Array.isArray(raw) ? raw : raw ? [raw] : []
-  if (files.length === 0) return c.json({ error: 'Aucun fichier' }, 400)
+    const raw = body['files'] ?? body['file']
+    const files = Array.isArray(raw) ? raw : raw ? [raw] : []
+    if (files.length === 0) return c.json({ error: 'Aucun fichier' }, 400)
 
-  const fallbackDate = (typeof body.date_prise === 'string' && body.date_prise)
-    || new Date().toISOString().slice(0, 10)
+    const fallbackDate = (typeof body.date_prise === 'string' && body.date_prise)
+      || new Date().toISOString().slice(0, 10)
 
-  const results = []
-  for (const file of files) {
-    if (!file || typeof file === 'string') continue
-    const ext = (file.name.split('.').pop() ?? '').toLowerCase()
-    if (!ALLOWED_EXTS.has(ext)) continue
+    const results = []
+    for (const file of files) {
+      if (!file || typeof file === 'string') continue
+      const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+      if (!ALLOWED_EXTS.has(ext)) continue
 
-    const typeMedia = ext === 'pdf' ? 'pdf' : 'photo'
-    const rawBuf = Buffer.from(await file.arrayBuffer())
-    const exifDate = extractExifDate(rawBuf)
-    const datePrise = exifDate ?? fallbackDate
+      const typeMedia = ext === 'pdf' ? 'pdf' : 'photo'
+      console.log('[upload] start', file.name, ext, file.size)
+      const rawBuf = Buffer.from(await file.arrayBuffer())
+      const exifDate = extractExifDate(rawBuf)
+      const datePrise = exifDate ?? fallbackDate
 
-    const { buf, outExt, size } = await processImage(rawBuf, ext)
-    const filename = `${randomUUID()}.${outExt}`
+      console.log('[upload] processing image...')
+      const { buf, outExt, size } = await processImage(rawBuf, ext)
+      const filename = `${randomUUID()}.${outExt}`
 
-    // Upload vers KDrive WebDAV (sous-dossier par workspace)
-    const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, file.type || null)
+      console.log('[upload] uploading to WebDAV...', filename)
+      const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, file.type || null)
+      console.log('[upload] WebDAV done', filepath)
 
-    const [r] = await sql`
-      INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise)
-      VALUES (${wsId}, ${filepath}, ${file.name}, ${typeMedia}, ${file.type || null}, ${size}, ${datePrise})
-      RETURNING id
-    `
-    results.push({ id: r.id, fichier: filepath, nom_original: file.name, type_media: typeMedia, date_prise: datePrise })
+      const [r] = await sql`
+        INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise)
+        VALUES (${wsId}, ${filepath}, ${file.name}, ${typeMedia}, ${file.type || null}, ${size}, ${datePrise})
+        RETURNING id
+      `
+      console.log('[upload] DB insert done, id=', r.id)
+      results.push({ id: r.id, fichier: filepath, nom_original: file.name, type_media: typeMedia, date_prise: datePrise })
+    }
+
+    if (results.length === 0) return c.json({ error: 'Aucun fichier valide' }, 400)
+    return c.json({ medias: results }, 201)
+  } catch (err) {
+    console.error('[upload] error:', err.message, err.stack)
+    return c.json({ error: 'Upload failed', detail: err.message }, 500)
   }
-
-  if (results.length === 0) return c.json({ error: 'Aucun fichier valide' }, 400)
-  return c.json({ medias: results }, 201)
 })
 
 jourdoc.get('/:wsId/medias', async (c) => {

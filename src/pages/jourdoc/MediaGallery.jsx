@@ -144,22 +144,31 @@ export default function MediaGallery() {
   async function uploadFiles(files) {
     if (!files.length) return
     setUploading(true)
-    const fd = new FormData()
-    for (const f of files) fd.append('files', f)
-    fd.append('date_prise', anchor)  // date de référence si pas d'EXIF
-    const res = await fetch(API_ROUTES.JD_MEDIAS(wsId), {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: fd,
-    })
-    const data = await res.json()
-
-    // 4. Positionner le filtre sur la date du premier fichier uploadé
-    const firstDate = data.medias?.[0]?.date_prise
-    if (firstDate) setAnchor(firstDate)
-
-    await loadMedias()
-    setUploading(false)
+    try {
+      const fd = new FormData()
+      for (const f of files) fd.append('files', f)
+      fd.append('date_prise', anchor)
+      const res = await fetch(API_ROUTES.JD_MEDIAS(wsId), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      })
+      if (!res.ok) {
+        const err = await res.text()
+        console.error('[upload] server error', res.status, err)
+        alert(`Erreur lors de l'upload (${res.status}) : ${err.slice(0, 200)}`)
+        return
+      }
+      const data = await res.json()
+      const firstDate = data.medias?.[0]?.date_prise
+      if (firstDate) setAnchor(firstDate)
+      await loadMedias()
+    } catch (err) {
+      console.error('[upload] fetch error', err)
+      alert(`Erreur réseau : ${err.message}`)
+    } finally {
+      setUploading(false)
+    }
   }
 
   async function deleteMedia(id) {
