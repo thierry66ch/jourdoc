@@ -883,7 +883,7 @@ jourdoc.get('/:wsId/medias/:id/file', async (c) => {
     return c.body(buf)
   } catch (err) {
     console.error('[media/file] download error:', err.message, '| fichier:', media.fichier)
-    return c.json({ error: 'Download failed', detail: err.message, fichier: media.fichier }, 500)
+    return c.json({ error: 'Download failed', detail: err.message, fichier: media.fichier, webdav_url: process.env.WEBDAV_URL ?? '(non défini)' }, 500)
   }
 })
 
