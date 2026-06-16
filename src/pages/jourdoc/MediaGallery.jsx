@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader } from './hooks'
+import { authHeader, mediaUrl } from './hooks'
 import MediaCard from './MediaCard'
 import Lightbox from './Lightbox'
 
@@ -273,7 +273,7 @@ export default function MediaGallery() {
                 <MediaCard
                   key={m.id}
                   media={m}
-                  src={`/api/jourdoc/${wsId}/medias/${m.id}/file`}
+                  src={mediaUrl(wsId, m.id, token)}
                   selected={selected.has(m.id)}
                   onExpand={() => setLightboxIdx(flatMedias.findIndex(x => x.id === m.id))}
                   onSelect={() => toggleSelect(m.id)}
@@ -304,7 +304,7 @@ export default function MediaGallery() {
       {lightboxIdx >= 0 && (
         <Lightbox
           media={flatMedias[lightboxIdx]}
-          src={`/api/jourdoc/${wsId}/medias/${flatMedias[lightboxIdx]?.id}/file`}
+          src={mediaUrl(wsId, flatMedias[lightboxIdx]?.id, token)}
           onClose={() => setLightboxIdx(-1)}
           onPrev={lightboxIdx > 0 ? () => setLightboxIdx(i => i - 1) : null}
           onNext={lightboxIdx < flatMedias.length - 1 ? () => setLightboxIdx(i => i + 1) : null}

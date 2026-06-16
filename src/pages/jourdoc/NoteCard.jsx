@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
+import { mediaUrl } from './hooks'
 import Lightbox from './Lightbox'
 
 const NATURE_ICON = { observation: '👁', activite: '⚡' }
@@ -20,6 +22,7 @@ function fmtNoteDate(iso) {
 
 export default function NoteCard({ note, contextNoteIds, showDate = false }) {
   const { wsId } = useParams()
+  const { token } = useAuth()
   const navigate = useNavigate()
   const [lbIdx, setLbIdx] = useState(-1)
 
@@ -99,7 +102,7 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
       {lbIdx >= 0 && (
         <Lightbox
           media={photoMedias[lbIdx]}
-          src={`/api/jourdoc/${wsId}/medias/${photoMedias[lbIdx]?.id}/file`}
+          src={mediaUrl(wsId, photoMedias[lbIdx]?.id, token)}
           onClose={() => setLbIdx(-1)}
           onPrev={lbIdx > 0 ? () => setLbIdx(i => i - 1) : null}
           onNext={lbIdx < photoMedias.length - 1 ? () => setLbIdx(i => i + 1) : null}

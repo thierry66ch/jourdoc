@@ -53,4 +53,8 @@ export function buildPathMap(items) {
   return paths
 }
 
+export function mediaUrl(wsId, id, token) {
+  return `/api/jourdoc/${wsId}/medias/${id}/file?t=${token}`
+}
+
 export { authHeader }

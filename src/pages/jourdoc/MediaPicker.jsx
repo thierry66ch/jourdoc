@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader } from './hooks'
+import { authHeader, mediaUrl } from './hooks'
 import MediaCard from './MediaCard'
 
 /**
@@ -55,7 +55,7 @@ export default function MediaPicker({ wsId, token, date, selectedIds, onToggle }
             <MediaCard
               key={m.id}
               media={m}
-              src={`/api/jourdoc/${wsId}/medias/${m.id}/file`}
+              src={mediaUrl(wsId, m.id, token)}
               size="sm"
               selected={selectedIds.includes(m.id)}
               onSelect={() => onToggle(m.id, m)}

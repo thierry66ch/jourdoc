@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader } from './hooks'
+import { authHeader, mediaUrl } from './hooks'
 import NoteCard from './NoteCard'
 import Lightbox from './Lightbox'
 
@@ -43,7 +43,7 @@ export default function MediaDetail() {
           {media.type_media === 'pdf' ? (
             <div className="jd-media-detail__pdf">📄<p>{media.nom_original}</p></div>
           ) : (
-            <img src={`/api/jourdoc/${wsId}/medias/${media.id}/file`} alt={media.nom_original} className="jd-media-detail__img" />
+            <img src={mediaUrl(wsId, media.id, token)} alt={media.nom_original} className="jd-media-detail__img" />
           )}
           {media.type_media !== 'pdf' && (
             <span className="jd-media-detail__zoom">🔍 Agrandir</span>
@@ -70,7 +70,7 @@ export default function MediaDetail() {
       )}
 
       {lightbox && media && (
-        <Lightbox media={media} src={`/api/jourdoc/${wsId}/medias/${media.id}/file`} onClose={() => setLightbox(false)} />
+        <Lightbox media={media} src={mediaUrl(wsId, media.id, token)} onClose={() => setLightbox(false)} />
       )}
     </div>
   )

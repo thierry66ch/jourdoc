@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader } from './hooks'
+import { authHeader, mediaUrl } from './hooks'
 import RichTextView from './RichTextView'
 import MediaCard from './MediaCard'
 import Lightbox from './Lightbox'
@@ -148,7 +148,7 @@ export default function NoteView() {
               <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '.5rem' }}>
                 {note.medias.map(m => (
                   <MediaCard key={m.id} media={m} size="sm"
-                    src={`/api/jourdoc/${wsId}/medias/${m.id}/file`}
+                    src={mediaUrl(wsId, m.id, token)}
                     onExpand={() => setLbIdx(photoMedias.findIndex(pm => pm.id === m.id))}
                     onNotes={() => navigate(`/jourdoc/${wsId}/media/${m.id}`)}
                   />
@@ -254,7 +254,7 @@ export default function NoteView() {
       {lbIdx >= 0 && (
         <Lightbox
           media={photoMedias[lbIdx]}
-          src={`/api/jourdoc/${wsId}/medias/${photoMedias[lbIdx]?.id}/file`}
+          src={mediaUrl(wsId, photoMedias[lbIdx]?.id, token)}
           onClose={() => setLbIdx(-1)}
           onPrev={lbIdx > 0 ? () => setLbIdx(i => i - 1) : null}
           onNext={lbIdx < photoMedias.length - 1 ? () => setLbIdx(i => i + 1) : null}
