@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS jd_notes (
   tache_todoist_priority        INTEGER,
   tache_todoist_done            BOOLEAN DEFAULT FALSE,
   tache_todoist_recurrence_done BOOLEAN DEFAULT FALSE,
-  tache_todoist_consigne        TEXT,
+  tache_todoist_consigne        BOOLEAN DEFAULT FALSE,
   tache_todoist_content         TEXT
 );
 
