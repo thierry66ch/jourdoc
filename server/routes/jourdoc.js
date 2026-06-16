@@ -1035,6 +1035,7 @@ jourdoc.post('/:wsId/todoist/sync', wsCheck, async (c) => {
 
 jourdoc.get('/:wsId/todoist/tasks', wsCheck, async (c) => {
   const wsId = c.get('wsId')
+  try {
   const notes = await sql`
     SELECT n.id, n.titre, n.titre_alt, n.date, n.type, n.nature,
            n.tache_todoist_id, n.tache_todoist_done, n.tache_todoist_due,
@@ -1048,11 +1049,16 @@ jourdoc.get('/:wsId/todoist/tasks', wsCheck, async (c) => {
     ORDER BY n.tache_todoist_done ASC, n.tache_todoist_recurrence_done DESC,
              n.tache_todoist_due ASC, n.date DESC
   `
+  console.log('[todoist/tasks] found', notes.length, 'notes for wsId', wsId)
   const withObjets = await Promise.all(notes.map(async n => ({
     ...normalizeNote(n),
     objets: await sql`SELECT o.id, o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${n.id}`,
   })))
   return c.json({ notes: withObjets })
+  } catch (err) {
+    console.error('[todoist/tasks] error:', err.message)
+    return c.json({ error: err.message, notes: [] }, 500)
+  }
 })
 
 jourdoc.put('/:wsId/todoist', wsCheck, async (c) => {

@@ -98,7 +98,11 @@ export default function TodoistTasks() {
     setLoading(true)
     fetch(API_ROUTES.JD_WS_TODOIST_TASKS(wsId), { headers: authHeader(token) })
       .then(r => r.json())
-      .then(d => setNotes(d.notes ?? []))
+      .then(d => {
+        if (d.error) { setMsg(`Erreur API : ${d.error}`); return }
+        setNotes(d.notes ?? [])
+      })
+      .catch(e => setMsg(`Erreur réseau : ${e.message}`))
       .finally(() => setLoading(false))
   }
 
