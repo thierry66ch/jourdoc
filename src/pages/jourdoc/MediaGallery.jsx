@@ -173,11 +173,10 @@ export default function MediaGallery() {
     }
   }
 
-  async function deleteMedia(id) {
-    if (!confirm('Supprimer ce média ?')) return
+  async function deleteMedia(id, skipConfirm = false) {
+    if (!skipConfirm && !confirm('Supprimer ce média ?')) return
     await fetch(API_ROUTES.JD_MEDIA(wsId, id), { method: 'DELETE', headers: authHeader(token) })
     setSelected(s => { const n = new Set(s); n.delete(id); return n })
-    await loadMedias()
   }
 
   function toggleSelect(id) {
@@ -342,7 +341,8 @@ export default function MediaGallery() {
           <button className="btn btn-primary" onClick={createNote}>+ Créer une note</button>
           <button className="btn btn-danger" onClick={async () => {
             if (!confirm(`Supprimer ${selected.size} média(s) ?`)) return
-            for (const id of selected) await deleteMedia(id)
+            for (const id of selected) await deleteMedia(id, true)
+            await loadMedias()
             setSelected(new Set())
           }}>🗑</button>
           <button className="btn btn-ghost" onClick={() => setSelected(new Set())}>Annuler</button>
