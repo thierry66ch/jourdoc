@@ -854,17 +854,23 @@ jourdoc.get('/:wsId/medias/:id/file', async (c) => {
   const [media] = await sql`SELECT * FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
   if (!media) return c.json({ error: 'Not found' }, 404)
 
-  // Dériver dir depuis fichier (compatible flat et sous-dossiers par workspace)
-  const lastSlash = media.fichier.lastIndexOf('/')
-  const dir = media.fichier.substring(0, lastSlash)
-  const filename = media.fichier.substring(lastSlash + 1)
-  const buf = await downloadFile(dir, filename)
+  try {
+    // Dériver dir depuis fichier (compatible flat et sous-dossiers par workspace)
+    const lastSlash = media.fichier.lastIndexOf('/')
+    const dir = media.fichier.substring(0, lastSlash)
+    const filename = media.fichier.substring(lastSlash + 1)
+    console.log('[media/file] fichier=%s dir=%s filename=%s', media.fichier, dir, filename)
+    const buf = await downloadFile(dir, filename)
 
-  const mimeType = media.mime_type || (media.type_media === 'pdf' ? 'application/pdf' : 'image/jpeg')
-  c.header('Content-Type', mimeType)
-  c.header('Content-Disposition', `inline; filename="${media.nom_original ?? filename}"`)
-  c.header('Cache-Control', 'private, max-age=86400')
-  return c.body(buf)
+    const mimeType = media.mime_type || (media.type_media === 'pdf' ? 'application/pdf' : 'image/jpeg')
+    c.header('Content-Type', mimeType)
+    c.header('Content-Disposition', `inline; filename="${media.nom_original ?? filename}"`)
+    c.header('Cache-Control', 'private, max-age=86400')
+    return c.body(buf)
+  } catch (err) {
+    console.error('[media/file] download error:', err.message, '| fichier:', media.fichier)
+    return c.json({ error: 'Download failed', detail: err.message, fichier: media.fichier }, 500)
+  }
 })
 
 jourdoc.delete('/:wsId/medias/:id', async (c) => {
