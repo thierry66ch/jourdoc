@@ -1,127 +1,145 @@
-# Architecture — pogil-apps
+# Architecture — JourDoc V2
+
+## Origine
+
+JourDoc V2 est l'extraction de l'app JourDoc depuis le monorepo V1 `pogil-apps`
+(processus Node unique, SQLite, hébergement Infomaniak) vers un **repo dédié**.
+La stack applicative est **inchangée** (Hono 4 + React 18 + Vite 5 + PWA) ;
+seuls changent l'hébergement, la base de données et le stockage fichiers :
+
+| | V1 (pogil-apps) | V2 (jourdoc-v2) |
+|---|---|---|
+| Hébergement | Infomaniak, Node unique | **Vercel** (serverless) |
+| Base de données | SQLite (`node:sqlite`, WAL) | **PostgreSQL Neon** (`@neondatabase/serverless`) |
+| Stockage fichiers | disque local `data/uploads/` | **KDrive WebDAV** |
+| Statique + API | un seul process `npm start` | Vercel static + fonction serverless |
 
 ## Vue d'ensemble
 
-Monorepo npm workspaces. Un seul processus Node.js sert l'API REST + les fichiers statiques en production.
-
 ```
-pogil-apps/
-├── apps/hub/          React 18 + Vite 5 (PWA)
-├── packages/shared/   Constantes partagées front/back
-├── server/            Hono 4 REST API + serveStatic
-└── data/              pogil.db (SQLite WAL) + uploads/
+jourdoc-v2-scaffold/
+├── src/                    React 18 + Vite 5 (front, PWA)
+│   ├── pages/jourdoc/      composants métier JourDoc
+│   ├── pages/admin/        dashboard admin
+│   ├── context/            AuthContext
+│   └── main.jsx            router React
+├── api/index.js            adaptateur Vercel → Hono (voir ci-dessous)
+├── server/
+│   ├── app.js              montage des routes Hono
+│   ├── middleware/         authMiddleware, adminMiddleware
+│   └── routes/             auth, admin, portal, jourdoc, inbox
+├── packages/
+│   ├── storage/index.js    module WebDAV KDrive mutualisé
+│   └── shared/src/index.js API_ROUTES + constantes partagées
+└── db/
+    ├── schema.sql          schéma PostgreSQL complet
+    ├── db.js               client Neon
+    ├── migrations/         migrations numérotées (001_, 002_…)
+    └── seed.js             admin + user initiaux
 ```
 
 ## Flux de données
 
 ```
-Développement :
-  Navigateur :5173 → Vite dev server → proxy /api/* → Hono :3000 → SQLite
+Développement (npm run dev) :
+  Navigateur :5173 → Vite dev server → proxy /api/* → Hono :3000 → Neon / KDrive
 
-Production :
-  Navigateur → Hono :3000 → /api/*  → SQLite
-                          → /*      → apps/hub/dist/ (Vite build)
+Production (Vercel) :
+  Navigateur → /api/*  → fonction serverless api/index.js → app.fetch() → Neon / KDrive
+            → /*       → dist/ (build Vite, CDN Vercel)
 ```
 
-## Frontend (`apps/hub`)
+## Hono sur Vercel — adaptateur manuel
 
-**Dépendances principales :**
-- React 18, react-router-dom v6 (BrowserRouter, Outlet)
-- Tiptap v3 (rich text : starter-kit, link, underline)
-- i18next + react-i18next (FR/EN)
-- vite-plugin-pwa 0.20 (injectManifest strategy, workbox)
+`hono/vercel` `handle()` **ne fonctionne pas** avec le runtime Node de Vercel :
+il reçoit un `IncomingMessage` et non une Web API `Request` → timeout.
+L'adaptateur est écrit à la main dans [`api/index.js`](../../api/index.js) :
 
-**Structure des routes React :**
+```js
+export const config = { runtime: 'nodejs' }
+export default async function handler(req, res) {
+  // reconstruit une Request Web API depuis IncomingMessage,
+  // appelle app.fetch(request), retranscrit la Response dans res
+}
 ```
-/                       → Portal
+
+**Ne jamais** revenir à `import { handle } from 'hono/vercel'`.
+
+## Frontend (`src/`)
+
+**Dépendances principales :** React 18, react-router-dom v6 (BrowserRouter, Outlet),
+Tiptap (rich text : starter-kit, link, underline), vite-plugin-pwa (injectManifest).
+
+**Routes React** (`main.jsx`) :
+```
+/                       → Portal (sélection app/workspace)
 /login                  → Login
+/forgot-password        → ForgotPassword
+/reset-password         → ResetPassword
 /admin/login            → AdminLogin
 /admin                  → AdminDashboard
-/jourdoc/:wsId          → JourDocApp (shell nav)
+/jourdoc/:wsId          → JourDocApp (shell nav, Outlet)
   /                       → JourDocJournal
   /calendar               → CalendarView (mois/sem/7j/matrice/année + filtres)
-  /medias                 → MediaGallery
-  /media/:id              → MediaDetail
-  /objets                 → ObjetManager
-  /themes                 → ThemeManager
-  /notes/:id              → NoteView
-  /notes/:id/edit         → NoteForm (edit)
-  /new                    → NoteForm (create)
-  /objet/:id              → ObjetDetail
-  /theme/:id              → ThemeDetail
-  /settings               → WorkspaceManager
+  /medias /media/:id      → MediaGallery / MediaDetail
+  /objets /themes /elements → managers hiérarchie + éléments
+  /notes/:id /notes/:id/edit /new → NoteView / NoteForm
+  /objet/:id /theme/:id   → ObjetDetail / ThemeDetail
   /todoist-tasks          → TodoistTasks
-  /analyse                → AnalyseView (max-width supprimé via jd-main--wide)
+  /analyse                → AnalyseView
+  /settings               → WorkspaceManager
 ```
 
-**State management :** Local state React uniquement (useState/useEffect). Données workspace (objets, thèmes) via hook `useJdData(wsId, token)` — cache en mémoire pour la session. État calendrier persisté dans URL params (`useSearchParams`).
+**State :** local React (useState/useEffect). Données workspace (objets, thèmes,
+réglages) via le hook `useJdData(wsId, token)`. État calendrier persisté en URL.
 
-**Auth côté client :** `AuthContext` → token user dans `localStorage`, token admin dans `sessionStorage`. `<PrivateRoute>` et `<AdminRoute>` dans `main.jsx`.
+**Auth client :** `AuthContext` → token user en `localStorage`, token admin en
+`sessionStorage`. `<PrivateRoute>` / `<AdminRoute>` dans `main.jsx`.
 
-**PWA :**
-- SW : workbox precache + `clientsClaim()` + `skipWaiting()` → mise à jour immédiate sans fermer les onglets
-- `manifest.webmanifest` servi par route Hono dédiée (Content-Type correct, non par serveStatic)
-- Icône maskable `icon-maskable-512.png` : logo centré avec 10% safe zone (générée via sharp)
+**URLs media :** `<img>`/`<iframe>` ne peuvent pas envoyer de header → le token
+passe en query `?t=` (cf. `authMiddleware`). Toujours construire les URLs media
+avec `mediaUrl(wsId, id, token)` de `hooks.js`.
 
-**Portal pattern :** Dropdowns devant échapper à `overflow: auto` parent (workspace switcher, popup analyse) → `createPortal(document.body)` + `position: fixed` calculée via `getBoundingClientRect()`.
+## Backend (`server/`)
 
-## Backend (`server`)
+**Dépendances :** hono 4, `@neondatabase/serverless`, bcryptjs, jsonwebtoken
+(JWT HS256), nodemailer (OTP admin + emails reset), sharp + heic-convert (resize +
+HEIC→JPEG), exifreader (date EXIF). Les modules de traitement image sont importés
+**dynamiquement** (`await import(...)`) pour ne pas bloquer l'init serverless.
 
-**Dépendances principales :**
-- hono 4 + @hono/node-server
-- node:sqlite (Node ≥ 22.5, synchronous API, WAL, FK)
-- bcryptjs, jsonwebtoken (JWT HS256)
-- nodemailer (OTP admin email)
-- sharp + heic-convert (resize + HEIC→JPEG)
-- exifreader (date EXIF photos)
-
-**Structure des fichiers :**
-```
-server/index.js          Point d'entrée : .env, rate limiting, routes, serveStatic, SPA fallback
-  Routes spéciales :
-    GET  /manifest.webmanifest         → MIME application/manifest+json
-    GET  /.well-known/assetlinks.json  → TWA digital asset links (ch.pogil.apps)
-server/routes/
-  auth.js       /api/auth/*   — login, register, me
-  portal.js     /api/me/*     — apps, workspace selector
-  admin.js      /api/admin/*  — dashboard, users, settings OTP
-  jourdoc.js    /api/jourdoc/*— toute la logique JourDoc (voir api.md)
-server/middleware/authMiddleware.js    — vérifie JWT, pose c.set('userId')
-server/db/db.js       — connexion SQLite + migrations idempotentes
-server/db/schema.sql  — tables initiales (CREATE TABLE IF NOT EXISTS)
+**Routes montées dans `app.js` :**
+```js
+app.route('/api/auth',    authRoutes)    // login, logout, forgot/reset-password
+app.route('/api/admin',   adminRoutes)   // login OTP, users, settings
+app.route('/api/me',      portalRoutes)  // apps + workspaces (PAS /api)
+app.route('/api/jourdoc', jourdocRoutes) // logique métier (voir api.md)
+app.route('/api/jourdoc', inboxRoutes)   // scan inbox WebDAV (même préfixe)
 ```
 
-**Middleware `wsCheck` :** Vérifie `user_workspace_access`, pose `c.set('wsId', Number)`. Appliqué globalement via `jourdoc.use('/:wsId/*', wsCheck)`.
+**Middleware `wsCheck`** (jourdoc.js) : vérifie `user_workspace_access`, pose
+`c.set('wsId', Number)`. Wildcard Hono v4 : `'/:wsId/*'` (et non `'/:wsId*'`).
 
 ## Patterns récurrents
 
-**Filtrage hiérarchique JS** (`getRelated` dans `calUtils.js`) :
-- Calcule en JS l'ensemble des IDs ancêtres/descendants à partir de la liste complète des nœuds du workspace
-- Direction : `'down'` | `'up'` | `'both'`
-- Utilisé côté client (CalendarView, AnalyseView, ObjetDetail, ThemeDetail) et côté serveur (route `/analyse`)
+- **Filtrage hiérarchique JS** (`getRelated`, `calUtils.js`) : ensemble des IDs
+  ancêtres/descendants depuis la liste plate des nœuds, direction `down|up|both`,
+  profondeur = `jd_search_depth` du workspace. Utilisé côté client (Calendar,
+  Analyse, ObjetDetail, ThemeDetail) et côté serveur (`/analyse`, `/themes/:id/notes`).
+- **Buckets hebdomadaires** (`weekBucket`) : `min(floor((date - jan1)/7j), 51)` →
+  52 colonnes/an, alignées entre années.
+- **Todoist — détection récurrence** : `currentDue > storedDue && !isDone` →
+  occurrence exécutée → `tache_todoist_recurrence_done = TRUE`.
+- **Picker hiérarchique** : `HierarchyPicker` a un mode `filter` (réduit la liste)
+  ou `scroll` (défile), réglable par workspace et par plateforme (mobile/desktop)
+  via `jd_picker_mode_*`.
 
-**Filtrage hiérarchique SQL** (route `/:wsId/objets/:id/notes`) :
-- CTE récursif SQLite WITH RECURSIVE, maxDepth = 3
+## Déploiement (Vercel)
 
-**Buckets hebdomadaires** (`weekBucket` dans `calUtils.js`) :
-- `bucket = min(floor((date - jan1) / 7j), 51)` → 52 colonnes par an
-- Alignement cohérent entre années, indépendant du numéro ISO de semaine
+`git push` → Vercel détecte et déploie (~35 s). Build : `vite build` → `dist/`.
+Les **migrations DB sont appliquées manuellement** sur Neon (voir `database.md`).
 
-**Todoist — détection récurrence** :
-- Si `currentDue > storedDue && !isDone` → occurrence exécutée → `tache_todoist_recurrence_done = 1`
-- Faux positifs sur report de date sont acceptables (pas d'automatisation)
+Incrémenter `build.json` (`{ build, date }`) avant chaque déploiement significatif ;
+injecté par Vite via `define` (`__BUILD_NUMBER__`, `__BUILD_DATE__`).
 
-## Déploiement (Infomaniak)
-
-Push Git → auto `npm install && npm run build && npm start` depuis la racine du repo.
-CWD = racine obligatoire car `serveStatic` résout `apps/hub/dist` relativement.
-
-Variables d'environnement (`.env`) :
-```
-JWT_SECRET          obligatoire
-JWT_EXPIRES_IN      ex. 7d
-PORT                défaut 3000
-ADMIN_EMAIL
-SMTP_HOST/PORT/USER/PASS   optionnel (OTP affiché en console en dev si absent)
-DB_PATH             défaut data/pogil.db
-```
+Variables d'environnement : voir `CLAUDE.md` (DATABASE_URL, JWT_*, SMTP_*,
+WEBDAV_*, TODOIST_*, VITE_API_URL).

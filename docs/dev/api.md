@@ -1,128 +1,152 @@
-# API REST — pogil-apps
+# API REST — JourDoc V2
 
-Base URL : `/api`. Toutes les routes JourDoc nécessitent `Authorization: Bearer <token>`.
+Base : `/api`. Routes montées dans `server/app.js` (cf. `architecture.md`).
+Toutes les routes JourDoc nécessitent `Authorization: Bearer <token>`
+(ou `?t=<token>` pour les ressources chargées en `<img>`/`<iframe>`).
 
-## Auth utilisateur
+## Auth utilisateur (`/api/auth`)
 
 | Méthode | Route | Auth | Description |
 |---|---|---|---|
 | POST | `/auth/login` | — | `{ identifier, password }` → `{ token }` |
-| POST | `/auth/logout` | — | Stateless, client supprime le token |
-| GET | `/auth/me` | Bearer | Profil utilisateur |
+| POST | `/auth/logout` | — | Stateless |
+| POST | `/auth/forgot-password` | — | `{ email }` → envoie un lien de réinitialisation |
+| POST | `/auth/reset-password` | — | `{ token, password }` |
 
-## Portail
-
-| Méthode | Route | Auth | Description |
-|---|---|---|---|
-| GET | `/me/apps` | Bearer | Apps accessibles à l'utilisateur |
-| GET | `/me/apps/:slug/workspaces` | Bearer | Workspaces de l'app |
-
-## Admin (Bearer adminToken)
+## Portail (`/api/me`)
 
 | Méthode | Route | Description |
 |---|---|---|
-| POST | `/admin/login` | Étape 1 : mot de passe → envoi OTP email |
-| POST | `/admin/verify-otp` | Étape 2 : OTP → `{ token }` admin (4h) |
-| GET | `/admin/users` | Liste utilisateurs |
-| POST | `/admin/users` | Créer utilisateur |
-| PUT | `/admin/users/:id` | Modifier utilisateur |
-| DELETE | `/admin/users/:id` | Supprimer utilisateur |
+| GET | `/me/apps` | Apps accessibles à l'utilisateur |
+| GET | `/me/apps/:slug/workspaces` | Workspaces de l'app |
+
+> Monté sur `/api/me` (et **non** `/api`) pour éviter les collisions de routes.
+
+## Admin (`/api/admin`, Bearer admin)
+
+| Méthode | Route | Description |
+|---|---|---|
+| POST | `/admin/login` | Étape 1 : mot de passe → OTP email |
+| POST | `/admin/verify-otp` | Étape 2 : OTP → token admin |
+| GET / POST | `/admin/users` | Lister / créer |
+| PUT / DELETE | `/admin/users/:id` | Modifier / supprimer |
 | PUT | `/admin/users/:id/access` | Droits app/workspace |
-| POST | `/admin/settings/request-otp` | OTP pour changement d'identifiants |
-| POST | `/admin/settings/confirm` | Confirmer avec OTP |
+| POST | `/admin/settings/request-otp` | OTP changement identifiants |
+| POST | `/admin/settings/confirm` | Confirmer (`newEmail` / `newPassword`) |
 
 ---
 
-## JourDoc (`/api/jourdoc/...`)
+## JourDoc (`/api/jourdoc`)
 
-Toutes les routes `:wsId/*` passent par le middleware `wsCheck` (vérifie `user_workspace_access`).
+Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 
-### Workspaces
-
-| Méthode | Route | Description |
-|---|---|---|
-| GET | `/jourdoc/workspaces` | Liste workspaces de l'utilisateur |
-| POST | `/jourdoc/workspaces` | Créer workspace |
-| GET | `/jourdoc/:wsId` | Détails workspace |
-| PATCH | `/jourdoc/:wsId` | Renommer (owner) |
-| DELETE | `/jourdoc/:wsId` | Supprimer + cascade (owner) |
-| GET | `/jourdoc/:wsId/members` | Membres |
-| POST | `/jourdoc/:wsId/members` | Inviter membre |
-| PUT | `/jourdoc/:wsId/members/:uid` | Changer rôle |
-| DELETE | `/jourdoc/:wsId/members/:uid` | Retirer membre |
-
-### Objets
+### Workspaces & réglages
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/jourdoc/:wsId/objets` | Liste tous les objets |
-| POST | `/jourdoc/:wsId/objets` | Créer objet |
-| PUT | `/jourdoc/:wsId/objets/:id` | Modifier (nom, parent, nom_court, etc.) |
-| DELETE | `/jourdoc/:wsId/objets/:id` | Supprimer |
-| GET | `/jourdoc/:wsId/objets/:id/notes` | Notes avec filtre hiérarchique SQL CTE — `?direction=both\|down\|up` |
-| POST | `/jourdoc/:wsId/import/objets` | Import CSV objets |
+| GET / POST | `/jourdoc/workspaces` | Lister / créer |
+| GET | `/jourdoc/:wsId` | Détails + `search_depth`, `picker_mode_mobile/desktop` |
+| PATCH / DELETE | `/jourdoc/:wsId` | Renommer / supprimer (owner) |
+| GET/POST/PUT/DELETE | `/jourdoc/:wsId/members[/:uid]` | Gestion des membres |
+| PATCH | `/jourdoc/:wsId/search-depth` | `{ depth }` (1–10) |
+| PATCH | `/jourdoc/:wsId/picker-mode` | `{ platform: 'mobile'\|'desktop', mode: 'filter'\|'scroll' }` |
+| GET | `/jourdoc/:wsId/export?format=json\|csv&medias=0\|1` | Export workspace (voir plus bas) |
 
-### Thèmes
+### Objets / Thèmes (hiérarchies)
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/jourdoc/:wsId/themes` | Liste tous les thèmes |
-| POST | `/jourdoc/:wsId/themes` | Créer thème |
-| PUT | `/jourdoc/:wsId/themes/:id` | Modifier |
-| DELETE | `/jourdoc/:wsId/themes/:id` | Supprimer |
-| GET | `/jourdoc/:wsId/themes/:id/notes` | Notes avec filtre hiérarchique JS — `?direction=both\|down\|up` |
-| POST | `/jourdoc/:wsId/import/themes` | Import CSV thèmes |
+| GET/POST | `/jourdoc/:wsId/objets` | Lister / créer |
+| PUT/DELETE | `/jourdoc/:wsId/objets/:id` | Modifier / supprimer |
+| GET | `/jourdoc/:wsId/objets/:id/notes?direction=both\|down\|up` | Notes (filtre hiérarchique) |
+| GET/POST | `/jourdoc/:wsId/themes` | Lister / créer |
+| PUT/DELETE | `/jourdoc/:wsId/themes/:id` | Modifier / supprimer |
+| GET | `/jourdoc/:wsId/themes/:id/notes?direction=` | Notes (EXISTS sur `jd_note_theme`) |
+| POST | `/jourdoc/:wsId/import/objets` \| `/import/themes` | Import CSV |
+
+### Éléments (étiquettes plates)
+
+| Méthode | Route | Description |
+|---|---|---|
+| GET/POST | `/jourdoc/:wsId/elements` | Lister / créer (création inline) |
+| PUT/DELETE | `/jourdoc/:wsId/elements/:id` | Renommer / supprimer |
+| POST | `/jourdoc/:wsId/elements/merge` | Fusionner deux éléments |
 
 ### Notes
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/jourdoc/:wsId/notes` | Liste avec filtres : `?type=` `?nature=` `?date_from=` `?date_to=` `?objet_id=` `?theme_id=` |
-| POST | `/jourdoc/:wsId/notes` | Créer note (avec `objet_ids[]`, `media_ids[]`) |
-| GET | `/jourdoc/:wsId/notes/search` | Recherche plein-texte `?q=` (pour NoteLinkPicker) |
-| GET | `/jourdoc/:wsId/notes/:id` | Détail note avec objets, médias, liens entrants/sortants |
-| PUT | `/jourdoc/:wsId/notes/:id` | Modifier note |
+| GET | `/jourdoc/:wsId/notes` | Liste filtrée : `?type= &nature= &date_from= &date_to= &objet_id= &theme_id=` |
+| POST | `/jourdoc/:wsId/notes` | Créer — body `theme_ids[]`, `objet_ids[]`, `element_ids[]`, `media_ids[]` |
+| GET | `/jourdoc/:wsId/notes/search?q=` | Recherche titre (NoteLinkPicker) |
+| GET | `/jourdoc/:wsId/notes/:id` | Détail : `objets[]`, `themes[]`, `elements[]`, `medias[]`, liens entrants/sortants |
+| PUT | `/jourdoc/:wsId/notes/:id` | Modifier |
 | DELETE | `/jourdoc/:wsId/notes/:id` | Supprimer |
-| POST | `/jourdoc/:wsId/notes/:id/liens` | Créer lien note→note |
+| POST | `/jourdoc/:wsId/notes/:id/liens` | Lien note→note |
 | DELETE | `/jourdoc/:wsId/notes/:id/liens/:cibleId` | Supprimer lien |
+
+> **Thèmes multiples** : à l'écriture, le serveur accepte `theme_ids[]` (repli sur
+> `theme_id` legacy) ; il alimente `jd_note_theme` et copie le 1er thème dans
+> `jd_notes.theme_id`. En lecture, les notes exposent un tableau `themes[]`.
 
 ### Médias
 
 | Méthode | Route | Description |
 |---|---|---|
-| POST | `/jourdoc/:wsId/medias` | Upload fichiers (multipart) — traitement EXIF+resize+HEIC |
-| GET | `/jourdoc/:wsId/medias` | Liste avec filtres `?date_from=` `?date_to=` `?type_media=` `?lie=` |
+| POST | `/jourdoc/:wsId/medias` | Upload multipart → EXIF + HEIC→JPEG + resize → WebDAV |
+| GET | `/jourdoc/:wsId/medias` | Liste filtrée `?date_from= &date_to= &type_media= &lie=` |
+| GET | `/jourdoc/:wsId/medias/:id/file` | **Proxy WebDAV** (sert le binaire ; accepte `?t=`) |
 | DELETE | `/jourdoc/:wsId/medias/:id` | Supprimer fichier + DB |
 | GET | `/jourdoc/:wsId/medias/:id/notes` | Notes liées à un média |
-| PUT | `/jourdoc/:wsId/notes/:id/medias` | Mettre à jour médias d'une note |
+| GET/PUT | `/jourdoc/:wsId/notes/:id/medias` | Médias d'une note |
+
+### Inbox (routes `inboxRoutes`, même préfixe `/api/jourdoc`)
+
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/jourdoc/:wsId/inbox` | Liste les fichiers de l'inbox WebDAV |
+| POST | `/jourdoc/:wsId/inbox/scan` | Importe les fichiers de l'inbox (sans conversion) |
 
 ### Todoist — workspace
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/jourdoc/:wsId/todoist` | Config + `last_sync_at` |
-| PUT | `/jourdoc/:wsId/todoist` | Sauvegarder token + projet |
-| POST | `/jourdoc/:wsId/todoist/projects` | Tester token et lister projets |
-| POST | `/jourdoc/:wsId/todoist/sync` | Sync batch des tâches non complétées → `{ ok, synced, completed, errors }` |
-| GET | `/jourdoc/:wsId/todoist/tasks` | Toutes les notes avec tâche liée (done + recurrence + consigne) |
+| GET/PUT | `/jourdoc/:wsId/todoist` | Config + `last_sync_at` |
+| POST | `/jourdoc/:wsId/todoist/projects` | Tester token + lister projets |
+| POST | `/jourdoc/:wsId/todoist/sync` | Sync batch → `{ ok, synced, completed, errors }` |
+| GET | `/jourdoc/:wsId/todoist/tasks` | Notes avec tâche liée (+ `objets[]`, `themes[]`) |
 
 ### Todoist — note
 
 | Méthode | Route | Description |
 |---|---|---|
-| POST | `/jourdoc/:wsId/notes/:id/todoist` | Créer tâche Todoist → `{ task_id, url }` |
-| POST | `/jourdoc/:wsId/notes/:id/todoist/link` | Lier tâche existante via URL/ID Todoist |
-| GET | `/jourdoc/:wsId/notes/:id/todoist` | Statut tâche (polling) → `{ linked, completed, content, due, priority... }` |
-| POST | `/jourdoc/:wsId/notes/:id/todoist/close` | Terminer la tâche dans Todoist |
-| DELETE | `/jourdoc/:wsId/notes/:id/todoist` | Délier (et optionnellement supprimer dans Todoist) |
-| GET | `/jourdoc/:wsId/notes/:id/todoist/details` | Détails complets : `{ completed_at, task_content, task_id, comments[] }` |
-| POST | `/jourdoc/:wsId/notes/:id/todoist/import` | Importer résolution dans la note (ajoute HTML : date + lien tâche + commentaires) |
+| POST | `/jourdoc/:wsId/notes/:id/todoist` | Créer tâche → `{ task_id, url }` |
+| POST | `/jourdoc/:wsId/notes/:id/todoist/link` | Lier une tâche existante (URL/ID) |
+| GET | `/jourdoc/:wsId/notes/:id/todoist` | Statut (polling) |
+| POST | `/jourdoc/:wsId/notes/:id/todoist/close` | Terminer la tâche |
+| DELETE | `/jourdoc/:wsId/notes/:id/todoist` | Délier |
+| GET | `/jourdoc/:wsId/notes/:id/todoist/details` | Détails + commentaires |
+| POST | `/jourdoc/:wsId/notes/:id/todoist/import` | Consigner la résolution dans la note |
 
 ### Analyse pluriannuelle
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/jourdoc/:wsId/analyse` | Notes filtrées pour vue comparative — params : `objet_id`, `objet_dir`, `theme_id`, `theme_dir`, `nature` |
+| GET | `/jourdoc/:wsId/analyse` | `?objet_id= &objet_dir= &theme_id= &theme_dir= &nature=` |
 
-Retourne `{ notes: [{ id, date, nature, type, titre_alt, titre, theme_nom }] }`.
-La documentation exclut les notes avec `nature IS NULL` (documentation intemporelle).
+Filtre thème via `EXISTS (jd_note_theme)`. Exclut les notes `nature IS NULL`
+(documentation intemporelle).
+
+## Export workspace
+
+`GET /:wsId/export?format=json|csv&medias=0|1`
+
+- **JSON** : `{ workspace, objets, themes, elements, notes, medias }` ; chaque note
+  embarque `objets[]`, `themes[]`, `elements[]`, `medias[]`, `liens[]`.
+- **CSV (ZIP)** : référentiels `objets.csv`, `themes.csv`, `elements.csv`, `notes.csv`,
+  `medias.csv` + liaisons `note_objets.csv`, `note_themes.csv`, `note_elements.csv`,
+  `note_medias.csv`, `liens_notes.csv`. Avec `medias=1`, les fichiers binaires
+  (récupérés depuis WebDAV) sont inclus dans le ZIP.
+
+> Référence des constantes de routes côté front : `packages/shared/src/index.js`
+> (objet `API_ROUTES`).
