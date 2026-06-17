@@ -115,8 +115,8 @@ export default function NoteForm() {
     const selectedObjets = objets.filter(o => form.objet_ids.includes(o.id))
     const selectedThemes = themes.filter(t => form.theme_ids.includes(t.id))
 
-    // Titre alternatif compact : max 2 noms joints, sinon 1er suivi de « … »
-    const cap = names => names.length === 0 ? '' : names.length <= 2 ? names.join(', ') : `${names[0]}…`
+    // Titre alternatif compact : max 3 noms joints, sinon les 3 premiers suivis de « … »
+    const cap = names => names.length === 0 ? '' : names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')}…`
 
     // Titre complet : tous les noms
     const parts = []

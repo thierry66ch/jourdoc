@@ -1348,19 +1348,21 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const { format = 'json', medias: withMediasParam = '0' } = c.req.query()
   const withMedias = withMediasParam === '1'
 
-  const [objets, themes, rawNotes, rawMedias] = await Promise.all([
-    sql`SELECT * FROM jd_objets  WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_themes  WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_notes   WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_medias  WHERE workspace_id=${wsId}`,
+  const [objets, themes, elements, rawNotes, rawMedias] = await Promise.all([
+    sql`SELECT * FROM jd_objets   WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_themes   WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_elements WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_notes    WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_medias   WHERE workspace_id=${wsId}`,
   ])
 
   const notes = await Promise.all(rawNotes.map(async n => ({
     ...n,
-    objets: await sql`SELECT o.id,o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id=no.objet_id WHERE no.note_id=${n.id}`,
-    themes: await sql`SELECT t.id,t.nom FROM jd_note_theme nt JOIN jd_themes t ON t.id=nt.theme_id WHERE nt.note_id=${n.id}`,
-    medias: await sql`SELECT m.id,m.nom_original,m.fichier,m.type_media FROM jd_note_media nm JOIN jd_medias m ON m.id=nm.media_id WHERE nm.note_id=${n.id}`,
-    liens:  await sql`SELECT note_cible_id,type_lien FROM jd_note_note WHERE note_source_id=${n.id}`,
+    objets:   await sql`SELECT o.id,o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id=no.objet_id WHERE no.note_id=${n.id}`,
+    themes:   await sql`SELECT t.id,t.nom FROM jd_note_theme nt JOIN jd_themes t ON t.id=nt.theme_id WHERE nt.note_id=${n.id}`,
+    elements: await sql`SELECT e.id,e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id=ne.element_id WHERE ne.note_id=${n.id}`,
+    medias:   await sql`SELECT m.id,m.nom_original,m.fichier,m.type_media FROM jd_note_media nm JOIN jd_medias m ON m.id=nm.media_id WHERE nm.note_id=${n.id}`,
+    liens:    await sql`SELECT note_cible_id,type_lien FROM jd_note_note WHERE note_source_id=${n.id}`,
   })))
 
   const [wsRow] = await sql`SELECT name FROM workspaces WHERE id=${wsId}`
@@ -1369,7 +1371,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const date = new Date().toISOString().slice(0, 10)
 
   if (format === 'json') {
-    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, notes, medias: rawMedias }, null, 2)
+    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, notes, medias: rawMedias }, null, 2)
     c.header('Content-Type', 'application/json')
     c.header('Content-Disposition', `attachment; filename="${slug}-${date}.json"`)
     return c.body(payload)
@@ -1422,13 +1424,29 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     sql`SELECT note_id,theme_id FROM jd_note_theme WHERE note_id=${n.id}`
   ))).flat()
 
+  const noteObjets = (await Promise.all(rawNotes.map(n =>
+    sql`SELECT note_id,objet_id FROM jd_note_objet WHERE note_id=${n.id}`
+  ))).flat()
+
+  const noteElements = (await Promise.all(rawNotes.map(n =>
+    sql`SELECT note_id,element_id FROM jd_note_element WHERE note_id=${n.id}`
+  ))).flat()
+
+  const noteMedias = (await Promise.all(rawNotes.map(n =>
+    sql`SELECT note_id,media_id FROM jd_note_media WHERE note_id=${n.id}`
+  ))).flat()
+
   const zipFiles = [
-    { name: 'objets.csv',      data: toCsv(objets) },
-    { name: 'themes.csv',      data: toCsv(themes) },
-    { name: 'notes.csv',       data: toCsv(rawNotes) },
-    { name: 'note_themes.csv', data: toCsv(noteThemes) },
-    { name: 'medias.csv',      data: toCsv(rawMedias) },
-    { name: 'liens_notes.csv', data: toCsv(liens) },
+    { name: 'objets.csv',        data: toCsv(objets) },
+    { name: 'themes.csv',        data: toCsv(themes) },
+    { name: 'elements.csv',      data: toCsv(elements) },
+    { name: 'notes.csv',         data: toCsv(rawNotes) },
+    { name: 'note_objets.csv',   data: toCsv(noteObjets) },
+    { name: 'note_themes.csv',   data: toCsv(noteThemes) },
+    { name: 'note_elements.csv', data: toCsv(noteElements) },
+    { name: 'medias.csv',        data: toCsv(rawMedias) },
+    { name: 'note_medias.csv',   data: toCsv(noteMedias) },
+    { name: 'liens_notes.csv',   data: toCsv(liens) },
   ]
 
   if (withMedias) {

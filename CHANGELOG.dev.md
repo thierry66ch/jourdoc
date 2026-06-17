@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 7 — 2026-06-17
+
+1. **Titre alternatif** : cap porté de 2 à **3 noms** (sinon 3 premiers + « … »),
+   pour objets et thèmes.
+2. **Export complété** (oublis historiques) : ajout des tables de liaison manquantes
+   `note_objets.csv`, `note_elements.csv`, `note_medias.csv` + le référentiel
+   `elements.csv`. Le JSON embarque aussi `elements[]` par note et le référentiel
+   `elements`. L'export est désormais complet (référentiels + toutes les liaisons).
+
+---
+
 ## Build 6 — 2026-06-17
 
 **Thèmes multiples par note.** Une note peut désormais être liée à plusieurs
