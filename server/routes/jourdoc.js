@@ -395,7 +395,11 @@ jourdoc.delete('/:wsId/members/:uid', async (c) => {
 
 jourdoc.get('/:wsId', async (c) => {
   const wsId = c.get('wsId')
-  const [ws] = await sql`SELECT id, name, COALESCE(jd_search_depth, 3) AS search_depth FROM workspaces WHERE id = ${wsId}`
+  const [ws] = await sql`SELECT id, name,
+      COALESCE(jd_search_depth, 3) AS search_depth,
+      COALESCE(jd_picker_mode_mobile, 'filter')  AS picker_mode_mobile,
+      COALESCE(jd_picker_mode_desktop, 'scroll') AS picker_mode_desktop
+    FROM workspaces WHERE id = ${wsId}`
   return c.json({ workspace: ws })
 })
 
@@ -405,6 +409,22 @@ jourdoc.patch('/:wsId/search-depth', wsCheck, async (c) => {
   const d = Math.max(1, Math.min(10, Number(depth) || 3))
   await sql`UPDATE workspaces SET jd_search_depth=${d} WHERE id=${wsId}`
   return c.json({ ok: true, search_depth: d })
+})
+
+// Mode d'affichage des sélecteurs hiérarchiques (objets/thèmes).
+// body: { platform: 'mobile'|'desktop', mode: 'filter'|'scroll' }
+jourdoc.patch('/:wsId/picker-mode', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const { platform, mode } = await c.req.json()
+  const m = mode === 'filter' ? 'filter' : 'scroll'
+  if (platform === 'mobile') {
+    await sql`UPDATE workspaces SET jd_picker_mode_mobile=${m} WHERE id=${wsId}`
+  } else if (platform === 'desktop') {
+    await sql`UPDATE workspaces SET jd_picker_mode_desktop=${m} WHERE id=${wsId}`
+  } else {
+    return c.json({ error: 'Invalid platform' }, 400)
+  }
+  return c.json({ ok: true, platform, mode: m })
 })
 
 // ── OBJETS ───────────────────────────────────────────────────

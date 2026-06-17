@@ -45,7 +45,7 @@ export default function NoteForm() {
   const { token } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { objets, themes } = useJdData(wsId, token)
+  const { objets, themes, pickerMode } = useJdData(wsId, token)
   const isEdit = Boolean(noteId)
 
   // Médias pré-sélectionnés depuis la galerie (navigation state)
@@ -247,12 +247,12 @@ export default function NoteForm() {
         {/* Thème */}
         <HierarchyPicker items={themes} value={form.theme_id}
           onChange={v => setForm(f => ({ ...f, theme_id: v }))}
-          mode="single" label="Thème" placeholder="Choisir un thème…" />
+          mode="single" label="Thème" placeholder="Choisir un thème…" filterMode={pickerMode} />
 
         {/* Objets */}
         <HierarchyPicker items={objets} value={form.objet_ids}
           onChange={v => setForm(f => ({ ...f, objet_ids: v }))}
-          mode="multi" label="Objets liés" placeholder="Choisir un ou plusieurs objets…" />
+          mode="multi" label="Objets liés" placeholder="Choisir un ou plusieurs objets…" filterMode={pickerMode} />
 
         {/* Éléments */}
         <div className="form-field">

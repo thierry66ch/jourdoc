@@ -23,7 +23,7 @@ const DIR_OPTS = [['both','↕ Les deux'],['down','↓ Descendants'],['up','↑ 
 export default function CalendarView() {
   const { wsId } = useParams()
   const { token } = useAuth()
-  const { objets, themes, searchDepth } = useJdData(wsId, token)
+  const { objets, themes, searchDepth, pickerMode } = useJdData(wsId, token)
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [mode,   setModeState]   = useState(searchParams.get('mode')   ?? 'month')
@@ -122,6 +122,7 @@ export default function CalendarView() {
                 onChange={v => { setObjetFilter(v); if (!v) setObjetDirection('both') }}
                 nullable nullLabel="— Tous —"
                 placeholder="Rechercher un objet…"
+                filterMode={pickerMode}
               />
             </div>
             {objetFilter && (
@@ -145,6 +146,7 @@ export default function CalendarView() {
                 onChange={v => { setThemeFilter(v); if (!v) setThemeDirection('both') }}
                 nullable nullLabel="— Tous —"
                 placeholder="Rechercher un thème…"
+                filterMode={pickerMode}
               />
             </div>
             {themeFilter && (

@@ -22,11 +22,14 @@ function buildSortPath(items) {
  * mode="single"  → valeur unique (id ou null)
  * mode="multi"   → tableau d'ids
  * nullable=true  → affiche "— option racine —" en tête (valeur null)
+ * filterMode="scroll" → défile jusqu'à la 1ère correspondance (historique, défaut)
+ * filterMode="filter" → réduit la liste aux seuls éléments correspondants
  */
 export default function HierarchyPicker({
   items, value, onChange, mode = 'single',
   placeholder = 'Rechercher…', label,
   nullable = false, nullLabel = '— Racine —',
+  filterMode = 'scroll',
 }) {
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(false)
@@ -61,17 +64,27 @@ export default function HierarchyPicker({
     return ids
   }, [baseItems, q])
 
+  // En mode "filter", la liste affichée est réduite aux correspondances
+  // (l'option racine n'est masquée que pendant une recherche).
+  const visibleItems = useMemo(() => {
+    if (filterMode !== 'filter' || !matchedIds) return baseItems
+    return baseItems.filter(i => i.id !== null && matchedIds.has(i.id))
+  }, [baseItems, filterMode, matchedIds])
+
   const firstMatchIdx = useMemo(() => {
     if (!matchedIds) return 0
+    if (filterMode === 'filter') return 0 // liste déjà réduite : 1ère ligne = 1ère correspondance
     const idx = baseItems.findIndex(i => i.id !== null && matchedIds.has(i.id))
     return idx >= 0 ? idx : 0
-  }, [baseItems, matchedIds])
+  }, [baseItems, matchedIds, filterMode])
 
-  // Positionner le focus sur la première correspondance quand la recherche change
+  // Positionner le focus sur la première correspondance quand la recherche change.
+  // Dépend aussi de `q` : en mode "filter", firstMatchIdx reste 0 à chaque frappe,
+  // il faut quand même réinitialiser le focus dans les bornes de la liste réduite.
   useEffect(() => {
     scrollToRef.current = true
     setFocusedIdx(firstMatchIdx)
-  }, [firstMatchIdx])
+  }, [firstMatchIdx, q])
 
   // Scroll uniquement si déclenché par clavier ou recherche (pas par survol souris)
   useEffect(() => {
@@ -128,7 +141,7 @@ export default function HierarchyPicker({
       case 'ArrowDown':
         e.preventDefault()
         scrollToRef.current = true
-        setFocusedIdx(i => Math.min(i + 1, baseItems.length - 1))
+        setFocusedIdx(i => Math.min(i + 1, visibleItems.length - 1))
         break
       case 'ArrowUp':
         e.preventDefault()
@@ -137,7 +150,7 @@ export default function HierarchyPicker({
         break
       case 'Enter':
         e.preventDefault()
-        if (baseItems.length > 0) select(baseItems[focusedIdx]?.id ?? baseItems[0].id)
+        if (visibleItems.length > 0) select(visibleItems[focusedIdx]?.id ?? visibleItems[0].id)
         break
       case 'Escape':
         e.preventDefault()
@@ -197,7 +210,7 @@ export default function HierarchyPicker({
             </div>
           )}
           <ul ref={listRef} className="jd-picker__list" role="listbox">
-            {baseItems.map((item, idx) => {
+            {visibleItems.map((item, idx) => {
               const path = item.id !== null ? (pathMap.get(item.id) ?? '') : ''
               const selected = isSelected(item.id)
               const focused = idx === focusedIdx

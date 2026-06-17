@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
   created_by            INTEGER REFERENCES users(id),
   created_at            TIMESTAMPTZ DEFAULT NOW(),
   jd_search_depth       INTEGER DEFAULT 3,
+  jd_picker_mode_mobile  TEXT DEFAULT 'filter',
+  jd_picker_mode_desktop TEXT DEFAULT 'scroll',
   todoist_token         TEXT,
   todoist_project_id    TEXT,
   todoist_project_nom   TEXT

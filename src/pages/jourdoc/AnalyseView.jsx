@@ -15,7 +15,7 @@ export default function AnalyseView() {
   const { wsId } = useParams()
   const { token } = useAuth()
   const navigate  = useNavigate()
-  const { objets, themes } = useJdData(wsId, token)
+  const { objets, themes, pickerMode } = useJdData(wsId, token)
 
   const [objetFilter,    setObjetFilter]    = useState(null)
   const [objetDir,       setObjetDir]       = useState('both')
@@ -106,7 +106,7 @@ export default function AnalyseView() {
           <div className="jd-analyse__picker">
             <HierarchyPicker items={objets} value={objetFilter}
               onChange={v => { setObjetFilter(v); if (!v) setObjetDir('both') }}
-              nullable nullLabel="— Tous —" placeholder="Rechercher un objet…" />
+              nullable nullLabel="— Tous —" placeholder="Rechercher un objet…" filterMode={pickerMode} />
           </div>
           {objetFilter && (
             <div className="jd-segmented">
@@ -123,7 +123,7 @@ export default function AnalyseView() {
           <div className="jd-analyse__picker">
             <HierarchyPicker items={themes} value={themeFilter}
               onChange={v => { setThemeFilter(v); if (!v) setThemeDir('both') }}
-              nullable nullLabel="— Tous —" placeholder="Rechercher un thème…" />
+              nullable nullLabel="— Tous —" placeholder="Rechercher un thème…" filterMode={pickerMode} />
           </div>
           {themeFilter && (
             <div className="jd-segmented">

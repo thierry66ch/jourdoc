@@ -5,11 +5,31 @@ function authHeader(token) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
 }
 
+// Breakpoint mobile/desktop, identique au reste de l'app (cf. JourDocApp).
+const MOBILE_BREAKPOINT = 768
+
+// true tant que la fenêtre est < MOBILE_BREAKPOINT (réactif au redimensionnement).
+export function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
+    const handler = e => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    setIsMobile(mq.matches)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return isMobile
+}
+
 export function useJdData(wsId, token) {
   const [objets, setObjets]           = useState([])
   const [themes, setThemes]           = useState([])
   const [searchDepth, setSearchDepth] = useState(3)
+  const [pickerModes, setPickerModes] = useState({ mobile: 'filter', desktop: 'scroll' })
   const [loading, setLoading]         = useState(true)
+  const isMobile = useIsMobile()
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -22,13 +42,20 @@ export function useJdData(wsId, token) {
       setObjets(ro.objets ?? [])
       setThemes(rt.themes ?? [])
       setSearchDepth(rw.workspace?.search_depth ?? 3)
+      setPickerModes({
+        mobile:  rw.workspace?.picker_mode_mobile  ?? 'filter',
+        desktop: rw.workspace?.picker_mode_desktop ?? 'scroll',
+      })
     } finally {
       setLoading(false)
     }
   }, [wsId, token])
 
   useEffect(() => { reload() }, [reload])
-  return { objets, themes, searchDepth, loading, reload }
+
+  // Mode résolu pour la plateforme courante : 'filter' (réduire) ou 'scroll' (défiler).
+  const pickerMode = isMobile ? pickerModes.mobile : pickerModes.desktop
+  return { objets, themes, searchDepth, pickerMode, loading, reload }
 }
 
 // Construit une Map id → chemin court (ex. "arb/fru/pom") depuis la liste plate

@@ -170,10 +170,18 @@ export default function WorkspaceManager() {
   }
   const [searchDepth, setSearchDepth] = useState(3)
   const [depthSaved, setDepthSaved] = useState(false)
+  const [pickerModes, setPickerModes] = useState({ mobile: 'filter', desktop: 'scroll' })
+  const [pickerSaved, setPickerSaved] = useState('')
 
   useEffect(() => {
     fetch(API_ROUTES.JD_WS(wsId), { headers: authHeader(token) })
-      .then(r => r.json()).then(d => setSearchDepth(d.workspace?.search_depth ?? 3))
+      .then(r => r.json()).then(d => {
+        setSearchDepth(d.workspace?.search_depth ?? 3)
+        setPickerModes({
+          mobile:  d.workspace?.picker_mode_mobile  ?? 'filter',
+          desktop: d.workspace?.picker_mode_desktop ?? 'scroll',
+        })
+      })
   }, [wsId, token])
 
   async function saveDepth(d) {
@@ -184,6 +192,16 @@ export default function WorkspaceManager() {
     })
     setDepthSaved(true)
     setTimeout(() => setDepthSaved(false), 2000)
+  }
+
+  async function savePickerMode(platform, mode) {
+    setPickerModes(m => ({ ...m, [platform]: mode }))
+    await fetch(API_ROUTES.JD_WS_PICKER_MODE(wsId), {
+      method: 'PATCH', headers: authHeader(token),
+      body: JSON.stringify({ platform, mode }),
+    })
+    setPickerSaved(platform)
+    setTimeout(() => setPickerSaved(''), 2000)
   }
   const [newWsName, setNewWsName] = useState('')
   const [showCreate, setShowCreate] = useState(showCreateOnMount)
@@ -458,6 +476,36 @@ export default function WorkspaceManager() {
             {depthSaved ? '✓ Enregistré' : `Actuellement : ${searchDepth} niveau${searchDepth > 1 ? 'x' : ''}`}
           </span>
         </div>
+      </section>
+
+      {/* ── Affichage des sélecteurs objets/thèmes ── */}
+      <section className="ws-manager__section">
+        <h3 className="ws-manager__title">🔽 Affichage des listes objets / thèmes</h3>
+        <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.75rem' }}>
+          Comportement quand on saisit du texte dans un sélecteur d'objet ou de thème
+          (édition de note, filtres calendrier et analyse). <strong>Réduire</strong> n'affiche
+          que les éléments correspondants ; <strong>Défiler</strong> conserve la liste complète
+          et se positionne sur la 1ère correspondance.
+        </p>
+        {[
+          ['mobile',  '📱 Mobile'],
+          ['desktop', '🖥️ Ordinateur'],
+        ].map(([platform, label]) => (
+          <div key={platform}
+            style={{ display: 'flex', alignItems: 'center', gap: '.75rem', flexWrap: 'wrap', marginBottom: '.5rem' }}>
+            <span style={{ fontSize: '.8125rem', minWidth: '8rem' }}>{label}</span>
+            <div className="jd-segmented">
+              {[['filter', 'Réduire'], ['scroll', 'Défiler']].map(([m, l]) => (
+                <button key={m} type="button"
+                  className={`jd-seg-btn${pickerModes[platform] === m ? ' active' : ''}`}
+                  onClick={() => savePickerMode(platform, m)}>{l}</button>
+              ))}
+            </div>
+            {pickerSaved === platform && (
+              <span style={{ fontSize: '.8125rem', color: 'var(--text-muted)' }}>✓ Enregistré</span>
+            )}
+          </div>
+        ))}
       </section>
 
       {/* ── Todoist ── */}

@@ -4,6 +4,25 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 3 — 2026-06-17
+
+Sélecteurs objets/thèmes (`HierarchyPicker`) : nouveau mode d'affichage **« Réduire »**
+qui filtre la liste aux seuls éléments correspondants à la saisie, en plus du mode
+historique **« Défiler »** (positionnement sur la 1ère correspondance, liste complète).
+Le choix est un réglage de workspace, **distinct mobile / desktop** (breakpoint 768px),
+modifiable dans la page Workspace. Défauts : mobile = `filter`, desktop = `scroll`
+(comportement inchangé sur desktop). Appliqué aux 6 pickers de l'édition de note,
+des filtres calendrier et de la page Analyse. Les sélecteurs de parent (Objets/Thèmes
+managers) restent en `scroll`.
+
+- DB : migration `003_add_picker_mode.sql` → colonnes `jd_picker_mode_mobile` /
+  `jd_picker_mode_desktop` (TEXT) sur `workspaces`.
+- API : `GET /:wsId` renvoie les 2 modes ; nouvelle route `PATCH /:wsId/picker-mode`.
+- Front : `useJdData` résout `pickerMode` selon la largeur d'écran (`useIsMobile`,
+  réactif via `matchMedia`) ; prop `filterMode` sur `HierarchyPicker`.
+
+---
+
 # Version 1 (pour mémoire)
 
 ## Build 92 — 2026-06-12
