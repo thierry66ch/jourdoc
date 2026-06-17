@@ -176,11 +176,15 @@ export default function NoteView() {
             </div>
           )}
 
-          {/* Thème */}
-          {note.theme_nom && (
+          {/* Thèmes */}
+          {note.themes?.length > 0 && (
             <div className="note-view__sidebar-block">
-              <h4 className="note-view__sidebar-title">🏷️ Thème</h4>
-              <span className="jd-chip">{note.theme_nom}</span>
+              <h4 className="note-view__sidebar-title">🏷️ Thèmes</h4>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.375rem' }}>
+                {note.themes.map(t => (
+                  <span key={t.id} className="jd-chip">{t.nom}</span>
+                ))}
+              </div>
             </div>
           )}
 

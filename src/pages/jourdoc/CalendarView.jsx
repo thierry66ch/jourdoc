@@ -70,7 +70,7 @@ export default function CalendarView() {
     }
     if (themeFilter) {
       const ids = getRelated(themes, Number(themeFilter), themeDirection, searchDepth)
-      result = result.filter(n => ids.has(n.theme_id))
+      result = result.filter(n => n.themes?.some(t => ids.has(t.id)))
     }
     return result
   }, [notes, objets, themes, objetFilter, objetDirection, themeFilter, themeDirection])

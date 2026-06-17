@@ -50,11 +50,11 @@ export default function ObjetDetail() {
   const path = pathMap.get(Number(objetId)) ?? ''
 
   const filteredNotes = notes
-    .filter(n => !themeFilter || (n.theme_id != null && getDescendants(themes, Number(themeFilter)).has(n.theme_id)))
+    .filter(n => !themeFilter || n.themes?.some(t => getDescendants(themes, Number(themeFilter)).has(t.id)))
     .filter(n => typeFilter === 'all' || n.type === typeFilter)
 
   // Thèmes présents dans les notes (pour le filtre)
-  const themesInNotes = themes.filter(t => notes.some(n => n.theme_id === t.id))
+  const themesInNotes = themes.filter(t => notes.some(n => n.themes?.some(nt => nt.id === t.id)))
 
   return (
     <div className="jd-objet-detail">

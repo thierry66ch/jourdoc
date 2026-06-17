@@ -54,7 +54,7 @@ export default function NoteForm() {
   const [form, setForm] = useState({
     type:      location.state?.type    ?? 'journal',
     nature:    location.state?.nature  ?? 'observation',
-    theme_id:  null,
+    theme_ids:   location.state?.theme_ids ?? [],
     objet_ids:   location.state?.objet_ids ?? [],
     element_ids: [],
     media_ids: initMediaIds,
@@ -83,7 +83,7 @@ export default function NoteForm() {
         setForm({
           type: note.type,
           nature: note.nature ?? 'observation',
-          theme_id: note.theme_id,
+          theme_ids:   (note.themes ?? []).map(t => t.id),
           objet_ids:   note.objets.map(o => o.id),
           element_ids: (note.elements ?? []).map(e => e.id),
           media_ids: note.medias?.map(m => m.id) ?? [],
@@ -113,15 +113,23 @@ export default function NoteForm() {
 
   function autoTitle() {
     const selectedObjets = objets.filter(o => form.objet_ids.includes(o.id))
-    const theme = themes.find(t => t.id === form.theme_id)
+    const selectedThemes = themes.filter(t => form.theme_ids.includes(t.id))
+
+    // Titre alternatif compact : max 2 noms joints, sinon 1er suivi de « … »
+    const cap = names => names.length === 0 ? '' : names.length <= 2 ? names.join(', ') : `${names[0]}…`
+
+    // Titre complet : tous les noms
     const parts = []
     if (selectedObjets.length) parts.push(selectedObjets.map(o => o.nom).join(', '))
-    if (theme) parts.push(theme.nom)
+    if (selectedThemes.length) parts.push(selectedThemes.map(t => t.nom).join(', '))
     const titre = parts.join(' → ')
+
+    // Titre alternatif : noms courts, cap à 2
     const titreAlt = [
-      selectedObjets.map(o => o.nom_court || o.nom.slice(0, 3)).join(', '),
-      theme ? (theme.nom_court || theme.nom.slice(0, 4)) : '',
+      cap(selectedObjets.map(o => o.nom_court || o.nom.slice(0, 3))),
+      cap(selectedThemes.map(t => t.nom_court || t.nom.slice(0, 4))),
     ].filter(Boolean).join(' → ')
+
     setForm(f => ({ ...f, titre, titre_alt: titreAlt }))
   }
 
@@ -259,10 +267,10 @@ export default function NoteForm() {
           />
         </div>
 
-        {/* Thème */}
-        <HierarchyPicker items={themes} value={form.theme_id}
-          onChange={v => setForm(f => ({ ...f, theme_id: v }))}
-          mode="single" label="Thème" placeholder="Choisir un thème…" filterMode={pickerMode} />
+        {/* Thèmes */}
+        <HierarchyPicker items={themes} value={form.theme_ids}
+          onChange={v => setForm(f => ({ ...f, theme_ids: v }))}
+          mode="multi" label="Thèmes liés" placeholder="Choisir un ou plusieurs thèmes…" filterMode={pickerMode} />
 
         {/* Titre */}
         <div className="form-field">

@@ -33,10 +33,12 @@ function NoteRow({ note, onImport, onFollowUp, importing }) {
           {isConsigne && <span className="todoist-task-row__badge todoist-task-row__badge--done">✓ consigné</span>}
         </div>
 
-        {/* Contexte : thème + objets */}
-        {(note.theme_nom || note.objets?.length > 0) && (
+        {/* Contexte : thèmes + objets */}
+        {(note.themes?.length > 0 || note.theme_nom || note.objets?.length > 0) && (
           <div className="todoist-task-row__context">
-            {note.theme_nom && <span className="jd-note-card__theme">{note.theme_nom}</span>}
+            {note.themes?.length > 0
+              ? note.themes.map(t => <span key={t.id} className="jd-note-card__theme">{t.nom}</span>)
+              : note.theme_nom && <span className="jd-note-card__theme">{note.theme_nom}</span>}
             {note.objets?.length > 0 && (
               <span style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>
                 🌿 {note.objets.map(o => o.nom).join(', ')}

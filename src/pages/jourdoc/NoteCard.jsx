@@ -37,7 +37,9 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
           {note.nature ?? note.type}
         </span>
         {showDate && note.date && <span className="jd-note-card__date">{fmtNoteDate(note.date)}</span>}
-        {note.theme_nom && <span className="jd-note-card__theme">{note.theme_nom}</span>}
+        {note.themes?.length > 0
+          ? note.themes.map(t => <span key={t.id} className="jd-note-card__theme">{t.nom}</span>)
+          : note.theme_nom && <span className="jd-note-card__theme">{note.theme_nom}</span>}
       </div>
 
       <p className="jd-note-card__titre">{note.titre}</p>

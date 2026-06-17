@@ -123,6 +123,12 @@ CREATE TABLE IF NOT EXISTS jd_note_objet (
   PRIMARY KEY (note_id, objet_id)
 );
 
+CREATE TABLE IF NOT EXISTS jd_note_theme (
+  note_id  INTEGER REFERENCES jd_notes(id)  ON DELETE CASCADE,
+  theme_id INTEGER REFERENCES jd_themes(id) ON DELETE CASCADE,
+  PRIMARY KEY (note_id, theme_id)
+);
+
 CREATE TABLE IF NOT EXISTS jd_note_note (
   note_source_id INTEGER REFERENCES jd_notes(id) ON DELETE CASCADE,
   note_cible_id  INTEGER REFERENCES jd_notes(id) ON DELETE CASCADE,
@@ -163,6 +169,7 @@ CREATE TABLE IF NOT EXISTS jd_note_media (
 CREATE INDEX IF NOT EXISTS idx_jd_notes_workspace  ON jd_notes(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_notes_date       ON jd_notes(date);
 CREATE INDEX IF NOT EXISTS idx_jd_notes_theme      ON jd_notes(theme_id);
+CREATE INDEX IF NOT EXISTS idx_jd_note_theme_theme ON jd_note_theme(theme_id);
 CREATE INDEX IF NOT EXISTS idx_jd_objets_workspace ON jd_objets(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_themes_workspace ON jd_themes(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_medias_workspace ON jd_medias(workspace_id);

@@ -267,12 +267,13 @@ function normalizeNote(note) {
 
 async function withData(notes) {
   return Promise.all(notes.map(async note => {
-    const [objets, medias, elements] = await Promise.all([
+    const [objets, themes, medias, elements] = await Promise.all([
       sql`SELECT o.id, o.nom, o.nom_court FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${note.id}`,
+      sql`SELECT t.id, t.nom, t.nom_court FROM jd_note_theme nt JOIN jd_themes t ON t.id = nt.theme_id WHERE nt.note_id = ${note.id} ORDER BY t.nom`,
       sql`SELECT m.id, m.type_media, m.nom_original, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id WHERE nm.note_id = ${note.id} ORDER BY m.created_at LIMIT 6`,
       sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${note.id} ORDER BY e.nom`,
     ])
-    return { ...normalizeNote(note), objets, medias, elements }
+    return { ...normalizeNote(note), objets, themes, medias, elements }
   }))
 }
 
@@ -555,7 +556,8 @@ jourdoc.get('/:wsId/themes/:id/notes', async (c) => {
     SELECT DISTINCT n.*, t.nom AS theme_nom
     FROM jd_notes n
     LEFT JOIN jd_themes t ON t.id = n.theme_id
-    WHERE n.theme_id = ANY(${idsArr}) AND n.workspace_id = ${wsId}
+    WHERE EXISTS (SELECT 1 FROM jd_note_theme nt WHERE nt.note_id = n.id AND nt.theme_id = ANY(${idsArr}))
+      AND n.workspace_id = ${wsId}
     ORDER BY n.date DESC, n.created_at DESC
   `
   return c.json({ notes: await withData(notes) })
@@ -636,7 +638,7 @@ jourdoc.get('/:wsId/notes', async (c) => {
   if (date_from) { query += ` AND n.date >= $${pi++}`;     params.push(date_from) }
   if (date_to)   { query += ` AND n.date <= $${pi++}`;     params.push(date_to) }
   if (objet_id)  { query += ` AND no.objet_id = $${pi++}`; params.push(Number(objet_id)) }
-  if (theme_id)  { query += ` AND n.theme_id = $${pi++}`;  params.push(Number(theme_id)) }
+  if (theme_id)  { query += ` AND EXISTS (SELECT 1 FROM jd_note_theme nt WHERE nt.note_id = n.id AND nt.theme_id = $${pi++})`; params.push(Number(theme_id)) }
   query += ' ORDER BY n.date DESC, n.created_at DESC'
 
   const notes = await sql(query, params)
@@ -653,8 +655,9 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
   `
   if (!note) return c.json({ error: 'Not found' }, 404)
 
-  const [objets, medias, liens, liensEntrants, elements] = await Promise.all([
+  const [objets, themes, medias, liens, liensEntrants, elements] = await Promise.all([
     sql`SELECT o.id, o.nom, o.nom_court FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${id}`,
+    sql`SELECT t.id, t.nom, t.nom_court FROM jd_note_theme nt JOIN jd_themes t ON t.id = nt.theme_id WHERE nt.note_id = ${id} ORDER BY t.nom`,
     sql`SELECT m.id, m.type_media, m.nom_original, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id WHERE nm.note_id = ${id} ORDER BY m.created_at`,
     sql`SELECT nn.note_cible_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_cible_id WHERE nn.note_source_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
     sql`SELECT nn.note_source_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_source_id WHERE nn.note_cible_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
@@ -662,21 +665,27 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
   ])
 
   const fmtN = n => ({ ...n, date: fmtDate(n.date) })
-  return c.json({ note: { ...normalizeNote(note), objets, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements } })
+  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements } })
 })
 
 jourdoc.post('/:wsId/notes', async (c) => {
   const wsId = c.get('wsId')
-  const { type = 'journal', nature, theme_id, titre, titre_alt, contenu, date, source_url, objet_ids = [], media_ids = [], element_ids = [] } = await c.req.json()
+  const body = await c.req.json()
+  const { type = 'journal', nature, titre, titre_alt, contenu, date, source_url, objet_ids = [], media_ids = [], element_ids = [] } = body
+  // theme_ids = source de vérité ; theme_id (legacy) accepté en repli
+  const theme_ids = Array.isArray(body.theme_ids) ? body.theme_ids : (body.theme_id != null ? [body.theme_id] : [])
+  const primaryTheme = theme_ids[0] ?? null
   if (!titre) return c.json({ error: 'titre requis' }, 400)
 
   const [r] = await sql`
     INSERT INTO jd_notes (workspace_id, type, nature, theme_id, titre, titre_alt, contenu, date, source_url)
-    VALUES (${wsId}, ${type}, ${nature ?? null}, ${theme_id ?? null}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
+    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
     RETURNING id
   `
   const noteId = r.id
 
+  for (const themeId of theme_ids)
+    await sql`INSERT INTO jd_note_theme (note_id, theme_id) VALUES (${noteId}, ${themeId}) ON CONFLICT DO NOTHING`
   for (const objetId of objet_ids)
     await sql`INSERT INTO jd_note_objet (note_id, objet_id) VALUES (${noteId}, ${objetId}) ON CONFLICT DO NOTHING`
   for (const mediaId of media_ids) {
@@ -692,14 +701,26 @@ jourdoc.post('/:wsId/notes', async (c) => {
 jourdoc.put('/:wsId/notes/:id', async (c) => {
   const wsId = c.get('wsId')
   const id = Number(c.req.param('id'))
-  const { type, nature, theme_id, titre, titre_alt, contenu, date, source_url, objet_ids, media_ids, element_ids } = await c.req.json()
+  const body = await c.req.json()
+  const { type, nature, titre, titre_alt, contenu, date, source_url, objet_ids, media_ids, element_ids } = body
+  // theme_ids = source de vérité ; theme_id (legacy) accepté en repli
+  const theme_ids = body.theme_ids !== undefined
+    ? (Array.isArray(body.theme_ids) ? body.theme_ids : [])
+    : (body.theme_id !== undefined ? (body.theme_id != null ? [body.theme_id] : []) : undefined)
+  const primaryTheme = theme_ids ? (theme_ids[0] ?? null) : (body.theme_id ?? null)
 
   await sql`
-    UPDATE jd_notes SET type=${type}, nature=${nature ?? null}, theme_id=${theme_id ?? null},
+    UPDATE jd_notes SET type=${type}, nature=${nature ?? null}, theme_id=${primaryTheme},
       titre=${titre}, titre_alt=${titre_alt ?? null}, contenu=${contenu ?? null},
       date=${date ?? null}, source_url=${source_url ?? null}, updated_at=NOW()
     WHERE id=${id} AND workspace_id=${wsId}
   `
+
+  if (theme_ids !== undefined) {
+    await sql`DELETE FROM jd_note_theme WHERE note_id = ${id}`
+    for (const themeId of theme_ids)
+      await sql`INSERT INTO jd_note_theme (note_id, theme_id) VALUES (${id}, ${themeId}) ON CONFLICT DO NOTHING`
+  }
 
   if (objet_ids !== undefined) {
     await sql`DELETE FROM jd_note_objet WHERE note_id = ${id}`
@@ -1051,6 +1072,7 @@ jourdoc.get('/:wsId/todoist/tasks', wsCheck, async (c) => {
   const withObjets = await Promise.all(notes.map(async n => ({
     ...normalizeNote(n),
     objets: await sql`SELECT o.id, o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${n.id}`,
+    themes: await sql`SELECT t.id, t.nom FROM jd_note_theme nt JOIN jd_themes t ON t.id = nt.theme_id WHERE nt.note_id = ${n.id} ORDER BY t.nom`,
   })))
   return c.json({ notes: withObjets })
   } catch (err) {
@@ -1336,6 +1358,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const notes = await Promise.all(rawNotes.map(async n => ({
     ...n,
     objets: await sql`SELECT o.id,o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id=no.objet_id WHERE no.note_id=${n.id}`,
+    themes: await sql`SELECT t.id,t.nom FROM jd_note_theme nt JOIN jd_themes t ON t.id=nt.theme_id WHERE nt.note_id=${n.id}`,
     medias: await sql`SELECT m.id,m.nom_original,m.fichier,m.type_media FROM jd_note_media nm JOIN jd_medias m ON m.id=nm.media_id WHERE nm.note_id=${n.id}`,
     liens:  await sql`SELECT note_cible_id,type_lien FROM jd_note_note WHERE note_source_id=${n.id}`,
   })))
@@ -1395,10 +1418,15 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     sql`SELECT note_source_id,note_cible_id,type_lien FROM jd_note_note WHERE note_source_id=${n.id}`
   ))).flat()
 
+  const noteThemes = (await Promise.all(rawNotes.map(n =>
+    sql`SELECT note_id,theme_id FROM jd_note_theme WHERE note_id=${n.id}`
+  ))).flat()
+
   const zipFiles = [
     { name: 'objets.csv',      data: toCsv(objets) },
     { name: 'themes.csv',      data: toCsv(themes) },
     { name: 'notes.csv',       data: toCsv(rawNotes) },
+    { name: 'note_themes.csv', data: toCsv(noteThemes) },
     { name: 'medias.csv',      data: toCsv(rawMedias) },
     { name: 'liens_notes.csv', data: toCsv(liens) },
   ]
@@ -1456,7 +1484,7 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
   }
   if (theme_id) {
     const ids = [...await relatedIds('jd_themes', Number(theme_id), theme_dir)]
-    query += ` AND n.theme_id = ANY($${pi++})`
+    query += ` AND EXISTS (SELECT 1 FROM jd_note_theme nt WHERE nt.note_id=n.id AND nt.theme_id = ANY($${pi++}))`
     params.push(ids)
   }
   if (nature && nature !== 'both') {

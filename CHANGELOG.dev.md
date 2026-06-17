@@ -4,6 +4,27 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 6 — 2026-06-17
+
+**Thèmes multiples par note.** Une note peut désormais être liée à plusieurs
+thèmes (comme les objets). Calqué sur le patron `jd_note_objet`.
+
+- DB : migration `004_note_theme_multi.sql` → table `jd_note_theme`
+  (`ON DELETE CASCADE`), reprise des `theme_id` existants (30 liaisons migrées),
+  index. `jd_notes.theme_id` **conservé** (legacy) et alimenté avec le 1er thème.
+- Backend : `withData()` + `GET /notes/:id` renvoient `themes[]`. POST/PUT
+  écrivent `jd_note_theme` (champ `theme_ids`, repli sur `theme_id`). Filtres
+  passés en `EXISTS (jd_note_theme)` dans `/notes`, `/themes/:id/notes`, `/analyse`.
+  Mapping `themes[]` ajouté à `/todoist/tasks`.
+- Export : `themes[]` par note dans le JSON + nouveau `note_themes.csv` dans le ZIP.
+- Front : picker thème en mode multi (chips), `NoteForm.theme_ids[]`. Affichage
+  multi-chips dans NoteCard / NoteView / TodoistTasks. Filtres calendrier et
+  ObjetDetail adaptés au tableau `themes[]`.
+- **Générateur de titre** : titre complet = tous les noms ; titre alternatif
+  (calendrier compact) = max 2 noms, sinon 1er suivi de « … » — pour objets ET thèmes.
+
+---
+
 ## Build 5 — 2026-06-17
 
 Fix alignement : le picker d'éléments démarrait plus à gauche que les pickers
