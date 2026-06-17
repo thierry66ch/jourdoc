@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 5 — 2026-06-17
+
+Fix alignement : le picker d'éléments démarrait plus à gauche que les pickers
+objets/thèmes. Padding horizontal aligné sur `.input` (1rem) et bordure passée
+à 1.5px pour cohérence visuelle complète.
+
+---
+
 ## Build 4 — 2026-06-17
 
 Améliorations ergonomiques de l'éditeur de note (retours terrain mobile) :

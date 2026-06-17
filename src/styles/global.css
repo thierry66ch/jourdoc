@@ -1113,8 +1113,8 @@ button, input, select, textarea { font: inherit; color: inherit }
 .element-chip__remove:hover { opacity: 1 }
 .element-picker__field {
   display: flex; flex-wrap: wrap; align-items: center; gap: .375rem;
-  border: 1px solid var(--border); border-radius: var(--r);
-  padding: .25rem .5rem; background: var(--surface-alt); cursor: text; min-height: 38px;
+  border: 1.5px solid var(--border); border-radius: var(--r);
+  padding: .3rem 1rem; background: var(--surface-alt); cursor: text; min-height: 38px;
   transition: border-color .15s var(--ease), background .15s;
 }
 .element-picker__field:focus-within { border-color: var(--accent); background: var(--surface) }
