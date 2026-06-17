@@ -92,6 +92,7 @@ Ne jamais revenir à `import { handle } from 'hono/vercel'` — ça timeout.
 ## Auth — JWT
 
 Deux niveaux :
+
 - **User** : `authMiddleware` vérifie `Authorization: Bearer <token>` **ou** `?t=<token>`
   (query param nécessaire pour les `<img src>` et `<iframe src>` qui ne peuvent pas
   envoyer de headers). Utiliser `mediaUrl(wsId, id, token)` de `hooks.js` pour
@@ -208,6 +209,14 @@ VITE_API_URL=https://jourdoc.pogil.ch
 - Injecté par Vite via `define` : `__BUILD_NUMBER__`, `__BUILD_DATE__`
 - **Incrémenter à chaque déploiement significatif** avant le commit/push
 
+## Journal des itérations
+
+À chaque itération, ajouter une entrée en tête de `CHANGELOG.dev.md`.
+
+## Documentation développeur
+
+Maintenir `docs/dev/` : `architecture.md`, `database.md`, `api.md`, `jourdoc.md`, `auth.md`. Ne pas dupliquer CLAUDE.md — se concentrer sur décisions d'architecture, flux de données, points d'extension.
+
 ## Domaine et DNS
 
 - `jourdoc.pogil.ch` → CNAME `cname.vercel-dns.com`
@@ -249,6 +258,7 @@ import('./db/db.js').then(async ({ default: sql }) => {
 ## État de production (2026-06-16)
 
 Fonctionnalités opérationnelles :
+
 - Auth user (login, logout, forgot/reset password)
 - Auth admin (login OTP, settings OTP, changement email/mdp)
 - Workspaces (création, accès)
@@ -259,6 +269,7 @@ Fonctionnalités opérationnelles :
 - Migration SQLite→Neon + fichiers→KDrive (scripts dans db/)
 
 Workspaces existants :
+
 - id=1 : "Jardin (test)" — workspace de test conservé
 - id=2 : workspace de production principal
 - id=3 : autre workspace de production
