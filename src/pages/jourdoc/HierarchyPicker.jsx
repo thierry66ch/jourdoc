@@ -116,6 +116,21 @@ export default function HierarchyPicker({
     return mode === 'single' ? value === id : (value ?? []).includes(id)
   }
 
+  // Items réellement sélectionnés (pour l'affichage en chips dans le trigger).
+  // En single, une valeur null = "racine"/"aucun" → pas de chip.
+  const selectedItems = useMemo(() => {
+    if (mode === 'single') {
+      if (value === null || value === undefined) return []
+      const it = items.find(i => i.id === value)
+      return it ? [it] : []
+    }
+    return (value ?? []).map(id => items.find(i => i.id === id)).filter(Boolean)
+  }, [mode, value, items])
+
+  function removeValue(id) {
+    onChange(mode === 'single' ? null : (value ?? []).filter(x => x !== id))
+  }
+
   function displayValue() {
     if (mode === 'single') {
       if (value === null && nullable) return nullLabel
@@ -183,9 +198,26 @@ export default function HierarchyPicker({
         aria-expanded={open}
         aria-haspopup="listbox"
       >
-        <span style={{ color: hasValue ? 'var(--text)' : 'var(--text-subtle)', flex: 1 }}>
-          {displayText || placeholder}
-        </span>
+        {selectedItems.length > 0 ? (
+          <div className="jd-picker__chips">
+            {selectedItems.map(it => (
+              <span key={it.id} className="jd-picker__chip">
+                {it.nom}
+                <button
+                  type="button"
+                  className="jd-picker__chip-remove"
+                  aria-label={`Retirer ${it.nom}`}
+                  onMouseDown={e => { e.preventDefault(); e.stopPropagation(); removeValue(it.id) }}
+                  onClick={e => e.stopPropagation()}
+                >×</button>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span style={{ color: hasValue ? 'var(--text)' : 'var(--text-subtle)', flex: 1 }}>
+            {displayText || placeholder}
+          </span>
+        )}
         <span style={{ color: 'var(--text-muted)', fontSize: '.75rem' }}>{open ? '▲' : '▼'}</span>
       </div>
 

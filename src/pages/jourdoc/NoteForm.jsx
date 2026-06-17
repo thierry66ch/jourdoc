@@ -244,11 +244,6 @@ export default function NoteForm() {
           </div>
         )}
 
-        {/* Thème */}
-        <HierarchyPicker items={themes} value={form.theme_id}
-          onChange={v => setForm(f => ({ ...f, theme_id: v }))}
-          mode="single" label="Thème" placeholder="Choisir un thème…" filterMode={pickerMode} />
-
         {/* Objets */}
         <HierarchyPicker items={objets} value={form.objet_ids}
           onChange={v => setForm(f => ({ ...f, objet_ids: v }))}
@@ -263,6 +258,11 @@ export default function NoteForm() {
             wsId={wsId} token={token}
           />
         </div>
+
+        {/* Thème */}
+        <HierarchyPicker items={themes} value={form.theme_id}
+          onChange={v => setForm(f => ({ ...f, theme_id: v }))}
+          mode="single" label="Thème" placeholder="Choisir un thème…" filterMode={pickerMode} />
 
         {/* Titre */}
         <div className="form-field">

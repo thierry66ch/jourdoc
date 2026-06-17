@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 4 — 2026-06-17
+
+Améliorations ergonomiques de l'éditeur de note (retours terrain mobile) :
+
+1. **Chips objets/thèmes** : les valeurs sélectionnées dans `HierarchyPicker`
+   s'affichent désormais en chips (bordure + croix `×`), même look que le picker
+   d'éléments. Retrait d'un choix en un clic sur la croix. Couleur accent pour
+   distinguer des éléments (ambre). Nouvelles classes `.jd-picker__chip(s)`.
+2. **Fond du picker d'éléments** aligné sur les autres champs (`--surface-alt`,
+   `--surface` au focus).
+3. **Ordre des champs** dans l'éditeur de note : Objets → Éléments → Thème.
+4. **Champ Contenu redimensionnable** verticalement (poignée bas-droite) :
+   `.rte-content` en `resize: vertical` (min 140px, max 75vh), ProseMirror en flex.
+
+---
+
 ## Build 3 — 2026-06-17
 
 Sélecteurs objets/thèmes (`HierarchyPicker`) : nouveau mode d'affichage **« Réduire »**
