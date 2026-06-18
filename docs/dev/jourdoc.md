@@ -68,7 +68,9 @@ La suppression met `doc_categorie_id` à NULL sur les notes concernées (compteu
 
 **`ObjetDetail.jsx` / `ThemeDetail.jsx`** — notes récursives
 (`/objets|themes/:id/notes?direction=both|down|up`) + filtres croisés (les filtres
-de thème opèrent sur le tableau `themes[]` des notes).
+de thème opèrent sur le tableau `themes[]` des notes). Filtre **par catégorie de
+documentation** (apparaît quand des catégories sont présentes ; option « Sans
+catégorie » ; masqué si le type est restreint au journal).
 
 ## Calendrier & analyse
 

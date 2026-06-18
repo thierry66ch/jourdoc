@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 9 — 2026-06-18
+
+Filtrage par catégorie de documentation dans ObjetDetail et ThemeDetail : un
+sélecteur de catégorie apparaît dès qu'une note de doc catégorisée est présente
+(avec option « — Sans catégorie »). Filtrage client sur `note.doc_categorie`.
+Le sélecteur se masque et se réinitialise quand le filtre de type est mis sur
+« Journal ». Catégories listées dans l'ordre du référentiel (`docCategories`).
+
+---
+
 ## Build 8 — 2026-06-18
 
 **Catégories de documentation.** Les notes de type « documentation » reçoivent une

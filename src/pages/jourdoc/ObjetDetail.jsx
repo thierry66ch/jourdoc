@@ -22,12 +22,13 @@ export default function ObjetDetail() {
   const { wsId, objetId } = useParams()
   const { token } = useAuth()
   const navigate = useNavigate()
-  const { objets, themes } = useJdData(wsId, token)
+  const { objets, themes, docCategories } = useJdData(wsId, token)
 
   const [notes, setNotes] = useState([])
   const [direction, setDirection] = useState('both')
   const [themeFilter, setThemeFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
+  const [catFilter, setCatFilter] = useState('')
   const [loading, setLoading] = useState(true)
 
   const objet = objets.find(o => o.id === Number(objetId))
@@ -52,9 +53,18 @@ export default function ObjetDetail() {
   const filteredNotes = notes
     .filter(n => !themeFilter || n.themes?.some(t => getDescendants(themes, Number(themeFilter)).has(t.id)))
     .filter(n => typeFilter === 'all' || n.type === typeFilter)
+    .filter(n => {
+      if (!catFilter) return true
+      if (catFilter === '__none__') return n.type === 'documentation' && !n.doc_categorie
+      return n.doc_categorie?.id === Number(catFilter)
+    })
 
   // Thèmes présents dans les notes (pour le filtre)
   const themesInNotes = themes.filter(t => notes.some(n => n.themes?.some(nt => nt.id === t.id)))
+  // Catégories de doc présentes dans les notes (pour le filtre)
+  const catsInNotes = docCategories.filter(c => notes.some(n => n.doc_categorie?.id === c.id))
+  const hasUncatDoc = notes.some(n => n.type === 'documentation' && !n.doc_categorie)
+  const showCatFilter = typeFilter !== 'journal' && (catsInNotes.length > 0 || hasUncatDoc)
 
   return (
     <div className="jd-objet-detail">
@@ -87,11 +97,19 @@ export default function ObjetDetail() {
             {themesInNotes.map(t => <option key={t.id} value={t.id}>{t.nom}</option>)}
           </select>
         )}
+        {showCatFilter && (
+          <select value={catFilter} onChange={e => setCatFilter(e.target.value)}
+            className="jd-filter-select" style={{ marginLeft: '.75rem' }}>
+            <option value="">Toutes catégories</option>
+            {catsInNotes.map(c => <option key={c.id} value={c.id}>{c.icon} {c.nom}</option>)}
+            {hasUncatDoc && <option value="__none__">— Sans catégorie</option>}
+          </select>
+        )}
         <div className="jd-segmented" style={{ marginLeft: 'auto' }}>
           {[['all','Tout'],['journal','📔 Journal'],['documentation','📄 Doc.']].map(([v,l]) => (
             <button key={v} type="button"
               className={`jd-seg-btn${typeFilter === v ? ' active' : ''}`}
-              onClick={() => setTypeFilter(v)}>{l}</button>
+              onClick={() => { setTypeFilter(v); if (v === 'journal') setCatFilter('') }}>{l}</button>
           ))}
         </div>
       </div>
