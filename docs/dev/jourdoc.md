@@ -88,8 +88,11 @@ Pleine largeur (`jd-main--wide`).
 du workspace, **groupée en étagères par catégorie**. Charge `GET /notes?type=documentation`
 (pas de route dédiée). Recherche (titre + titre_alt + contenu HTML détaggé), tri
 (récent / A→Z), légende de catégories cliquables (chips colorées + compteurs, dont
-« Sans catégorie »). Chaque étagère a un bandeau coloré repliable + une grille de
-`NoteCard`. Tout est calculé côté client (`useMemo`).
+« Sans catégorie »). **Densité** cartes / compact (persistée en `localStorage`).
+**Filtres secondaires** objet + thème via `HierarchyPicker` + portée
+ancêtres/descendants (`getRelated` avec `searchDepth`). Chaque étagère a un bandeau
+coloré repliable + une grille de `NoteCard` (ou liste compacte). Tout est calculé
+côté client (`useMemo`).
 
 ## Médias & stockage
 

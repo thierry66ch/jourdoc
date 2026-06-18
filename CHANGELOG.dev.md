@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 11 — 2026-06-18
+
+Bibliothèque enrichie :
+
+- **Densité d'affichage** : bascule Cartes / Compact (liste à puce colorée +
+  titre + objets/thèmes), préférence mémorisée en `localStorage`.
+- **Filtres secondaires** objet + thème (`HierarchyPicker`) avec portée
+  ancêtres/descendants (`↕/↓/↑`), réutilisant `getRelated` + `searchDepth`.
+
+---
+
 ## Build 10 — 2026-06-18
 
 **Bibliothèque** : nouvelle page `/bibliotheque` (nav 📚 Biblio) pour parcourir

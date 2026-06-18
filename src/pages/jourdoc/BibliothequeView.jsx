@@ -1,9 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
 import { useJdData, authHeader, docCategorieBadgeStyle } from './hooks'
+import { getRelated } from './calUtils'
+import HierarchyPicker from './HierarchyPicker'
 import NoteCard from './NoteCard'
+
+const DIR_OPTS = [['both', '↕ Les deux'], ['down', '↓ Descendants'], ['up', '↑ Ancêtres']]
 
 function stripHtml(html) {
   return (html || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ')
@@ -11,12 +15,13 @@ function stripHtml(html) {
 
 /**
  * Bibliothèque : parcours de toute la documentation du workspace,
- * groupée en « étagères » par catégorie. Recherche, tri, filtre.
+ * groupée en « étagères » par catégorie. Recherche, tri, densité, filtres objet/thème.
  */
 export default function BibliothequeView() {
   const { wsId } = useParams()
+  const navigate = useNavigate()
   const { token } = useAuth()
-  const { docCategories } = useJdData(wsId, token)
+  const { objets, themes, docCategories, searchDepth, pickerMode } = useJdData(wsId, token)
 
   const [notes, setNotes]     = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,6 +29,14 @@ export default function BibliothequeView() {
   const [sort, setSort]       = useState('recent') // 'recent' | 'alpha'
   const [selCat, setSelCat]   = useState(null)      // null | id | '__none__'
   const [collapsed, setCollapsed] = useState(() => new Set())
+  const [density, setDensity] = useState(() => localStorage.getItem('biblio_density') || 'cards')
+
+  const [objetFilter, setObjetFilter] = useState(null)
+  const [objetDir, setObjetDir]       = useState('both')
+  const [themeFilter, setThemeFilter] = useState(null)
+  const [themeDir, setThemeDir]       = useState('both')
+
+  useEffect(() => { localStorage.setItem('biblio_density', density) }, [density])
 
   useEffect(() => {
     setLoading(true)
@@ -33,19 +46,23 @@ export default function BibliothequeView() {
       .finally(() => setLoading(false))
   }, [wsId, token])
 
-  // Recherche (titre + titre_alt + contenu) puis tri
+  // Recherche + filtres objet/thème (hiérarchiques) + tri
   const matched = useMemo(() => {
     const lq = q.trim().toLowerCase()
+    const objetIds = objetFilter ? getRelated(objets, Number(objetFilter), objetDir, searchDepth) : null
+    const themeIds = themeFilter ? getRelated(themes, Number(themeFilter), themeDir, searchDepth) : null
     let list = notes
     if (lq) list = list.filter(n =>
       (n.titre || '').toLowerCase().includes(lq) ||
       (n.titre_alt || '').toLowerCase().includes(lq) ||
       stripHtml(n.contenu).toLowerCase().includes(lq)
     )
+    if (objetIds) list = list.filter(n => n.objets?.some(o => objetIds.has(o.id)))
+    if (themeIds) list = list.filter(n => n.themes?.some(t => themeIds.has(t.id)))
     return [...list].sort((a, b) => sort === 'alpha'
       ? (a.titre || '').localeCompare(b.titre || '', 'fr', { sensitivity: 'base' })
       : (b.date || '').localeCompare(a.date || '') || b.id - a.id)
-  }, [notes, q, sort])
+  }, [notes, q, sort, objetFilter, objetDir, themeFilter, themeDir, objets, themes, searchDepth])
 
   const counts = useMemo(() => {
     const m = new Map(); let none = 0
@@ -56,7 +73,6 @@ export default function BibliothequeView() {
     return { m, none }
   }, [matched])
 
-  // Étagères ordonnées selon le référentiel, + « Sans catégorie » en fin
   const groups = useMemo(() => {
     const visible = selCat == null ? matched
       : matched.filter(n => selCat === '__none__' ? !n.doc_categorie : n.doc_categorie?.id === selCat)
@@ -78,6 +94,36 @@ export default function BibliothequeView() {
     setCollapsed(s => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n })
   }
 
+  function renderItems(items) {
+    if (density === 'compact') {
+      return (
+        <ul className="biblio__rows">
+          {items.map(n => {
+            const meta = [
+              n.objets?.map(o => o.nom).join(', '),
+              n.themes?.map(t => t.nom).join(', '),
+            ].filter(Boolean).join(' · ')
+            return (
+              <li key={n.id}>
+                <button type="button" className="biblio__row"
+                  onClick={() => navigate(`/jourdoc/${wsId}/notes/${n.id}`, { state: { noteIds: flatIds } })}>
+                  <span className="biblio__row-dot" style={{ background: n.doc_categorie?.couleur || '#d97706' }} />
+                  <span className="biblio__row-title">{n.titre}</span>
+                  {meta && <span className="biblio__row-meta">{meta}</span>}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )
+    }
+    return (
+      <div className="biblio__grid">
+        {items.map(n => <NoteCard key={n.id} note={n} contextNoteIds={flatIds} />)}
+      </div>
+    )
+  }
+
   return (
     <div className="biblio">
       <div className="biblio__head">
@@ -94,6 +140,48 @@ export default function BibliothequeView() {
                 onClick={() => setSort(v)}>{l}</button>
             ))}
           </div>
+          <div className="jd-segmented" title="Densité d'affichage">
+            {[['cards', '▦ Cartes'], ['compact', '☰ Compact']].map(([v, l]) => (
+              <button key={v} type="button" className={`jd-seg-btn${density === v ? ' active' : ''}`}
+                onClick={() => setDensity(v)}>{l}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Filtres secondaires objet + thème (avec portée ancêtres/descendants) */}
+      <div className="biblio__filters">
+        <div className="biblio__filter">
+          <span className="biblio__filter-label">🌿 Objet</span>
+          <div className="biblio__filter-picker">
+            <HierarchyPicker items={objets} value={objetFilter}
+              onChange={v => { setObjetFilter(v); if (!v) setObjetDir('both') }}
+              nullable nullLabel="— Tous —" placeholder="Filtrer par objet…" filterMode={pickerMode} />
+          </div>
+          {objetFilter && (
+            <div className="jd-segmented">
+              {DIR_OPTS.map(([v, l]) => (
+                <button key={v} type="button" className={`jd-seg-btn${objetDir === v ? ' active' : ''}`}
+                  onClick={() => setObjetDir(v)}>{l}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="biblio__filter">
+          <span className="biblio__filter-label">🏷️ Thème</span>
+          <div className="biblio__filter-picker">
+            <HierarchyPicker items={themes} value={themeFilter}
+              onChange={v => { setThemeFilter(v); if (!v) setThemeDir('both') }}
+              nullable nullLabel="— Tous —" placeholder="Filtrer par thème…" filterMode={pickerMode} />
+          </div>
+          {themeFilter && (
+            <div className="jd-segmented">
+              {DIR_OPTS.map(([v, l]) => (
+                <button key={v} type="button" className={`jd-seg-btn${themeDir === v ? ' active' : ''}`}
+                  onClick={() => setThemeDir(v)}>{l}</button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -125,7 +213,7 @@ export default function BibliothequeView() {
       ) : groups.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state__icon">📚</div>
-          <p>{q ? 'Aucun document pour cette recherche.' : 'Aucune note de documentation.'}</p>
+          <p>{q || objetFilter || themeFilter ? 'Aucun document pour ces filtres.' : 'Aucune note de documentation.'}</p>
         </div>
       ) : (
         groups.map(g => {
@@ -141,13 +229,7 @@ export default function BibliothequeView() {
                 <span className="biblio__shelf-count">{g.items.length}</span>
                 <span className="biblio__shelf-caret">{isCollapsed ? '▸' : '▾'}</span>
               </button>
-              {!isCollapsed && (
-                <div className="biblio__grid">
-                  {g.items.map(note => (
-                    <NoteCard key={note.id} note={note} contextNoteIds={flatIds} />
-                  ))}
-                </div>
-              )}
+              {!isCollapsed && renderItems(g.items)}
             </section>
           )
         })
