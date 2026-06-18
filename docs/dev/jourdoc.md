@@ -110,6 +110,14 @@ Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamique
 **Inbox** (`server/routes/inbox.js`) : `GET /:wsId/inbox` liste, `POST /:wsId/inbox/scan`
 importe les fichiers déposés (sous-dossier `WEBDAV_PATH_INBOX/{wsId}/`).
 
+**Documents Markdown** (`MarkdownModal.jsx`) — nouveau `type_media='markdown'`.
+Pièces jointes `.md` (import ou création « + Document » depuis une note). Modal
+plein écran : visualiseur (md→HTML via `marked` → `RichTextView`) et **éditeur
+WYSIWYG** (réutilise `RichTextEditor`/Tiptap ; sauvegarde HTML→md via `turndown`).
+Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`, `getTextFile`/
+`putTextFile`). Ouvert depuis NoteView et MediaGallery ; exclu des lightbox/vignettes
+photo. Dépendances : `marked`, `turndown`.
+
 ## Todoist
 
 **`TodoistPanel.jsx`** (sidebar NoteView) — créer / lier (extraction d'ID depuis

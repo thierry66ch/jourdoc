@@ -3506,6 +3506,32 @@ button, input, select, textarea { font: inherit; color: inherit }
 .jd-analyse__popup-item:hover { background: var(--accent-bg); color: var(--accent) }
 .jd-analyse__popup-more { font-size: .7rem; color: var(--text-muted); padding: .1rem .25rem; display: block }
 
+/* ── MarkdownModal ─────────────────────── */
+.md-modal {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center; padding: 2vh 1rem;
+}
+.md-modal__panel {
+  background: var(--surface); border-radius: var(--r-lg);
+  width: min(900px, 100%); height: 96vh; max-height: 96vh;
+  display: flex; flex-direction: column; overflow: hidden; box-shadow: var(--shadow-lg);
+}
+.md-modal__bar {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem .75rem; border-bottom: 1px solid var(--border); background: var(--surface-alt);
+}
+.md-modal__title { font-weight: 700; font-size: 1rem; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.md-modal__name { flex: 1; padding: .4rem .6rem; font-size: .9375rem }
+.md-modal__actions { display: flex; align-items: center; gap: .4rem; flex-shrink: 0 }
+.md-modal__actions .btn { padding: .4rem .8rem; font-size: .8125rem }
+.md-modal__close { padding: .4rem .6rem !important }
+.md-modal__body { flex: 1; overflow-y: auto; padding: 1rem 1.25rem }
+.md-modal__view { font-size: .9375rem; line-height: 1.65 }
+.md-modal__empty { color: var(--text-muted); text-align: center; padding: 2rem }
+/* L'éditeur occupe toute la hauteur du modal */
+.md-modal__body .rte { display: flex; flex-direction: column; min-height: 100% }
+
 /* ── Bibliothèque ──────────────────────── */
 .biblio { padding-bottom: 2rem }
 .biblio__head {

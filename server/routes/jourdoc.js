@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
-import { uploadFile, downloadFile, deleteFile, listFiles } from '../../packages/storage/index.js'
+import { uploadFile, downloadFile, deleteFile, listFiles, getTextFile, putTextFile } from '../../packages/storage/index.js'
 
 const jourdoc = new Hono()
 
@@ -849,7 +849,8 @@ jourdoc.delete('/:wsId/notes/:id', async (c) => {
 
 // ── MÉDIAS ───────────────────────────────────────────────────
 
-const ALLOWED_EXTS = new Set(['jpg','jpeg','png','gif','webp','heic','heif','avif','pdf'])
+const ALLOWED_EXTS = new Set(['jpg','jpeg','png','gif','webp','heic','heif','avif','pdf','md','markdown'])
+const MARKDOWN_EXTS = new Set(['md','markdown'])
 const IMAGE_EXTS   = new Set(['jpg','jpeg','png','gif','webp','heic','heif','avif'])
 const HEIC_EXTS    = new Set(['heic','heif'])
 const MAX_DIM = 1600
@@ -923,19 +924,23 @@ jourdoc.post('/:wsId/medias', async (c) => {
       const ext = (file.name.split('.').pop() ?? '').toLowerCase()
       if (!ALLOWED_EXTS.has(ext)) continue
 
-      const typeMedia = ext === 'pdf' ? 'pdf' : 'photo'
+      const isMd = MARKDOWN_EXTS.has(ext)
+      const typeMedia = ext === 'pdf' ? 'pdf' : isMd ? 'markdown' : 'photo'
       const rawBuf = Buffer.from(await file.arrayBuffer())
-      const exifDate = await extractExifDate(rawBuf)
+      const exifDate = isMd ? null : await extractExifDate(rawBuf)
       const datePrise = exifDate ?? fallbackDate
 
-      const { buf, outExt, size } = await processImage(rawBuf, ext)
+      const { buf, outExt, size } = isMd
+        ? { buf: rawBuf, outExt: 'md', size: rawBuf.length }
+        : await processImage(rawBuf, ext)
+      const mime = isMd ? 'text/markdown' : (file.type || null)
       const filename = `${randomUUID()}.${outExt}`
 
-      const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, file.type || null)
+      const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, mime)
 
       const [r] = await sql`
         INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise)
-        VALUES (${wsId}, ${filepath}, ${file.name}, ${typeMedia}, ${file.type || null}, ${size}, ${datePrise})
+        VALUES (${wsId}, ${filepath}, ${file.name}, ${typeMedia}, ${mime}, ${size}, ${datePrise})
         RETURNING id
       `
       results.push({ id: r.id, fichier: filepath, nom_original: file.name, type_media: typeMedia, date_prise: datePrise })
@@ -946,6 +951,56 @@ jourdoc.post('/:wsId/medias', async (c) => {
   } catch (err) {
     console.error('[upload] error:', err.message, err.stack)
     return c.json({ error: 'Upload failed', detail: err.message }, 500)
+  }
+})
+
+// ── DOCUMENTS MARKDOWN ───────────────────────────────────────
+
+// Créer un document .md vierge ou avec contenu (média de type 'markdown')
+jourdoc.post('/:wsId/medias/markdown', async (c) => {
+  const wsId = c.get('wsId')
+  const { nom, content = '' } = await c.req.json()
+  const baseName = (nom?.trim() || 'Document').replace(/\.md$/i, '')
+  const buf = Buffer.from(content, 'utf8')
+  const filename = `${randomUUID()}.md`
+  const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, 'text/markdown')
+  const [r] = await sql`
+    INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise)
+    VALUES (${wsId}, ${filepath}, ${baseName + '.md'}, 'markdown', 'text/markdown', ${buf.length}, ${new Date().toISOString().slice(0, 10)})
+    RETURNING id
+  `
+  return c.json({ id: r.id, fichier: filepath, nom_original: baseName + '.md', type_media: 'markdown' }, 201)
+})
+
+// Lire le contenu texte d'un document markdown
+jourdoc.get('/:wsId/medias/:id/content', async (c) => {
+  const wsId = c.get('wsId')
+  const id = Number(c.req.param('id'))
+  const [media] = await sql`SELECT * FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
+  if (!media) return c.json({ error: 'Not found' }, 404)
+  try {
+    const content = await getTextFile(media.fichier)
+    return c.json({ content, nom_original: media.nom_original })
+  } catch {
+    return c.json({ error: 'Read failed' }, 500)
+  }
+})
+
+// Réenregistrer le contenu d'un document markdown
+jourdoc.put('/:wsId/medias/:id/content', async (c) => {
+  const wsId = c.get('wsId')
+  const id = Number(c.req.param('id'))
+  const { content = '', nom } = await c.req.json()
+  const [media] = await sql`SELECT * FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
+  if (!media) return c.json({ error: 'Not found' }, 404)
+  try {
+    await putTextFile(media.fichier, content)
+    const taille = Buffer.byteLength(content, 'utf8')
+    const newNom = nom?.trim() ? nom.trim().replace(/\.md$/i, '') + '.md' : media.nom_original
+    await sql`UPDATE jd_medias SET taille=${taille}, nom_original=${newNom} WHERE id=${id}`
+    return c.json({ ok: true, nom_original: newNom })
+  } catch {
+    return c.json({ error: 'Write failed' }, 500)
   }
 })
 
@@ -979,7 +1034,7 @@ jourdoc.get('/:wsId/medias/:id/file', async (c) => {
     const filename = media.fichier.substring(lastSlash + 1)
     const buf = await downloadFile(dir, filename)
 
-    const mimeType = media.mime_type || (media.type_media === 'pdf' ? 'application/pdf' : 'image/jpeg')
+    const mimeType = media.mime_type || (media.type_media === 'pdf' ? 'application/pdf' : media.type_media === 'markdown' ? 'text/markdown' : 'image/jpeg')
     c.header('Content-Type', mimeType)
     c.header('Content-Disposition', `inline; filename="${media.nom_original ?? filename}"`)
     c.header('Cache-Control', 'private, max-age=86400')

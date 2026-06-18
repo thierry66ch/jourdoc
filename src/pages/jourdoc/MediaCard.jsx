@@ -15,7 +15,9 @@ const PDF_ICON = (
  * onDelete  → supprime le média
  */
 export default function MediaCard({ media, src, selected, onExpand, onSelect, onNotes, onDelete, size = 'md' }) {
-  const isPhoto = media.type_media !== 'pdf'
+  const isPdf = media.type_media === 'pdf'
+  const isMd  = media.type_media === 'markdown'
+  const isPhoto = !isPdf && !isMd
   const url = src ?? `/${media.fichier}`
   const sz = size === 'sm' ? 'media-card--sm' : size === 'lg' ? 'media-card--lg' : ''
 
@@ -29,13 +31,19 @@ export default function MediaCard({ media, src, selected, onExpand, onSelect, on
       <div className="media-card__media" onClick={handleImageClick}
         role={handleImageClick ? 'button' : undefined}
         style={{ cursor: handleImageClick ? (onExpand ? 'zoom-in' : 'pointer') : 'default' }}>
-        {isPhoto
-          ? <img src={url} alt={media.nom_original} className="media-card__img" loading="lazy" />
-          : <div className="media-card__pdf">
-              {PDF_ICON}
-              <span className="media-card__pdf-name">{(media.nom_original ?? '').replace(/\.pdf$/i, '')}</span>
-            </div>
-        }
+        {isPhoto && <img src={url} alt={media.nom_original} className="media-card__img" loading="lazy" />}
+        {isPdf && (
+          <div className="media-card__pdf">
+            {PDF_ICON}
+            <span className="media-card__pdf-name">{(media.nom_original ?? '').replace(/\.pdf$/i, '')}</span>
+          </div>
+        )}
+        {isMd && (
+          <div className="media-card__pdf media-card__md">
+            <span style={{ fontSize: 30 }}>📝</span>
+            <span className="media-card__pdf-name">{(media.nom_original ?? '').replace(/\.md$/i, '')}</span>
+          </div>
+        )}
       </div>
 
       {/* Checkbox de sélection (coin haut-gauche) */}

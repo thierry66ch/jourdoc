@@ -4,6 +4,24 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 15 — 2026-06-18
+
+**Pièces jointes Markdown.** Nouveau type de média `markdown` : on peut joindre
+un document `.md` à une note (import ou création) et le visualiser / l'éditer en
+WYSIWYG.
+
+- DB/Backend : `.md` accepté à l'upload (`type_media='markdown'`) ; `POST
+  /medias/markdown` (création) ; `GET`/`PUT /medias/:id/content` (lecture/écriture
+  du texte sur WebDAV via `getTextFile`/`putTextFile`) ; mime `text/markdown`.
+- Front : `MarkdownModal` plein écran — visualiseur (`marked` → `RichTextView`) et
+  éditeur WYSIWYG (réutilise `RichTextEditor`/Tiptap ; sauvegarde `turndown` →
+  md). Ouvert depuis NoteView (bouton « 📝 + Document » + clic sur une pièce
+  jointe `.md`) et MediaGallery. `MediaCard` : branche markdown (icône). Markdown
+  exclu des lightbox et des vignettes photo (NoteCard).
+- Dépendances ajoutées : `marked`, `turndown`.
+
+---
+
 ## Build 14 — 2026-06-18
 
 Fix (bis) restauration du défilement de la Bibliothèque : au retour, le scroll

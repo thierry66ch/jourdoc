@@ -6,6 +6,7 @@ import { authHeader, mediaUrl, docCategorieBadgeStyle } from './hooks'
 import RichTextView from './RichTextView'
 import MediaCard from './MediaCard'
 import Lightbox from './Lightbox'
+import MarkdownModal from './MarkdownModal'
 import TodoistPanel from './TodoistPanel'
 
 const NATURE_ICON = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
@@ -41,7 +42,17 @@ export default function NoteView() {
   const [note, setNote] = useState(null)
   const [loading, setLoading] = useState(true)
   const [lbIdx, setLbIdx] = useState(-1)
+  const [mdOpen, setMdOpen] = useState(null) // null | { mediaId } | { create: true }
   const touchStart = useRef(null)
+
+  async function linkMediaToNote(mediaId) {
+    const ids = [...(note?.medias ?? []).map(m => m.id), mediaId]
+    await fetch(API_ROUTES.JD_NOTE_MEDIAS(wsId, noteId), {
+      method: 'PUT', headers: authHeader(token),
+      body: JSON.stringify({ media_ids: ids }),
+    })
+    refreshNote()
+  }
 
   const refreshNote = useCallback(() => {
     fetch(API_ROUTES.JD_NOTE(wsId, noteId), { headers: authHeader(token) })
@@ -66,7 +77,8 @@ export default function NoteView() {
   )
 
   const typeKey = note.nature ?? note.type ?? 'journal'
-  const photoMedias = note.medias ?? []
+  // Médias affichables en lightbox (photos + PDF) — les docs markdown ouvrent le modal dédié
+  const lbMedias = (note.medias ?? []).filter(m => m.type_media !== 'markdown')
   const hasChain = (note.liens?.length ?? 0) > 0 || (note.liensEntrants?.length ?? 0) > 0
 
   // Navigation précédent / suivant dans le contexte d'origine
@@ -148,20 +160,26 @@ export default function NoteView() {
           </div>
 
           {/* Médias */}
-          {note.medias?.length > 0 && (
-            <div className="note-view__section">
+          <div className="note-view__section">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <h3 className="note-view__section-title">📎 Pièces jointes</h3>
+              <button type="button" className="jd-auto-btn"
+                onClick={() => setMdOpen({ create: true })}>📝 + Document</button>
+            </div>
+            {note.medias?.length > 0 && (
               <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '.5rem' }}>
                 {note.medias.map(m => (
                   <MediaCard key={m.id} media={m} size="sm"
                     src={mediaUrl(wsId, m.id, token)}
-                    onExpand={() => setLbIdx(photoMedias.findIndex(pm => pm.id === m.id))}
+                    onExpand={() => m.type_media === 'markdown'
+                      ? setMdOpen({ mediaId: m.id })
+                      : setLbIdx(lbMedias.findIndex(pm => pm.id === m.id))}
                     onNotes={() => navigate(`/jourdoc/${wsId}/media/${m.id}`)}
                   />
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* ── Sidebar ── */}
@@ -263,11 +281,22 @@ export default function NoteView() {
       {/* Lightbox médias */}
       {lbIdx >= 0 && (
         <Lightbox
-          media={photoMedias[lbIdx]}
-          src={mediaUrl(wsId, photoMedias[lbIdx]?.id, token)}
+          media={lbMedias[lbIdx]}
+          src={mediaUrl(wsId, lbMedias[lbIdx]?.id, token)}
           onClose={() => setLbIdx(-1)}
           onPrev={lbIdx > 0 ? () => setLbIdx(i => i - 1) : null}
-          onNext={lbIdx < photoMedias.length - 1 ? () => setLbIdx(i => i + 1) : null}
+          onNext={lbIdx < lbMedias.length - 1 ? () => setLbIdx(i => i + 1) : null}
+        />
+      )}
+
+      {/* Document Markdown (visualiseur / éditeur) */}
+      {mdOpen && (
+        <MarkdownModal
+          wsId={wsId} token={token}
+          mediaId={mdOpen.mediaId ?? null}
+          onClose={() => setMdOpen(null)}
+          onCreated={media => linkMediaToNote(media.id)}
+          onSaved={refreshNote}
         />
       )}
     </div>

@@ -102,7 +102,10 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 
 | Méthode | Route | Description |
 |---|---|---|
-| POST | `/jourdoc/:wsId/medias` | Upload multipart → EXIF + HEIC→JPEG + resize → WebDAV |
+| POST | `/jourdoc/:wsId/medias` | Upload multipart → EXIF + HEIC→JPEG + resize → WebDAV (accepte aussi `.md`) |
+| POST | `/jourdoc/:wsId/medias/markdown` | Créer un document Markdown `{ nom, content }` → média `type_media='markdown'` |
+| GET | `/jourdoc/:wsId/medias/:id/content` | Lire le texte d'un document markdown → `{ content, nom_original }` |
+| PUT | `/jourdoc/:wsId/medias/:id/content` | Réenregistrer le texte `{ content, nom }` sur WebDAV |
 | GET | `/jourdoc/:wsId/medias` | Liste filtrée `?date_from= &date_to= &type_media= &lie=` |
 | GET | `/jourdoc/:wsId/medias/:id/file` | **Proxy WebDAV** (sert le binaire ; accepte `?t=`) |
 | DELETE | `/jourdoc/:wsId/medias/:id` | Supprimer fichier + DB |

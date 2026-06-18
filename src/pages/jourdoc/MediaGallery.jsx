@@ -5,6 +5,7 @@ import { API_ROUTES } from '@pogil/shared'
 import { authHeader, mediaUrl } from './hooks'
 import MediaCard from './MediaCard'
 import Lightbox from './Lightbox'
+import MarkdownModal from './MarkdownModal'
 
 // ── Utilitaires de période ────────────────────────────────────
 
@@ -119,6 +120,7 @@ export default function MediaGallery() {
   const [dragging, setDragging] = useState(false)
   const [selected, setSelected] = useState(new Set())
   const [lightboxIdx, setLightboxIdx] = useState(-1)
+  const [mdOpen, setMdOpen] = useState(null) // null | { mediaId } | { create: true }
 
   // Filtre période
   const [period, setPeriod] = useState('day')
@@ -195,6 +197,8 @@ export default function MediaGallery() {
 
   // Liste plate pour lightbox prev/next
   const flatMedias = useMemo(() => groupByDate(medias).flatMap(([, items]) => items), [medias])
+  // Lightbox : photos + PDF uniquement (les docs markdown ouvrent le modal dédié)
+  const lbMedias = useMemo(() => flatMedias.filter(m => m.type_media !== 'markdown'), [flatMedias])
   const groups = useMemo(() => groupByDate(medias), [medias])
 
   async function scanInbox() {
@@ -285,7 +289,7 @@ export default function MediaGallery() {
         onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
         onClick={() => fileRef.current?.click()}
       >
-        <input ref={fileRef} type="file" multiple accept="image/*,application/pdf"
+        <input ref={fileRef} type="file" multiple accept="image/*,application/pdf,.md,.markdown,text/markdown"
           style={{ display: 'none' }}
           onChange={e => uploadFiles([...e.target.files])} />
         {uploading ? (
@@ -296,7 +300,7 @@ export default function MediaGallery() {
             <span className="media-upload-zone__label">
               Déposer des fichiers ici ou <strong>cliquer pour choisir</strong>
             </span>
-            <span className="media-upload-zone__hint">Images (JPG PNG WEBP HEIC) · PDF · Max 1600 px · Date EXIF utilisée automatiquement</span>
+            <span className="media-upload-zone__hint">Images (JPG PNG WEBP HEIC) · PDF · Markdown (.md) · Max 1600 px · Date EXIF utilisée automatiquement</span>
           </>
         )}
       </div>
@@ -323,7 +327,9 @@ export default function MediaGallery() {
                   media={m}
                   src={mediaUrl(wsId, m.id, token)}
                   selected={selected.has(m.id)}
-                  onExpand={() => setLightboxIdx(flatMedias.findIndex(x => x.id === m.id))}
+                  onExpand={() => m.type_media === 'markdown'
+                    ? setMdOpen({ mediaId: m.id })
+                    : setLightboxIdx(lbMedias.findIndex(x => x.id === m.id))}
                   onSelect={() => toggleSelect(m.id)}
                   onNotes={() => navigate(`/jourdoc/${wsId}/media/${m.id}`)}
                   onDelete={() => deleteMedia(m.id)}
@@ -352,11 +358,22 @@ export default function MediaGallery() {
       {/* Lightbox */}
       {lightboxIdx >= 0 && (
         <Lightbox
-          media={flatMedias[lightboxIdx]}
-          src={mediaUrl(wsId, flatMedias[lightboxIdx]?.id, token)}
+          media={lbMedias[lightboxIdx]}
+          src={mediaUrl(wsId, lbMedias[lightboxIdx]?.id, token)}
           onClose={() => setLightboxIdx(-1)}
           onPrev={lightboxIdx > 0 ? () => setLightboxIdx(i => i - 1) : null}
-          onNext={lightboxIdx < flatMedias.length - 1 ? () => setLightboxIdx(i => i + 1) : null}
+          onNext={lightboxIdx < lbMedias.length - 1 ? () => setLightboxIdx(i => i + 1) : null}
+        />
+      )}
+
+      {/* Document Markdown */}
+      {mdOpen && (
+        <MarkdownModal
+          wsId={wsId} token={token}
+          mediaId={mdOpen.mediaId ?? null}
+          onClose={() => setMdOpen(null)}
+          onCreated={() => loadMedias()}
+          onSaved={() => loadMedias()}
         />
       )}
     </div>

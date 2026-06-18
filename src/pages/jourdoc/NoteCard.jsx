@@ -26,7 +26,7 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
   const navigate = useNavigate()
   const [lbIdx, setLbIdx] = useState(-1)
 
-  const photoMedias = (note.medias ?? []).filter(m => m.type_media !== 'pdf')
+  const photoMedias = (note.medias ?? []).filter(m => m.type_media !== 'pdf' && m.type_media !== 'markdown')
 
   return (
     <div className="jd-note-card" onClick={() => navigate(`/jourdoc/${wsId}/notes/${note.id}`,
