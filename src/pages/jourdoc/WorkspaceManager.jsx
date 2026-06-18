@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
 import CsvImporter from './CsvImporter'
+import DocCategorieManager from './DocCategorieManager'
 
 const ROLE_LABEL = { owner: 'Propriétaire', member: 'Membre' }
 
@@ -506,6 +507,17 @@ export default function WorkspaceManager() {
             )}
           </div>
         ))}
+      </section>
+
+      {/* ── Catégories de documentation ── */}
+      <section className="ws-manager__section">
+        <h3 className="ws-manager__title">📄 Catégories de documentation</h3>
+        <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.75rem' }}>
+          Sous-natures des notes de type « documentation » (conseil, descriptif, manuel…).
+          Liste ouverte mais à garder courte. Chaque catégorie a une icône et une couleur,
+          affichées en badge sur les notes.
+        </p>
+        <DocCategorieManager wsId={wsId} token={token} />
       </section>
 
       {/* ── Todoist ── */}

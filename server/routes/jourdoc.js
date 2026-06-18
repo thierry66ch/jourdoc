@@ -241,8 +241,18 @@ jourdoc.post('/workspaces', async (c) => {
   await sql`
     INSERT INTO user_app_access (user_id, app_id) VALUES (${userId}, ${app.id}) ON CONFLICT DO NOTHING
   `
+  await seedDocCategories(ws.id)
   return c.json({ id: ws.id, name: name.trim() }, 201)
 })
+
+// Catégories de documentation par défaut (nouveau workspace)
+async function seedDocCategories(wsId) {
+  await sql`INSERT INTO jd_doc_categorie (workspace_id, nom, icon, couleur, ordre)
+    SELECT ${wsId}, d.nom, d.icon, d.couleur, d.ordre FROM (VALUES
+      ('Conseil','💡','#f59e0b',1),('Descriptif','📋','#0ea5e9',2),
+      ('Manuel','📖','#8b5cf6',3),('Norme','📐','#ef4444',4),('Exemple','✨','#10b981',5)
+    ) AS d(nom,icon,couleur,ordre) ON CONFLICT (workspace_id, nom) DO NOTHING`
+}
 
 jourdoc.use('/:wsId/*', wsCheck)
 
@@ -265,6 +275,13 @@ function normalizeNote(note) {
   return { ...note, date: fmtDate(note.date) }
 }
 
+// Catégorie de documentation (référentiel) pour affichage du badge
+async function docCategorie(id) {
+  if (!id) return null
+  const [cat] = await sql`SELECT id, nom, icon, couleur FROM jd_doc_categorie WHERE id = ${id}`
+  return cat ?? null
+}
+
 async function withData(notes) {
   return Promise.all(notes.map(async note => {
     const [objets, themes, medias, elements] = await Promise.all([
@@ -273,7 +290,8 @@ async function withData(notes) {
       sql`SELECT m.id, m.type_media, m.nom_original, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id WHERE nm.note_id = ${note.id} ORDER BY m.created_at LIMIT 6`,
       sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${note.id} ORDER BY e.nom`,
     ])
-    return { ...normalizeNote(note), objets, themes, medias, elements }
+    const doc_categorie = await docCategorie(note.doc_categorie_id)
+    return { ...normalizeNote(note), objets, themes, medias, elements, doc_categorie }
   }))
 }
 
@@ -333,6 +351,53 @@ jourdoc.post('/:wsId/elements/merge', async (c) => {
     await sql`DELETE FROM jd_elements WHERE id=${srcId} AND workspace_id=${wsId}`
   }
   return c.json({ ok: true, target_id: targetId })
+})
+
+// ── CATÉGORIES DE DOCUMENTATION ──────────────────────────────
+
+jourdoc.get('/:wsId/doc-categories', async (c) => {
+  const wsId = c.get('wsId')
+  const categories = await sql`
+    SELECT dc.id, dc.nom, dc.icon, dc.couleur, dc.ordre,
+      (SELECT COUNT(*) FROM jd_notes n WHERE n.doc_categorie_id = dc.id) AS note_count
+    FROM jd_doc_categorie dc WHERE dc.workspace_id = ${wsId}
+    ORDER BY dc.ordre, dc.nom
+  `
+  return c.json({ categories })
+})
+
+jourdoc.post('/:wsId/doc-categories', async (c) => {
+  const wsId = c.get('wsId')
+  const { nom, icon, couleur } = await c.req.json()
+  if (!nom?.trim()) return c.json({ error: 'Nom requis' }, 400)
+  const [existing] = await sql`SELECT id FROM jd_doc_categorie WHERE workspace_id=${wsId} AND nom=${nom.trim()}`
+  if (existing) return c.json({ id: existing.id, existing: true })
+  const [{ max }] = await sql`SELECT COALESCE(MAX(ordre),0) AS max FROM jd_doc_categorie WHERE workspace_id=${wsId}`
+  const [r] = await sql`
+    INSERT INTO jd_doc_categorie (workspace_id, nom, icon, couleur, ordre)
+    VALUES (${wsId}, ${nom.trim()}, ${icon ?? null}, ${couleur ?? null}, ${Number(max) + 1})
+    RETURNING id
+  `
+  return c.json({ id: r.id }, 201)
+})
+
+jourdoc.put('/:wsId/doc-categories/:id', async (c) => {
+  const wsId = c.get('wsId'); const id = Number(c.req.param('id'))
+  const { nom, icon, couleur, ordre } = await c.req.json()
+  if (!nom?.trim()) return c.json({ error: 'Nom requis' }, 400)
+  await sql`
+    UPDATE jd_doc_categorie
+    SET nom=${nom.trim()}, icon=${icon ?? null}, couleur=${couleur ?? null}, ordre=${ordre ?? 0}
+    WHERE id=${id} AND workspace_id=${wsId}
+  `
+  return c.json({ ok: true })
+})
+
+jourdoc.delete('/:wsId/doc-categories/:id', async (c) => {
+  const wsId = c.get('wsId'); const id = Number(c.req.param('id'))
+  // FK ON DELETE SET NULL : les notes concernées deviennent « sans catégorie »
+  await sql`DELETE FROM jd_doc_categorie WHERE id=${id} AND workspace_id=${wsId}`
+  return c.json({ ok: true })
 })
 
 // ── WORKSPACE info + settings ─────────────────────────────────
@@ -609,8 +674,10 @@ jourdoc.get('/:wsId/notes/search', async (c) => {
   const exclude = Number(c.req.query('exclude') ?? 0)
   const like = `%${q}%`
   const notes = await sql`
-    SELECT id, titre, titre_alt, type, nature, date, theme_id,
-      (SELECT nom FROM jd_themes WHERE id = theme_id) AS theme_nom
+    SELECT id, titre, titre_alt, type, nature, date, theme_id, doc_categorie_id,
+      (SELECT nom FROM jd_themes WHERE id = theme_id) AS theme_nom,
+      (SELECT json_build_object('id', dc.id, 'nom', dc.nom, 'icon', dc.icon, 'couleur', dc.couleur)
+        FROM jd_doc_categorie dc WHERE dc.id = jd_notes.doc_categorie_id) AS doc_categorie
     FROM jd_notes
     WHERE workspace_id = ${wsId} AND id != ${exclude || -1}
       AND (titre ILIKE ${like} OR titre_alt ILIKE ${like})
@@ -664,8 +731,9 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
     sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${id} ORDER BY e.nom`,
   ])
 
+  const doc_categorie = await docCategorie(note.doc_categorie_id)
   const fmtN = n => ({ ...n, date: fmtDate(n.date) })
-  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements } })
+  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements, doc_categorie } })
 })
 
 jourdoc.post('/:wsId/notes', async (c) => {
@@ -675,11 +743,13 @@ jourdoc.post('/:wsId/notes', async (c) => {
   // theme_ids = source de vérité ; theme_id (legacy) accepté en repli
   const theme_ids = Array.isArray(body.theme_ids) ? body.theme_ids : (body.theme_id != null ? [body.theme_id] : [])
   const primaryTheme = theme_ids[0] ?? null
+  // catégorie : uniquement pour la documentation
+  const docCategorieId = type === 'documentation' ? (body.doc_categorie_id ?? null) : null
   if (!titre) return c.json({ error: 'titre requis' }, 400)
 
   const [r] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, titre, titre_alt, contenu, date, source_url)
-    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
+    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, titre, titre_alt, contenu, date, source_url)
+    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
     RETURNING id
   `
   const noteId = r.id
@@ -708,9 +778,12 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
     ? (Array.isArray(body.theme_ids) ? body.theme_ids : [])
     : (body.theme_id !== undefined ? (body.theme_id != null ? [body.theme_id] : []) : undefined)
   const primaryTheme = theme_ids ? (theme_ids[0] ?? null) : (body.theme_id ?? null)
+  // catégorie : uniquement pour la documentation
+  const docCategorieId = type === 'documentation' ? (body.doc_categorie_id ?? null) : null
 
   await sql`
     UPDATE jd_notes SET type=${type}, nature=${nature ?? null}, theme_id=${primaryTheme},
+      doc_categorie_id=${docCategorieId},
       titre=${titre}, titre_alt=${titre_alt ?? null}, contenu=${contenu ?? null},
       date=${date ?? null}, source_url=${source_url ?? null}, updated_at=NOW()
     WHERE id=${id} AND workspace_id=${wsId}
@@ -1348,12 +1421,13 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const { format = 'json', medias: withMediasParam = '0' } = c.req.query()
   const withMedias = withMediasParam === '1'
 
-  const [objets, themes, elements, rawNotes, rawMedias] = await Promise.all([
-    sql`SELECT * FROM jd_objets   WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_themes   WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_elements WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_notes    WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_medias   WHERE workspace_id=${wsId}`,
+  const [objets, themes, elements, docCategories, rawNotes, rawMedias] = await Promise.all([
+    sql`SELECT * FROM jd_objets        WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_themes        WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_elements      WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_doc_categorie WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_notes         WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_medias        WHERE workspace_id=${wsId}`,
   ])
 
   const notes = await Promise.all(rawNotes.map(async n => ({
@@ -1371,7 +1445,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const date = new Date().toISOString().slice(0, 10)
 
   if (format === 'json') {
-    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, notes, medias: rawMedias }, null, 2)
+    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, doc_categories: docCategories, notes, medias: rawMedias }, null, 2)
     c.header('Content-Type', 'application/json')
     c.header('Content-Disposition', `attachment; filename="${slug}-${date}.json"`)
     return c.body(payload)
@@ -1440,6 +1514,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     { name: 'objets.csv',        data: toCsv(objets) },
     { name: 'themes.csv',        data: toCsv(themes) },
     { name: 'elements.csv',      data: toCsv(elements) },
+    { name: 'doc_categories.csv', data: toCsv(docCategories) },
     { name: 'notes.csv',         data: toCsv(rawNotes) },
     { name: 'note_objets.csv',   data: toCsv(noteObjets) },
     { name: 'note_themes.csv',   data: toCsv(noteThemes) },

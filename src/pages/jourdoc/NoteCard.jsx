@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { mediaUrl } from './hooks'
+import { mediaUrl, docCategorieBadgeStyle } from './hooks'
 import Lightbox from './Lightbox'
 
 const NATURE_ICON = { observation: '👁', activite: '⚡' }
@@ -32,10 +32,16 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
     <div className="jd-note-card" onClick={() => navigate(`/jourdoc/${wsId}/notes/${note.id}`,
     contextNoteIds?.length ? { state: { noteIds: contextNoteIds } } : undefined)}>
       <div className="jd-note-card__top">
-        <span className={`jd-badge jd-badge-${note.nature ?? note.type}`}>
-          {note.nature ? NATURE_ICON[note.nature] : TYPE_ICON[note.type]}
-          {note.nature ?? note.type}
-        </span>
+        {note.type === 'documentation' && note.doc_categorie ? (
+          <span className="jd-badge jd-badge--doc-cat" style={docCategorieBadgeStyle(note.doc_categorie.couleur)}>
+            {note.doc_categorie.icon || '📄'} {note.doc_categorie.nom}
+          </span>
+        ) : (
+          <span className={`jd-badge jd-badge-${note.nature ?? note.type}`}>
+            {note.nature ? NATURE_ICON[note.nature] : TYPE_ICON[note.type]}
+            {note.nature ?? note.type}
+          </span>
+        )}
         {showDate && note.date && <span className="jd-note-card__date">{fmtNoteDate(note.date)}</span>}
         {note.themes?.length > 0
           ? note.themes.map(t => <span key={t.id} className="jd-note-card__theme">{t.nom}</span>)

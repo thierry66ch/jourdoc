@@ -45,7 +45,7 @@ export default function NoteForm() {
   const { token } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { objets, themes, pickerMode } = useJdData(wsId, token)
+  const { objets, themes, docCategories, pickerMode } = useJdData(wsId, token)
   const isEdit = Boolean(noteId)
 
   // Médias pré-sélectionnés depuis la galerie (navigation state)
@@ -54,6 +54,7 @@ export default function NoteForm() {
   const [form, setForm] = useState({
     type:      location.state?.type    ?? 'journal',
     nature:    location.state?.nature  ?? 'observation',
+    doc_categorie_id: location.state?.doc_categorie_id ?? null,
     theme_ids:   location.state?.theme_ids ?? [],
     objet_ids:   location.state?.objet_ids ?? [],
     element_ids: [],
@@ -83,6 +84,7 @@ export default function NoteForm() {
         setForm({
           type: note.type,
           nature: note.nature ?? 'observation',
+          doc_categorie_id: note.doc_categorie_id ?? null,
           theme_ids:   (note.themes ?? []).map(t => t.id),
           objet_ids:   note.objets.map(o => o.id),
           element_ids: (note.elements ?? []).map(e => e.id),
@@ -155,6 +157,7 @@ export default function NoteForm() {
       const body = {
         ...form,
         nature: form.type === 'journal' ? form.nature : null,
+        doc_categorie_id: form.type === 'documentation' ? form.doc_categorie_id : null,
         source_url: form.source_url || null,
         titre_alt: form.titre_alt || null,
       }
@@ -231,6 +234,29 @@ export default function NoteForm() {
             </div>
           )}
         </div>
+
+        {/* Catégorie (documentation) */}
+        {form.type === 'documentation' && (
+          <div className="form-field">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label className="form-label">Catégorie</label>
+              <button type="button" className="jd-auto-btn"
+                onClick={() => navigate(`/jourdoc/${wsId}/settings`)}>⚙️ Gérer</button>
+            </div>
+            <div className="jd-segmented" style={{ flexWrap: 'wrap' }}>
+              <button type="button"
+                className={`jd-seg-btn${form.doc_categorie_id == null ? ' active' : ''}`}
+                onClick={() => setForm(f => ({ ...f, doc_categorie_id: null }))}>— Aucune</button>
+              {docCategories.map(cat => (
+                <button key={cat.id} type="button"
+                  className={`jd-seg-btn${form.doc_categorie_id === cat.id ? ' active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, doc_categorie_id: cat.id }))}>
+                  {cat.icon} {cat.nom}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Date */}
         {form.type === 'journal' && (

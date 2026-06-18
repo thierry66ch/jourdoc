@@ -7,6 +7,11 @@ Bloc-notes de terrain liant des **notes** (journal / documentation) à des **obj
 par note) et des **éléments** (étiquettes plates), avec médias (KDrive WebDAV),
 tâches Todoist et vues comparatives pluriannuelles.
 
+Le champ **nature** sépare deux espaces : le **journal** a deux natures fixes
+(`observation` / `activite`) ; la **documentation** a une **catégorie** ouverte et
+gérable par workspace (référentiel `jd_doc_categorie` : nom + emoji + couleur),
+affichée en badge coloré. Stockée via `jd_notes.doc_categorie_id` (FK `SET NULL`).
+
 ## Shell et hooks
 
 **`JourDocApp.jsx`** — shell : TopBar + nav + `Outlet`. Workspace switcher (portal
@@ -31,6 +36,8 @@ montage et sur `visibilitychange` (throttle 1 min/workspace via `sessionStorage`
   titre alternatif (calendrier compact) = noms courts, **max 3** par groupe, au-delà
   les **3 premiers suivis de « … »** — pour objets et thèmes.
 - Contenu : `RichTextEditor` (Tiptap), zone **redimensionnable verticalement**.
+- Journal → sélecteur **Nature** (observation/activité) ; documentation → sélecteur
+  **Catégorie** (liste `docCategories` du workspace, + lien « Gérer »).
 - MediaPicker filtré par date ; section Todoist si le workspace est configuré.
 
 **`NoteView.jsx`** — vue lecture 2 colonnes (principale + sidebar : médias, thèmes,
@@ -54,6 +61,10 @@ ajouter enfant, changer de parent), import CSV. Le picker de parent reste en `sc
 
 **`ElementPicker.jsx` / `ElementManager.jsx`** — sélection plate avec création
 inline ; fusion d'éléments (`/elements/merge`).
+
+**`DocCategorieManager.jsx`** (dans WorkspaceManager) — CRUD des catégories de
+documentation : nom + emoji + couleur (`<input type=color>`) + réordonnancement (↑↓).
+La suppression met `doc_categorie_id` à NULL sur les notes concernées (compteur affiché).
 
 **`ObjetDetail.jsx` / `ThemeDetail.jsx`** — notes récursives
 (`/objets|themes/:id/notes?direction=both|down|up`) + filtres croisés (les filtres

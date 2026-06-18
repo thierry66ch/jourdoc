@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader, mediaUrl } from './hooks'
+import { authHeader, mediaUrl, docCategorieBadgeStyle } from './hooks'
 import RichTextView from './RichTextView'
 import MediaCard from './MediaCard'
 import Lightbox from './Lightbox'
@@ -120,9 +120,15 @@ export default function NoteView() {
           {/* En-tête */}
           <div className="note-view__head">
             <div className="note-view__head-meta">
-              <span className={`jd-badge jd-badge-${typeKey}`}>
-                {NATURE_ICON[typeKey]} {NATURE_LABEL[typeKey]}
-              </span>
+              {note.type === 'documentation' && note.doc_categorie ? (
+                <span className="jd-badge jd-badge--doc-cat" style={docCategorieBadgeStyle(note.doc_categorie.couleur)}>
+                  {note.doc_categorie.icon || '📄'} {note.doc_categorie.nom}
+                </span>
+              ) : (
+                <span className={`jd-badge jd-badge-${typeKey}`}>
+                  {NATURE_ICON[typeKey]} {NATURE_LABEL[typeKey]}
+                </span>
+              )}
               {note.date && (
                 <span className="note-view__date">{fmtDateLong(note.date)}</span>
               )}

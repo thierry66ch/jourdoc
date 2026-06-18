@@ -72,14 +72,23 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | PUT/DELETE | `/jourdoc/:wsId/elements/:id` | Renommer / supprimer |
 | POST | `/jourdoc/:wsId/elements/merge` | Fusionner deux éléments |
 
+### Catégories de documentation
+
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/jourdoc/:wsId/doc-categories` | Liste (ordonnée) + `note_count` |
+| POST | `/jourdoc/:wsId/doc-categories` | Créer `{ nom, icon, couleur }` |
+| PUT | `/jourdoc/:wsId/doc-categories/:id` | Modifier `{ nom, icon, couleur, ordre }` |
+| DELETE | `/jourdoc/:wsId/doc-categories/:id` | Supprimer (FK `SET NULL` sur les notes) |
+
 ### Notes
 
 | Méthode | Route | Description |
 |---|---|---|
 | GET | `/jourdoc/:wsId/notes` | Liste filtrée : `?type= &nature= &date_from= &date_to= &objet_id= &theme_id=` |
-| POST | `/jourdoc/:wsId/notes` | Créer — body `theme_ids[]`, `objet_ids[]`, `element_ids[]`, `media_ids[]` |
+| POST | `/jourdoc/:wsId/notes` | Créer — body `theme_ids[]`, `objet_ids[]`, `element_ids[]`, `media_ids[]`, `doc_categorie_id` (documentation) |
 | GET | `/jourdoc/:wsId/notes/search?q=` | Recherche titre (NoteLinkPicker) |
-| GET | `/jourdoc/:wsId/notes/:id` | Détail : `objets[]`, `themes[]`, `elements[]`, `medias[]`, liens entrants/sortants |
+| GET | `/jourdoc/:wsId/notes/:id` | Détail : `objets[]`, `themes[]`, `elements[]`, `medias[]`, `doc_categorie`, liens entrants/sortants |
 | PUT | `/jourdoc/:wsId/notes/:id` | Modifier |
 | DELETE | `/jourdoc/:wsId/notes/:id` | Supprimer |
 | POST | `/jourdoc/:wsId/notes/:id/liens` | Lien note→note |

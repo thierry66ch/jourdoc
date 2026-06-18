@@ -57,4 +57,6 @@ export const API_ROUTES = {
   JD_ELEMENTS:             (wsId) => `/api/jourdoc/${wsId}/elements`,
   JD_ELEMENT:              (wsId, id) => `/api/jourdoc/${wsId}/elements/${id}`,
   JD_ELEMENTS_MERGE:       (wsId) => `/api/jourdoc/${wsId}/elements/merge`,
+  JD_DOC_CATEGORIES:       (wsId) => `/api/jourdoc/${wsId}/doc-categories`,
+  JD_DOC_CATEGORIE:        (wsId, id) => `/api/jourdoc/${wsId}/doc-categories/${id}`,
 }

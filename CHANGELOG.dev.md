@@ -4,6 +4,25 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 8 — 2026-06-18
+
+**Catégories de documentation.** Les notes de type « documentation » reçoivent une
+sous-nature gérable (le journal garde observation/activité, intacts).
+
+- DB : référentiel `jd_doc_categorie` par workspace (nom + emoji + couleur + ordre)
+  + `jd_notes.doc_categorie_id` (FK `SET NULL`). Migration `005`, seed de 5 catégories
+  par défaut (💡 Conseil, 📋 Descriptif, 📖 Manuel, 📐 Norme, ✨ Exemple) sur les
+  workspaces existants et à la création.
+- Backend : CRUD `/:wsId/doc-categories` ; notes POST/PUT acceptent `doc_categorie_id`
+  (documentation only) ; les payloads de note exposent `doc_categorie {nom,icon,couleur}`
+  (withData, GET note, search). Export enrichi (`doc_categories` JSON + CSV).
+- Front : sélecteur « Catégorie » dans NoteForm (documentation) ; badges colorés
+  (icône + couleur du référentiel) dans NoteCard et NoteView ; `DocCategorieManager`
+  dans la page Workspace (ajout / renommage / emoji / couleur / réordonnancement /
+  suppression avec compteur d'usage).
+
+---
+
 ## Build 7 — 2026-06-17
 
 1. **Titre alternatif** : cap porté de 2 à **3 noms** (sinon 3 premiers + « … »),

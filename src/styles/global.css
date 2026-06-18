@@ -1078,6 +1078,35 @@ button, input, select, textarea { font: inherit; color: inherit }
 .jd-badge-activite    { background: rgba(99,102,241,.12); color: var(--accent) }
 .jd-badge-journal     { background: var(--accent-bg); color: var(--accent) }
 .jd-badge-documentation { background: rgba(245,158,11,.12); color: #d97706 }
+/* Catégorie de documentation : couleurs portées par le style inline (hex du référentiel) */
+.jd-badge--doc-cat { border: 1px solid transparent; text-transform: none; letter-spacing: 0 }
+
+/* Gestion des catégories de documentation (WorkspaceManager) */
+.doc-cat-list { list-style: none; margin: 0 0 .75rem; padding: 0; display: flex; flex-direction: column; gap: .375rem }
+.doc-cat-row {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .375rem .5rem; background: var(--surface-alt);
+  border: 1px solid var(--border); border-radius: var(--r);
+}
+.doc-cat-empty { color: var(--text-muted); font-size: .8125rem; padding: .5rem }
+.doc-cat-emoji {
+  width: 2.4rem; text-align: center; font-size: 1.1rem;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  background: var(--surface); padding: .3rem .2rem;
+}
+.doc-cat-nom { flex: 1; min-width: 6rem; padding: .4rem .6rem; font-size: .875rem }
+.doc-cat-color { width: 2.2rem; height: 2.2rem; padding: 0; border: 1px solid var(--border); border-radius: var(--r-sm); background: none; cursor: pointer }
+.doc-cat-count { font-size: .75rem; color: var(--text-muted); min-width: 2rem; text-align: right }
+.doc-cat-actions { display: flex; gap: .15rem }
+.doc-cat-actions button {
+  border: 1px solid var(--border); background: var(--surface);
+  border-radius: var(--r-sm); width: 1.9rem; height: 1.9rem; cursor: pointer;
+  font-size: .85rem; color: var(--text-muted);
+}
+.doc-cat-actions button:disabled { opacity: .35; cursor: default }
+.doc-cat-del:hover { color: var(--danger); border-color: var(--danger) }
+.doc-cat-add { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap }
+.doc-cat-add-btn { padding: .45rem 1rem; font-size: .875rem }
 
 /* Chips (objets liés) */
 .jd-chip {
