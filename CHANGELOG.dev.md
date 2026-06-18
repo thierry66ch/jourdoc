@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 18 — 2026-06-18
+
+Éditeur — Phase 1 des compléments Tiptap (stratégie mobile : barre allégée + slash-menu) :
+
+- **Slash-menu `/`** (`slashMenu.js`, `@tiptap/suggestion`) : titres, listes, cases à
+  cocher, tableau, citation, bloc de code. Recherche + navigation ↑↓/Entrée/Échap.
+  Bouton `＋` dans la barre pour l'ouvrir (utile mobile).
+- **Cases à cocher** (TaskList/TaskItem), sérialisées GFM (`- [ ]`).
+- **Barre d'outils responsive** : sur mobile (`<768px`), les boutons avancés
+  (`.rte-btn--adv` : barré, code, H3, tableau…) sont masqués → accessibles via le slash-menu.
+
+Dépendances : `@tiptap/suggestion`, `@tiptap/extension-task-list`, `@tiptap/extension-task-item`.
+
+À venir : mentions `@`, callouts, collage d'images, table des matières, formules.
+
+---
+
 ## Build 17 — 2026-06-18
 
 Éditeur enrichi (notes + documents Markdown) :

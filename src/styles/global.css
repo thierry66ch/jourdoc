@@ -2941,6 +2941,43 @@ button, input, select, textarea { font: inherit; color: inherit }
 .rte-content .ProseMirror .tableWrapper { overflow-x: auto }
 .rte-btn--danger { color: var(--danger) }
 .rte-btn--danger:hover { background: var(--danger); color: #fff; border-color: var(--danger) }
+.rte-btn--slash { font-size: 1.05rem; font-weight: 700 }
+
+/* Cases à cocher (task lists) */
+.rte-content .ProseMirror ul[data-type="taskList"],
+.rich-view ul[data-type="taskList"] { list-style: none; padding-left: .25rem; margin: .375rem 0 }
+.rte-content .ProseMirror ul[data-type="taskList"] li,
+.rich-view ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: .5rem }
+.rte-content .ProseMirror ul[data-type="taskList"] li > label,
+.rich-view ul[data-type="taskList"] li > label { margin-top: .15rem; flex-shrink: 0 }
+.rte-content .ProseMirror ul[data-type="taskList"] li > div,
+.rich-view ul[data-type="taskList"] li > div { flex: 1 }
+.rte-content .ProseMirror ul[data-type="taskList"] p,
+.rich-view ul[data-type="taskList"] p { margin: 0 }
+
+/* Slash-menu « / » */
+.slash-menu {
+  position: fixed; z-index: 1100; width: 220px; max-height: 280px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); box-shadow: var(--shadow-lg); padding: .25rem;
+}
+.slash-menu__item {
+  display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left;
+  padding: .4rem .55rem; border: none; background: none; border-radius: var(--r-sm);
+  cursor: pointer; font-size: .875rem; color: var(--text);
+}
+.slash-menu__item:hover, .slash-menu__item.is-sel { background: var(--accent-bg); color: var(--accent) }
+.slash-menu__icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.7rem; height: 1.7rem; flex-shrink: 0;
+  background: var(--surface-alt); border-radius: var(--r-sm); font-size: .8rem; font-weight: 700;
+}
+.slash-menu__empty { padding: .5rem; color: var(--text-muted); font-size: .8125rem }
+
+/* Barre d'outils allégée sur mobile : fonctions avancées via le slash-menu */
+@media (max-width: 767px) {
+  .rte-btn--adv, .rte-sep--adv { display: none }
+}
 .rte-content .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--text-subtle);

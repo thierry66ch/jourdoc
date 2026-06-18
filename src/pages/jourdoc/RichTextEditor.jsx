@@ -4,6 +4,9 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 import { TableKit } from '@tiptap/extension-table'
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
+import { SlashCommand } from './slashMenu'
 
 export default function RichTextEditor({
   initialContent, onChange, placeholder,
@@ -20,6 +23,9 @@ export default function RichTextEditor({
       Underline,
       Link.configure({ openOnClick: false }),
       TableKit.configure({ table: { resizable: true } }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      SlashCommand,
     ],
     content: initialContent || '',
     onUpdate: ({ editor }) => onChange?.(editor.getHTML()),
@@ -67,21 +73,21 @@ export default function RichTextEditor({
         <button type="button" className={`rte-btn rte-underline${editor.isActive('underline') ? ' active' : ''}`}
           title="Souligné (Ctrl+U)" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleUnderline().run() }}
           disabled={sourceMode}>S</button>
-        <button type="button" className={`rte-btn rte-strike${editor.isActive('strike') ? ' active' : ''}`}
+        <button type="button" className={`rte-btn rte-strike rte-btn--adv${editor.isActive('strike') ? ' active' : ''}`}
           title="Barré" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleStrike().run() }}
           disabled={sourceMode} style={{ textDecoration: 'line-through' }}>S</button>
 
-        <span className="rte-sep" />
+        <span className="rte-sep rte-sep--adv" />
 
         {/* Code */}
-        <button type="button" className={`rte-btn rte-code${editor.isActive('code') ? ' active' : ''}`}
+        <button type="button" className={`rte-btn rte-code rte-btn--adv${editor.isActive('code') ? ' active' : ''}`}
           title="Code inline" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleCode().run() }}
           disabled={sourceMode}>&lt;&gt;</button>
-        <button type="button" className={`rte-btn rte-code${editor.isActive('codeBlock') ? ' active' : ''}`}
+        <button type="button" className={`rte-btn rte-code rte-btn--adv${editor.isActive('codeBlock') ? ' active' : ''}`}
           title="Bloc de code" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleCodeBlock().run() }}
           disabled={sourceMode}>{'{ }'}</button>
 
-        <span className="rte-sep" />
+        <span className="rte-sep rte-sep--adv" />
 
         {/* Listes */}
         <button type="button" className={`rte-btn${editor.isActive('bulletList') ? ' active' : ''}`}
@@ -92,6 +98,10 @@ export default function RichTextEditor({
           title="Liste numérotée"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleOrderedList().run() }}
           disabled={sourceMode}>1.</button>
+        <button type="button" className={`rte-btn rte-btn--adv${editor.isActive('taskList') ? ' active' : ''}`}
+          title="Case à cocher"
+          onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleTaskList().run() }}
+          disabled={sourceMode}>☑</button>
 
         <span className="rte-sep" />
 
@@ -102,14 +112,14 @@ export default function RichTextEditor({
         <button type="button" className={`rte-btn rte-h2${editor.isActive('heading', { level: 2 }) ? ' active' : ''}`}
           title="Sous-titre (H2)" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 2 }).run() }}
           disabled={sourceMode}>H2</button>
-        <button type="button" className={`rte-btn rte-h2${editor.isActive('heading', { level: 3 }) ? ' active' : ''}`}
+        <button type="button" className={`rte-btn rte-h2 rte-btn--adv${editor.isActive('heading', { level: 3 }) ? ' active' : ''}`}
           title="Sous-sous-titre (H3)" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 3 }).run() }}
           disabled={sourceMode}>H3</button>
 
-        <span className="rte-sep" />
+        <span className="rte-sep rte-sep--adv" />
 
         {/* Tableau */}
-        <button type="button" className={`rte-btn${editor.isActive('table') ? ' active' : ''}`}
+        <button type="button" className={`rte-btn rte-btn--adv${editor.isActive('table') ? ' active' : ''}`}
           title="Insérer un tableau"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() }}
           disabled={sourceMode}>▦</button>
@@ -134,6 +144,12 @@ export default function RichTextEditor({
         <button type="button" className={`rte-btn${editor.isActive('link') ? ' active' : ''}`}
           title="Lien" onMouseDown={e => { e.preventDefault(); addLink() }}
           disabled={sourceMode}>🔗</button>
+
+        {/* Menu « / » — insertion (titres, listes, tableau, cases…) */}
+        <button type="button" className="rte-btn rte-btn--slash"
+          title="Insérer (titres, listes, tableau, cases à cocher…)"
+          onMouseDown={e => { e.preventDefault(); editor.chain().focus().insertContent('/').run() }}
+          disabled={sourceMode}>＋</button>
 
         <span className="rte-sep" />
 
