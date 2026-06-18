@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 16 — 2026-06-18
+
+Corrections documents Markdown (retours terrain) :
+
+1. Bouton **« 📝 + Document »** déplacé dans l'éditeur de note (NoteForm, à côté de
+   « Choisir des médias ») ; retiré du visualiseur. Le doc créé est rattaché à la note.
+2. **Mode source** : le textarea occupe toute la hauteur disponible (`flex: 1`).
+3. **Mode source = Markdown** (et non HTML) : `RichTextEditor` accepte `htmlToSource`
+   / `sourceToHtml` ; `MarkdownModal` y branche turndown / marked. Édition source
+   en md, synchronisée avec le WYSIWYG.
+4. **Vignette MD** corrigée dans NoteCard (icône 📝 au lieu d'une image cassée) ;
+   idem dans la liste des médias sélectionnés de l'éditeur.
+
+---
+
 ## Build 15 — 2026-06-18
 
 **Pièces jointes Markdown.** Nouveau type de média `markdown` : on peut joindre

@@ -9,6 +9,7 @@ import MediaPicker from './MediaPicker'
 import MediaCard from './MediaCard'
 import NoteLinkPicker from './NoteLinkPicker'
 import RichTextEditor from './RichTextEditor'
+import MarkdownModal from './MarkdownModal'
 
 function today() {
   const d = new Date()
@@ -68,6 +69,7 @@ export default function NoteForm() {
   const [noteLoaded, setNoteLoaded] = useState(!isEdit) // pour la clé de RichTextEditor
   const [mediaDetails, setMediaDetails] = useState([])  // détail des médias liés (pour miniatures)
   const [showPicker, setShowPicker] = useState(initMediaIds.length > 0)
+  const [mdOpen, setMdOpen] = useState(null) // null | { create: true } | { mediaId }
   const [liens, setLiens] = useState([])           // notes sortantes (cette note → autres)
   const [liensEntrants, setLiensEntrants] = useState([])   // notes entrantes (autres → cette note)
   const [pendingLinks, setPendingLinks] = useState(location.state?.pending_links ?? [])  // liens en attente (mode création)
@@ -147,6 +149,12 @@ export default function NoteForm() {
   function removeMedia(id) {
     setForm(f => ({ ...f, media_ids: f.media_ids.filter(x => x !== id) }))
     setMediaDetails(d => d.filter(m => m.id !== id))
+  }
+
+  // Document Markdown créé depuis l'éditeur → l'attacher à la note
+  function onMdCreated(media) {
+    setForm(f => ({ ...f, media_ids: [...f.media_ids, media.id] }))
+    setMediaDetails(d => [...d, { id: media.id, type_media: 'markdown', nom_original: media.nom_original, fichier: media.fichier }])
   }
 
   async function handleSubmit(e) {
@@ -349,10 +357,14 @@ export default function NoteForm() {
                 </span>
               )}
             </label>
-            <button type="button" className="jd-auto-btn"
-              onClick={() => setShowPicker(o => !o)}>
-              {showPicker ? 'Fermer' : 'Choisir des médias'}
-            </button>
+            <div style={{ display: 'flex', gap: '.5rem' }}>
+              <button type="button" className="jd-auto-btn"
+                onClick={() => setMdOpen({ create: true })}>📝 + Document</button>
+              <button type="button" className="jd-auto-btn"
+                onClick={() => setShowPicker(o => !o)}>
+                {showPicker ? 'Fermer' : 'Choisir des médias'}
+              </button>
+            </div>
           </div>
 
           {/* Miniatures des médias déjà sélectionnés */}
@@ -365,6 +377,10 @@ export default function NoteForm() {
                   <div key={id} className="jd-media-selected__item">
                     {m.type_media === 'pdf'
                       ? <div className="jd-thumb jd-thumb--pdf" title={m.nom_original}>📄</div>
+                      : m.type_media === 'markdown'
+                      ? <div className="jd-thumb jd-thumb--pdf" title={m.nom_original}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => setMdOpen({ mediaId: m.id })}>📝</div>
                       : <img className="jd-thumb" src={mediaUrl(wsId, m.id, token)} alt="" loading="lazy" />
                     }
                     <button type="button" className="jd-media-selected__remove"
@@ -478,6 +494,16 @@ export default function NoteForm() {
           </button>
         </div>
       </form>
+
+      {/* Document Markdown (création / édition) */}
+      {mdOpen && (
+        <MarkdownModal
+          wsId={wsId} token={token}
+          mediaId={mdOpen.mediaId ?? null}
+          onClose={() => setMdOpen(null)}
+          onCreated={onMdCreated}
+        />
+      )}
     </div>
   )
 }

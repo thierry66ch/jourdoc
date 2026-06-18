@@ -2871,6 +2871,7 @@ button, input, select, textarea { font: inherit; color: inherit }
 /* Contenu ProseMirror */
 .rte-source {
   width: 100%; min-height: 120px;
+  flex: 1 1 auto;
   padding: .75rem 1rem;
   font-family: var(--font-mono, monospace);
   font-size: .8125rem;

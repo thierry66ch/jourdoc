@@ -97,6 +97,8 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
           ) : mode === 'edit' ? (
             <RichTextEditor key={`md-${currentId ?? 'new'}`} initialContent={html}
               onChange={h => { editorHtmlRef.current = h }}
+              htmlToSource={h => td.turndown(h || '')}
+              sourceToHtml={s => mdToHtml(s)}
               placeholder="Rédigez votre document Markdown…" />
           ) : html ? (
             <RichTextView content={html} className="md-modal__view" />

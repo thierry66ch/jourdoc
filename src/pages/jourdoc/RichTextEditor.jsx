@@ -4,9 +4,14 @@ import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
 
-export default function RichTextEditor({ initialContent, onChange, placeholder }) {
+export default function RichTextEditor({
+  initialContent, onChange, placeholder,
+  // Format du « mode source ». Par défaut HTML (identité).
+  // Pour un document Markdown : htmlToSource = html→md, sourceToHtml = md→html.
+  htmlToSource = h => h, sourceToHtml = h => h,
+}) {
   const [sourceMode, setSourceMode] = useState(false)
-  const [sourceHtml, setSourceHtml] = useState('')
+  const [sourceText, setSourceText] = useState('')
 
   const editor = useEditor({
     extensions: [
@@ -30,12 +35,19 @@ export default function RichTextEditor({ initialContent, onChange, placeholder }
   function toggleSource() {
     if (!editor) return
     if (!sourceMode) {
-      setSourceHtml(editor.getHTML())
+      setSourceText(htmlToSource(editor.getHTML()))
     } else {
-      editor.commands.setContent(sourceHtml, false)
-      onChange?.(sourceHtml)
+      const html = sourceToHtml(sourceText)
+      editor.commands.setContent(html, false)
+      onChange?.(html)
     }
     setSourceMode(s => !s)
+  }
+
+  // Édition dans le mode source : garder le parent synchronisé (converti en HTML)
+  function onSourceChange(text) {
+    setSourceText(text)
+    onChange?.(sourceToHtml(text))
   }
 
   if (!editor) return null
@@ -110,8 +122,8 @@ export default function RichTextEditor({ initialContent, onChange, placeholder }
       {sourceMode ? (
         <textarea
           className="rte-source"
-          value={sourceHtml}
-          onChange={e => setSourceHtml(e.target.value)}
+          value={sourceText}
+          onChange={e => onSourceChange(e.target.value)}
           spellCheck={false}
         />
       ) : (

@@ -42,17 +42,8 @@ export default function NoteView() {
   const [note, setNote] = useState(null)
   const [loading, setLoading] = useState(true)
   const [lbIdx, setLbIdx] = useState(-1)
-  const [mdOpen, setMdOpen] = useState(null) // null | { mediaId } | { create: true }
+  const [mdOpen, setMdOpen] = useState(null) // null | { mediaId }
   const touchStart = useRef(null)
-
-  async function linkMediaToNote(mediaId) {
-    const ids = [...(note?.medias ?? []).map(m => m.id), mediaId]
-    await fetch(API_ROUTES.JD_NOTE_MEDIAS(wsId, noteId), {
-      method: 'PUT', headers: authHeader(token),
-      body: JSON.stringify({ media_ids: ids }),
-    })
-    refreshNote()
-  }
 
   const refreshNote = useCallback(() => {
     fetch(API_ROUTES.JD_NOTE(wsId, noteId), { headers: authHeader(token) })
@@ -160,13 +151,9 @@ export default function NoteView() {
           </div>
 
           {/* Médias */}
-          <div className="note-view__section">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          {note.medias?.length > 0 && (
+            <div className="note-view__section">
               <h3 className="note-view__section-title">📎 Pièces jointes</h3>
-              <button type="button" className="jd-auto-btn"
-                onClick={() => setMdOpen({ create: true })}>📝 + Document</button>
-            </div>
-            {note.medias?.length > 0 && (
               <div className="media-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: '.5rem' }}>
                 {note.medias.map(m => (
                   <MediaCard key={m.id} media={m} size="sm"
@@ -178,8 +165,8 @@ export default function NoteView() {
                   />
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         {/* ── Sidebar ── */}
@@ -295,7 +282,6 @@ export default function NoteView() {
           wsId={wsId} token={token}
           mediaId={mdOpen.mediaId ?? null}
           onClose={() => setMdOpen(null)}
-          onCreated={media => linkMediaToNote(media.id)}
           onSaved={refreshNote}
         />
       )}
