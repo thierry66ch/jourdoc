@@ -115,8 +115,14 @@ Pièces jointes `.md` (import ou création « + Document » depuis une note). Mo
 plein écran : visualiseur (md→HTML via `marked` → `RichTextView`) et **éditeur
 WYSIWYG** (réutilise `RichTextEditor`/Tiptap ; sauvegarde HTML→md via `turndown`).
 Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`, `getTextFile`/
-`putTextFile`). Ouvert depuis NoteView et MediaGallery ; exclu des lightbox/vignettes
-photo. Dépendances : `marked`, `turndown`.
+`putTextFile`). Création depuis l'**éditeur** de note (NoteForm, bouton « + Document »),
+lecture/édition depuis NoteView et MediaGallery ; exclu des lightbox/vignettes photo.
+Fermeture protégée (confirmation si `dirty`, clic backdrop sécurisé). Dépendances :
+`marked`, `turndown`, `turndown-plugin-gfm` (tableaux GFM).
+
+`RichTextEditor` (partagé notes + docs) : Tiptap StarterKit (H1–H3), Underline, Link,
+**TableKit** (tableaux redimensionnables + add/del lignes/colonnes), mode source
+paramétrable (`htmlToSource`/`sourceToHtml` → Markdown dans le modal).
 
 ## Todoist
 

@@ -2915,6 +2915,32 @@ button, input, select, textarea { font: inherit; color: inherit }
 .rte-content .ProseMirror strong { font-weight: 700 }
 .rte-content .ProseMirror em { font-style: italic }
 .rte-content .ProseMirror u { text-decoration: underline }
+
+/* Tableaux (éditeur Tiptap + vues lecture) */
+.rte-content .ProseMirror table,
+.rich-view table {
+  border-collapse: collapse; width: 100%; margin: .6rem 0;
+  font-size: .9em; table-layout: fixed;
+}
+.rte-content .ProseMirror td, .rte-content .ProseMirror th,
+.rich-view td, .rich-view th {
+  border: 1px solid var(--border); padding: .35rem .55rem;
+  vertical-align: top; position: relative; min-width: 3rem;
+}
+.rte-content .ProseMirror th, .rich-view th {
+  background: var(--surface-alt); font-weight: 700; text-align: left;
+}
+.rte-content .ProseMirror .selectedCell::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: var(--accent-bg);
+}
+.rte-content .ProseMirror .column-resize-handle {
+  position: absolute; right: -2px; top: 0; bottom: -2px; width: 4px;
+  background: var(--accent); cursor: col-resize;
+}
+.rte-content .ProseMirror .tableWrapper { overflow-x: auto }
+.rte-btn--danger { color: var(--danger) }
+.rte-btn--danger:hover { background: var(--danger); color: #fff; border-color: var(--danger) }
 .rte-content .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--text-subtle);

@@ -3,6 +3,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
 import Link from '@tiptap/extension-link'
+import { TableKit } from '@tiptap/extension-table'
 
 export default function RichTextEditor({
   initialContent, onChange, placeholder,
@@ -15,9 +16,10 @@ export default function RichTextEditor({
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
       Underline,
       Link.configure({ openOnClick: false }),
+      TableKit.configure({ table: { resizable: true } }),
     ],
     content: initialContent || '',
     onUpdate: ({ editor }) => onChange?.(editor.getHTML()),
@@ -77,7 +79,7 @@ export default function RichTextEditor({
           disabled={sourceMode}>&lt;&gt;</button>
         <button type="button" className={`rte-btn rte-code${editor.isActive('codeBlock') ? ' active' : ''}`}
           title="Bloc de code" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleCodeBlock().run() }}
-          disabled={sourceMode}>{ }</button>
+          disabled={sourceMode}>{'{ }'}</button>
 
         <span className="rte-sep" />
 
@@ -100,6 +102,31 @@ export default function RichTextEditor({
         <button type="button" className={`rte-btn rte-h2${editor.isActive('heading', { level: 2 }) ? ' active' : ''}`}
           title="Sous-titre (H2)" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 2 }).run() }}
           disabled={sourceMode}>H2</button>
+        <button type="button" className={`rte-btn rte-h2${editor.isActive('heading', { level: 3 }) ? ' active' : ''}`}
+          title="Sous-sous-titre (H3)" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHeading({ level: 3 }).run() }}
+          disabled={sourceMode}>H3</button>
+
+        <span className="rte-sep" />
+
+        {/* Tableau */}
+        <button type="button" className={`rte-btn${editor.isActive('table') ? ' active' : ''}`}
+          title="Insérer un tableau"
+          onMouseDown={e => { e.preventDefault(); editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() }}
+          disabled={sourceMode}>▦</button>
+        {editor.isActive('table') && !sourceMode && (
+          <>
+            <button type="button" className="rte-btn" title="Ajouter une colonne"
+              onMouseDown={e => { e.preventDefault(); editor.chain().focus().addColumnAfter().run() }}>+┃</button>
+            <button type="button" className="rte-btn" title="Ajouter une ligne"
+              onMouseDown={e => { e.preventDefault(); editor.chain().focus().addRowAfter().run() }}>+━</button>
+            <button type="button" className="rte-btn" title="Supprimer la colonne"
+              onMouseDown={e => { e.preventDefault(); editor.chain().focus().deleteColumn().run() }}>−┃</button>
+            <button type="button" className="rte-btn" title="Supprimer la ligne"
+              onMouseDown={e => { e.preventDefault(); editor.chain().focus().deleteRow().run() }}>−━</button>
+            <button type="button" className="rte-btn rte-btn--danger" title="Supprimer le tableau"
+              onMouseDown={e => { e.preventDefault(); editor.chain().focus().deleteTable().run() }}>✕▦</button>
+          </>
+        )}
 
         <span className="rte-sep" />
 
@@ -112,7 +139,7 @@ export default function RichTextEditor({
 
         {/* Source HTML */}
         <button type="button" className={`rte-btn${sourceMode ? ' active' : ''}`}
-          title="Voir/éditer le code source HTML"
+          title="Voir/éditer le code source"
           onMouseDown={e => { e.preventDefault(); toggleSource() }}>
           &lt;/&gt;
         </button>

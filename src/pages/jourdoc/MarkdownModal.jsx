@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { marked } from 'marked'
 import TurndownService from 'turndown'
+import { gfm } from 'turndown-plugin-gfm'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
 import RichTextEditor from './RichTextEditor'
 import RichTextView from './RichTextView'
 
 const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' })
-const mdToHtml = md => marked.parse(md || '', { breaks: true })
+td.use(gfm) // tableaux, barré, listes de tâches → Markdown GFM
+const mdToHtml = md => marked.parse(md || '', { breaks: true, gfm: true })
 
 /**
  * Modal plein écran pour visualiser / éditer un document Markdown (pièce jointe).
@@ -23,7 +25,14 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const [html, setHtml]   = useState('')
   const [loading, setLoading] = useState(!isCreate)
   const [saving, setSaving]   = useState(false)
+  const [dirty, setDirty]     = useState(false)
   const editorHtmlRef = useRef('')
+  const downTargetRef = useRef(null) // pour distinguer un vrai clic backdrop d'un drag de sélection
+
+  function requestClose() {
+    if (dirty && !window.confirm('Modifications non enregistrées. Fermer sans enregistrer ?')) return
+    onClose?.()
+  }
 
   useEffect(() => {
     if (isCreate) return
@@ -38,12 +47,12 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
       .finally(() => setLoading(false))
   }, [wsId, token, mediaId, isCreate])
 
-  // Fermeture au clavier (Échap)
+  // Fermeture au clavier (Échap) — avec confirmation si modifié
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onClose?.() }
+    const onKey = e => { if (e.key === 'Escape') requestClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }) // pas de deps : on veut toujours la dernière valeur de `dirty`
 
   async function save() {
     setSaving(true)
@@ -65,12 +74,15 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
         onSaved?.()
       }
       setHtml(editorHtmlRef.current)
+      setDirty(false)
       setMode('view')
     } finally { setSaving(false) }
   }
 
   return (
-    <div className="md-modal" onClick={onClose}>
+    <div className="md-modal"
+      onMouseDown={e => { downTargetRef.current = e.target }}
+      onClick={e => { if (e.target === e.currentTarget && downTargetRef.current === e.currentTarget) requestClose() }}>
       <div className="md-modal__panel" onClick={e => e.stopPropagation()}>
         <div className="md-modal__bar">
           {mode === 'edit' ? (
@@ -88,7 +100,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
                 {saving ? '…' : '💾 Enregistrer'}
               </button>
             )}
-            <button type="button" className="btn btn-ghost md-modal__close" onClick={onClose} title="Fermer">✕</button>
+            <button type="button" className="btn btn-ghost md-modal__close" onClick={requestClose} title="Fermer">✕</button>
           </div>
         </div>
         <div className="md-modal__body">
@@ -96,7 +108,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
             <div className="jd-loading">Chargement…</div>
           ) : mode === 'edit' ? (
             <RichTextEditor key={`md-${currentId ?? 'new'}`} initialContent={html}
-              onChange={h => { editorHtmlRef.current = h }}
+              onChange={h => { editorHtmlRef.current = h; setDirty(true) }}
               htmlToSource={h => td.turndown(h || '')}
               sourceToHtml={s => mdToHtml(s)}
               placeholder="Rédigez votre document Markdown…" />

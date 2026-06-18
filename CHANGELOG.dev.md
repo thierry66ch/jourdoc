@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 17 — 2026-06-18
+
+Éditeur enrichi (notes + documents Markdown) :
+
+1. **Protection contre la fermeture accidentelle** du modal Markdown : clic backdrop
+   sécurisé (ignore les drags de sélection qui débordent), Échap et croix passent
+   par une **confirmation si modifications non enregistrées** (état `dirty`).
+2. Icône du bouton **bloc de code** corrigée (`{ }` était une expression JSX vide).
+3. **H3**, **tableaux** (insertion + add/del lignes/colonnes, redimensionnables) via
+   `@tiptap/extension-table` (TableKit). Aller-retour Markdown des tableaux assuré
+   par `turndown-plugin-gfm` (+ `marked` GFM). Styles de tableaux (éditeur + vues).
+4. `RichTextEditor` : `StarterKit` headings `[1,2,3]`.
+
+Dépendances : `@tiptap/extension-table`, `turndown-plugin-gfm`.
+
+---
+
 ## Build 16 — 2026-06-18
 
 Corrections documents Markdown (retours terrain) :
