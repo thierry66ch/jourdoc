@@ -130,6 +130,10 @@ Barre d'outils **allégée sur mobile** (`<768px`) : les fonctions avancées
 source fournie par la prop `mentionItems` (async, lue via une ref) ; l'`id` encode le
 type (`objet:123`) ; clic sur une mention → navigation interne (géré dans NoteView).
 Branché dans NoteForm (contenu) ; popup affiché seulement s'il y a des résultats.
+**Callouts** (`callout.js`) : nœud bloc à variantes (info/tip/warning/success),
+inséré via le slash-menu, icône + couleur en CSS. En document Markdown, sérialisé
+en alertes GFM (`> [!TIP]`) par une règle `turndown` (le rendu callout est perdu au
+rechargement md, contenu préservé).
 NB : les cases à cocher se sérialisent en GFM (`- [ ]`) ; côté documents Markdown,
 le rechargement md→html peut les rendre en listes simples (limite `marked`).
 

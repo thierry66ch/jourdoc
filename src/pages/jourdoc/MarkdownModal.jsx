@@ -9,6 +9,16 @@ import RichTextView from './RichTextView'
 
 const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' })
 td.use(gfm) // tableaux, barré, listes de tâches → Markdown GFM
+// Encadrés → alertes GFM (> [!TIP]) pour préserver le contenu en Markdown
+const ALERT = { info: 'NOTE', tip: 'TIP', warning: 'WARNING', success: 'IMPORTANT' }
+td.addRule('callout', {
+  filter: node => node.nodeName === 'DIV' && node.hasAttribute?.('data-callout'),
+  replacement: (content, node) => {
+    const label = ALERT[node.getAttribute('data-variant')] || 'NOTE'
+    const body = content.trim().split('\n').map(l => `> ${l}`.trimEnd()).join('\n')
+    return `\n> [!${label}]\n${body}\n\n`
+  },
+})
 const mdToHtml = md => marked.parse(md || '', { breaks: true, gfm: true })
 
 /**

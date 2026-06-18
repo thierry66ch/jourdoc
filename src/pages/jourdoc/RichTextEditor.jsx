@@ -8,6 +8,7 @@ import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { SlashCommand } from './slashMenu'
 import { buildMention } from './mention'
+import { Callout } from './callout'
 
 export default function RichTextEditor({
   initialContent, onChange, placeholder,
@@ -30,6 +31,7 @@ export default function RichTextEditor({
       TableKit.configure({ table: { resizable: true } }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      Callout,
       SlashCommand,
       buildMention(() => mentionRef.current),
     ],

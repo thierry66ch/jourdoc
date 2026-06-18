@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 21 — 2026-06-18
+
+**Callouts / encadrés** (phase 3) : nœud Tiptap custom (`callout.js`) à 4 variantes —
+ℹ️ Info, 💡 Astuce, ⚠️ Attention, ✅ Succès — insérables via le slash-menu. Bordure
+colorée + icône (CSS), rendu en édition et en lecture (RichTextView). Dans les
+documents Markdown, sérialisés en alertes GFM (`> [!TIP]`) via une règle `turndown`
+(contenu préservé ; le rendu encadré n'est pas régénéré au rechargement md).
+
+---
+
 ## Build 20 — 2026-06-18
 
 **Mentions `@`** (phase 2) : dans le contenu d'une note, taper `@` propose objets,

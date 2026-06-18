@@ -2965,6 +2965,26 @@ button, input, select, textarea { font: inherit; color: inherit }
 .rte-content .ProseMirror ul[data-type="taskList"] p,
 .rich-view ul[data-type="taskList"] p { margin: 0 }
 
+/* Encadrés (callouts) — éditeur + vues */
+.jd-callout {
+  position: relative; border-radius: var(--r);
+  padding: .6rem .8rem .6rem 2.5rem; margin: .65rem 0;
+  border-left: 4px solid var(--text-muted);
+}
+.jd-callout::before {
+  position: absolute; left: .7rem; top: .55rem; font-size: 1rem; line-height: 1.2;
+}
+.jd-callout > :last-child { margin-bottom: 0 }
+.jd-callout > :first-child { margin-top: 0 }
+.jd-callout--info    { background: rgba(14,165,233,.10); border-color: #0ea5e9 }
+.jd-callout--info::before    { content: 'ℹ️' }
+.jd-callout--tip     { background: rgba(245,158,11,.10); border-color: #f59e0b }
+.jd-callout--tip::before     { content: '💡' }
+.jd-callout--warning { background: rgba(239,68,68,.10);  border-color: #ef4444 }
+.jd-callout--warning::before { content: '⚠️' }
+.jd-callout--success { background: rgba(16,185,129,.10); border-color: #10b981 }
+.jd-callout--success::before { content: '✅' }
+
 /* Mentions « @ » (objets / thèmes / notes) */
 .jd-mention {
   color: var(--accent); background: var(--accent-bg);
