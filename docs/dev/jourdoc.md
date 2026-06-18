@@ -92,7 +92,9 @@ du workspace, **groupée en étagères par catégorie**. Charge `GET /notes?type
 **Filtres secondaires** objet + thème via `HierarchyPicker` + portée
 ancêtres/descendants (`getRelated` avec `searchDepth`). Chaque étagère a un bandeau
 coloré repliable + une grille de `NoteCard` (ou liste compacte). Tout est calculé
-côté client (`useMemo`).
+côté client (`useMemo`). **Filtres persistés en query params** (`useSearchParams`,
+`replace`) → restaurés au retour depuis une note ; **position de défilement**
+sauvegardée/restaurée via `sessionStorage` (conteneur `.jd-main`).
 
 ## Médias & stockage
 

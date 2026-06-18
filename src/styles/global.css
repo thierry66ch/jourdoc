@@ -1034,7 +1034,7 @@ button, input, select, textarea { font: inherit; color: inherit }
 
 .jd-note-card__top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: .5rem;
   margin-bottom: .4rem;
 }
@@ -1054,6 +1054,7 @@ button, input, select, textarea { font: inherit; color: inherit }
   font-size: .75rem;
   color: var(--text-muted);
   margin-left: auto;
+  text-align: right;
 }
 
 .jd-note-card__objets {

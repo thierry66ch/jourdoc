@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
 import { useJdData, authHeader, docCategorieBadgeStyle } from './hooks'
@@ -22,21 +22,36 @@ export default function BibliothequeView() {
   const navigate = useNavigate()
   const { token } = useAuth()
   const { objets, themes, docCategories, searchDepth, pickerMode } = useJdData(wsId, token)
+  const [params, setParams] = useSearchParams()
 
   const [notes, setNotes]     = useState([])
   const [loading, setLoading] = useState(true)
-  const [q, setQ]             = useState('')
-  const [sort, setSort]       = useState('recent') // 'recent' | 'alpha'
-  const [selCat, setSelCat]   = useState(null)      // null | id | '__none__'
+  // État initialisé depuis l'URL → restauré au retour (navigate(-1) restaure les query params)
+  const [q, setQ]             = useState(() => params.get('q') || '')
+  const [sort, setSort]       = useState(() => params.get('sort') || 'recent') // 'recent' | 'alpha'
+  const [selCat, setSelCat]   = useState(() => {
+    const c = params.get('cat'); return c == null ? null : (c === '__none__' ? '__none__' : Number(c))
+  })
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [density, setDensity] = useState(() => localStorage.getItem('biblio_density') || 'cards')
 
-  const [objetFilter, setObjetFilter] = useState(null)
-  const [objetDir, setObjetDir]       = useState('both')
-  const [themeFilter, setThemeFilter] = useState(null)
-  const [themeDir, setThemeDir]       = useState('both')
+  const [objetFilter, setObjetFilter] = useState(() => { const v = params.get('of'); return v ? Number(v) : null })
+  const [objetDir, setObjetDir]       = useState(() => params.get('od') || 'both')
+  const [themeFilter, setThemeFilter] = useState(() => { const v = params.get('tf'); return v ? Number(v) : null })
+  const [themeDir, setThemeDir]       = useState(() => params.get('td') || 'both')
 
   useEffect(() => { localStorage.setItem('biblio_density', density) }, [density])
+
+  // Refléter les filtres dans l'URL (replace : pas de pollution de l'historique)
+  useEffect(() => {
+    const p = {}
+    if (q) p.q = q
+    if (sort !== 'recent') p.sort = sort
+    if (selCat != null) p.cat = String(selCat)
+    if (objetFilter) { p.of = String(objetFilter); if (objetDir !== 'both') p.od = objetDir }
+    if (themeFilter) { p.tf = String(themeFilter); if (themeDir !== 'both') p.td = themeDir }
+    setParams(p, { replace: true })
+  }, [q, sort, selCat, objetFilter, objetDir, themeFilter, themeDir, setParams])
 
   useEffect(() => {
     setLoading(true)
@@ -45,6 +60,29 @@ export default function BibliothequeView() {
       .then(d => setNotes(d.notes ?? []))
       .finally(() => setLoading(false))
   }, [wsId, token])
+
+  // Sauvegarde / restauration de la position de défilement (conteneur .jd-main)
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    const main = document.querySelector('.jd-main')
+    if (!main) return
+    const key = `biblio_scroll_${wsId}`
+    let raf = 0
+    const onScroll = () => {
+      if (raf) return
+      raf = requestAnimationFrame(() => { sessionStorage.setItem(key, String(main.scrollTop)); raf = 0 })
+    }
+    main.addEventListener('scroll', onScroll, { passive: true })
+    return () => { main.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf) }
+  }, [wsId])
+
+  useEffect(() => {
+    if (loading || restoredRef.current) return
+    restoredRef.current = true
+    const main = document.querySelector('.jd-main')
+    const y = Number(sessionStorage.getItem(`biblio_scroll_${wsId}`) || 0)
+    if (main && y > 0) requestAnimationFrame(() => { main.scrollTop = y })
+  }, [loading, wsId])
 
   // Recherche + filtres objet/thème (hiérarchiques) + tri
   const matched = useMemo(() => {

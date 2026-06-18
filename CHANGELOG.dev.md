@@ -4,6 +4,20 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 12 — 2026-06-18
+
+Bibliothèque — finitions :
+
+1. **Persistance des filtres** : recherche, tri, catégorie et filtres objet/thème
+   (+ portée) sont reflétés dans l'URL (`useSearchParams`, `replace`). Au retour
+   depuis une note, les filtres sont restaurés. **Position de défilement** aussi
+   sauvegardée/restaurée (`sessionStorage`, conteneur `.jd-main`).
+2. **Alignement NoteCard** : bandeau supérieur en `align-items: flex-start` (le
+   badge ne se décale plus quand le thème à droite passe sur 2 lignes — cas du
+   badge « DOCUMENTATION » des docs sans catégorie). Thème aligné à droite.
+
+---
+
 ## Build 11 — 2026-06-18
 
 Bibliothèque enrichie :
