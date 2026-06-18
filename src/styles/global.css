@@ -2915,6 +2915,16 @@ button, input, select, textarea { font: inherit; color: inherit }
 .rte-content .ProseMirror strong { font-weight: 700 }
 .rte-content .ProseMirror em { font-style: italic }
 .rte-content .ProseMirror u { text-decoration: underline }
+.rte-content .ProseMirror blockquote,
+.rich-view blockquote {
+  border-left: 3px solid var(--accent);
+  padding: .25rem 0 .25rem .85rem;
+  margin: .5rem 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+.rte-content .ProseMirror blockquote > :last-child,
+.rich-view blockquote > :last-child { margin-bottom: 0 }
 
 /* Tableaux (éditeur Tiptap + vues lecture) */
 .rte-content .ProseMirror table,

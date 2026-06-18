@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 19 — 2026-06-18
+
+Fix éditeur :
+
+1. Bouton `＋` (slash) : réduit la sélection avant d'insérer « / » → le texte
+   sélectionné n'est plus remplacé.
+2. **Citation** : ajout du style CSS `blockquote` (bordure gauche + retrait) — la
+   citation était bien appliquée mais invisible (aucun style).
+
+---
+
 ## Build 18 — 2026-06-18
 
 Éditeur — Phase 1 des compléments Tiptap (stratégie mobile : barre allégée + slash-menu) :

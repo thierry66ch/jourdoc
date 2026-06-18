@@ -148,7 +148,11 @@ export default function RichTextEditor({
         {/* Menu « / » — insertion (titres, listes, tableau, cases…) */}
         <button type="button" className="rte-btn rte-btn--slash"
           title="Insérer (titres, listes, tableau, cases à cocher…)"
-          onMouseDown={e => { e.preventDefault(); editor.chain().focus().insertContent('/').run() }}
+          onMouseDown={e => {
+            e.preventDefault()
+            // Réduire la sélection avant d'insérer « / » (sinon le texte sélectionné est remplacé)
+            editor.chain().focus().setTextSelection(editor.state.selection.to).insertContent('/').run()
+          }}
           disabled={sourceMode}>＋</button>
 
         <span className="rte-sep" />
