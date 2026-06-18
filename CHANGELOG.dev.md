@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 14 — 2026-06-18
+
+Fix (bis) restauration du défilement de la Bibliothèque : au retour, le scroll
+parasite vers 0 pendant le « Chargement… » écrasait la valeur stockée avant la
+restauration. Désormais : **instantané de la position pris à l'initialisation** +
+**sauvegarde suspendue tant que la restauration n'a pas eu lieu**.
+
+---
+
 ## Build 13 — 2026-06-18
 
 Fix restauration de la position de défilement de la Bibliothèque : le conteneur

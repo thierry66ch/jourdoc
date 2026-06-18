@@ -62,10 +62,13 @@ export default function BibliothequeView() {
   }, [wsId, token])
 
   // Sauvegarde / restauration de la position de défilement.
-  // Le conteneur scrollé est tantôt .jd-main, tantôt la fenêtre → on reste agnostique :
+  // Le conteneur scrollé est tantôt .jd-main, tantôt la fenêtre → agnostique :
   // écouteur capturant sur window (attrape aussi le scroll des descendants).
-  const restoredRef = useRef(false)
   const scrollKey = `biblio_scroll_${wsId}`
+  const restoredRef = useRef(false)
+  // Instantané pris à l'INITIALISATION, avant qu'un scroll parasite (retour à 0
+  // pendant le « Chargement… ») ne puisse écraser la valeur stockée.
+  const targetRef = useRef(Number(sessionStorage.getItem(scrollKey) || 0))
   const readScroll = () => {
     const main = document.querySelector('.jd-main')
     return (main && main.scrollTop) || window.scrollY || document.documentElement.scrollTop || 0
@@ -74,7 +77,7 @@ export default function BibliothequeView() {
   useEffect(() => {
     let raf = 0
     const onScroll = () => {
-      if (raf) return
+      if (!restoredRef.current || raf) return // ne pas sauvegarder avant la restauration
       raf = requestAnimationFrame(() => { sessionStorage.setItem(scrollKey, String(readScroll())); raf = 0 })
     }
     window.addEventListener('scroll', onScroll, { passive: true, capture: true })
@@ -83,8 +86,8 @@ export default function BibliothequeView() {
 
   useEffect(() => {
     if (loading || restoredRef.current) return
+    const y = targetRef.current
     restoredRef.current = true
-    const y = Number(sessionStorage.getItem(scrollKey) || 0)
     if (!y) return
     let tries = 0
     const apply = () => {
@@ -92,7 +95,7 @@ export default function BibliothequeView() {
       if (main) main.scrollTop = y
       window.scrollTo(0, y)
       // ré-essai tant que la cible n'est pas atteinte (contenu encore en reflow)
-      if (Math.abs(readScroll() - y) > 4 && tries++ < 10) requestAnimationFrame(apply)
+      if (Math.abs(readScroll() - y) > 4 && tries++ < 12) requestAnimationFrame(apply)
     }
     requestAnimationFrame(apply)
   }, [loading, scrollKey])
