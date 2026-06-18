@@ -151,6 +151,24 @@ export default function NoteForm() {
     setMediaDetails(d => d.filter(m => m.id !== id))
   }
 
+  // Source des mentions « @ » : objets + thèmes (locaux) + notes (recherche)
+  async function mentionItems(query) {
+    const q = query.toLowerCase()
+    const local = [
+      ...objets.map(o => ({ id: `objet:${o.id}`, label: o.nom, type: 'objet', icon: '🌿' })),
+      ...themes.map(t => ({ id: `theme:${t.id}`, label: t.nom, type: 'theme', icon: '🏷️' })),
+    ].filter(i => i.label.toLowerCase().includes(q)).slice(0, 6)
+    let notes = []
+    if (query.trim().length >= 2) {
+      try {
+        const r = await fetch(`${API_ROUTES.JD_NOTES_SEARCH(wsId)}?q=${encodeURIComponent(query)}`, { headers: authHeader(token) })
+        const d = await r.json()
+        notes = (d.notes || []).slice(0, 6).map(n => ({ id: `note:${n.id}`, label: n.titre || '(sans titre)', type: 'note', icon: '📔' }))
+      } catch { /* ignore */ }
+    }
+    return [...local, ...notes]
+  }
+
   // Document Markdown créé depuis l'éditeur → l'attacher à la note
   function onMdCreated(media) {
     setForm(f => ({ ...f, media_ids: [...f.media_ids, media.id] }))
@@ -332,7 +350,8 @@ export default function NoteForm() {
             key={isEdit ? (noteLoaded ? `e-${noteId}` : `loading-${noteId}`) : 'new'}
             initialContent={form.contenu}
             onChange={v => setForm(f => ({ ...f, contenu: v }))}
-            placeholder="Détails de la note… (G=gras, I=italique, H1/H2=titres, •=puces, Tab=indenter)"
+            mentionItems={mentionItems}
+            placeholder="Détails de la note… (@ pour mentionner, / pour insérer)"
           />
         </div>
 

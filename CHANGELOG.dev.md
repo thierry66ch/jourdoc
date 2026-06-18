@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 20 — 2026-06-18
+
+**Mentions `@`** (phase 2) : dans le contenu d'une note, taper `@` propose objets,
+thèmes et notes (recherche), insère une mention colorée cliquable qui **navigue**
+vers l'objet / thème / note (`mention.js` + `@tiptap/extension-mention`).
+
+- Source via prop `mentionItems` (async, ref) ; `id` encode le type (`objet:123`).
+- Navigation au clic gérée dans NoteView (parse `type:id`).
+- Popup affiché uniquement s'il y a des résultats (un `@` d'email n'ouvre rien).
+- Branché dans l'éditeur de note ; pas (encore) dans les documents Markdown
+  (sérialisation md des mentions à définir).
+
+Dépendance : `@tiptap/extension-mention`.
+
+---
+
 ## Build 19 — 2026-06-18
 
 Fix éditeur :

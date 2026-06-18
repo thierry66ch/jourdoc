@@ -126,6 +126,10 @@ Fermeture protégée (confirmation si `dirty`, clic backdrop sécurisé). Dépen
 mode source paramétrable (`htmlToSource`/`sourceToHtml` → Markdown dans le modal).
 Barre d'outils **allégée sur mobile** (`<768px`) : les fonctions avancées
 (`.rte-btn--adv`) sont masquées et accessibles via le slash-menu (bouton `＋`).
+**Mentions `@`** (`mention.js`, `@tiptap/extension-mention`) : objets / thèmes / notes,
+source fournie par la prop `mentionItems` (async, lue via une ref) ; l'`id` encode le
+type (`objet:123`) ; clic sur une mention → navigation interne (géré dans NoteView).
+Branché dans NoteForm (contenu) ; popup affiché seulement s'il y a des résultats.
 NB : les cases à cocher se sérialisent en GFM (`- [ ]`) ; côté documents Markdown,
 le rechargement md→html peut les rendre en listes simples (limite `marked`).
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -7,15 +7,20 @@ import { TableKit } from '@tiptap/extension-table'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import { SlashCommand } from './slashMenu'
+import { buildMention } from './mention'
 
 export default function RichTextEditor({
   initialContent, onChange, placeholder,
   // Format du « mode source ». Par défaut HTML (identité).
   // Pour un document Markdown : htmlToSource = html→md, sourceToHtml = md→html.
   htmlToSource = h => h, sourceToHtml = h => h,
+  // Source des mentions « @ » : async (query) => [{ id:'objet:1', label, type, icon }]
+  mentionItems = null,
 }) {
   const [sourceMode, setSourceMode] = useState(false)
   const [sourceText, setSourceText] = useState('')
+  const mentionRef = useRef(null)
+  mentionRef.current = mentionItems
 
   const editor = useEditor({
     extensions: [
@@ -26,6 +31,7 @@ export default function RichTextEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       SlashCommand,
+      buildMention(() => mentionRef.current),
     ],
     content: initialContent || '',
     onUpdate: ({ editor }) => onChange?.(editor.getHTML()),

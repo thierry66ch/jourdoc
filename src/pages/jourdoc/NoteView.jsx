@@ -45,6 +45,17 @@ export default function NoteView() {
   const [mdOpen, setMdOpen] = useState(null) // null | { mediaId }
   const touchStart = useRef(null)
 
+  // Navigation au clic sur une mention « @ » (id encodé « type:dbid »)
+  function onMentionClick(e) {
+    const m = e.target.closest('.jd-mention')
+    if (!m) return
+    const [type, id] = (m.getAttribute('data-id') || '').split(':')
+    if (!id) return
+    if (type === 'objet') navigate(`/jourdoc/${wsId}/objet/${id}`)
+    else if (type === 'theme') navigate(`/jourdoc/${wsId}/theme/${id}`)
+    else if (type === 'note') navigate(`/jourdoc/${wsId}/notes/${id}`)
+  }
+
   const refreshNote = useCallback(() => {
     fetch(API_ROUTES.JD_NOTE(wsId, noteId), { headers: authHeader(token) })
       .then(r => r.json())
@@ -145,7 +156,7 @@ export default function NoteView() {
           {/* Contenu */}
           <div className="note-view__body">
             {note.contenu
-              ? <RichTextView content={note.contenu} />
+              ? <div onClick={onMentionClick}><RichTextView content={note.contenu} /></div>
               : <p style={{ color: 'var(--text-subtle)', fontStyle: 'italic' }}>Aucun contenu rédigé.</p>
             }
           </div>
