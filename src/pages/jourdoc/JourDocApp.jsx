@@ -13,6 +13,7 @@ const NAV = [
   { path: 'medias',         icon: '📷', label: 'Médias' },
   { path: 'objets',         icon: '🌿', label: 'Objets' },
   { path: 'themes',         icon: '🏷️', label: 'Thèmes' },
+  { path: 'bibliotheque',   icon: '📚', label: 'Biblio' },
   { path: 'todoist-tasks',  icon: '✓',  label: 'Tâches' },
   { path: 'analyse',        icon: '📊', label: 'Analyse' },
   { path: 'settings',       icon: '⚙️', label: 'Workspace' },

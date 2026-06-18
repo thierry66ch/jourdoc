@@ -3504,3 +3504,47 @@ button, input, select, textarea { font: inherit; color: inherit }
 }
 .jd-analyse__popup-item:hover { background: var(--accent-bg); color: var(--accent) }
 .jd-analyse__popup-more { font-size: .7rem; color: var(--text-muted); padding: .1rem .25rem; display: block }
+
+/* ── Bibliothèque ──────────────────────── */
+.biblio { padding-bottom: 2rem }
+.biblio__head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem;
+}
+.biblio__title { margin: 0 }
+.biblio__sub { font-size: .8125rem; color: var(--text-muted) }
+.biblio__tools { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap }
+.biblio__search { width: min(20rem, 60vw); padding: .5rem .75rem; font-size: .875rem }
+
+.biblio__legend { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem }
+.biblio__chip {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .3rem .65rem; border-radius: var(--r-full);
+  border: 1px solid var(--border); background: var(--surface-alt);
+  font-size: .8125rem; font-weight: 600; color: var(--text);
+  cursor: pointer; transition: filter .12s;
+}
+.biblio__chip:hover { filter: brightness(.97) }
+.biblio__chip.active { box-shadow: 0 0 0 2px var(--accent-bg) }
+.biblio__chip-n {
+  font-size: .6875rem; font-weight: 700; opacity: .8;
+  background: rgba(0,0,0,.08); border-radius: var(--r-full); padding: 0 .35rem;
+}
+
+.biblio__shelf { margin-bottom: 1.25rem }
+.biblio__shelf-head {
+  display: flex; align-items: center; gap: .5rem; width: 100%;
+  padding: .5rem .75rem; border: 1px solid transparent; border-radius: var(--r);
+  background: var(--surface-alt); cursor: pointer; text-align: left;
+  font-weight: 700; font-size: .9375rem; margin-bottom: .625rem;
+}
+.biblio__shelf-name { flex: 1 }
+.biblio__shelf-count {
+  font-size: .75rem; font-weight: 700;
+  background: rgba(0,0,0,.1); border-radius: var(--r-full); padding: .05rem .45rem;
+}
+.biblio__shelf-caret { font-size: .8rem; opacity: .7 }
+.biblio__grid {
+  display: grid; gap: .75rem;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}

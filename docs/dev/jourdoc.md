@@ -82,6 +82,15 @@ sur mois et année ; le filtre thème teste `note.themes.some(...)`. Swipe tacti
 nature. Surlignage cross-année, marqueur semaine courante, popup via `createPortal`.
 Pleine largeur (`jd-main--wide`).
 
+## Bibliothèque
+
+**`BibliothequeView.jsx`** (`/bibliotheque`) — parcours de toute la documentation
+du workspace, **groupée en étagères par catégorie**. Charge `GET /notes?type=documentation`
+(pas de route dédiée). Recherche (titre + titre_alt + contenu HTML détaggé), tri
+(récent / A→Z), légende de catégories cliquables (chips colorées + compteurs, dont
+« Sans catégorie »). Chaque étagère a un bandeau coloré repliable + une grille de
+`NoteCard`. Tout est calculé côté client (`useMemo`).
+
 ## Médias & stockage
 
 Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamiques) :

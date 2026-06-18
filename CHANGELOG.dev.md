@@ -4,6 +4,19 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 10 — 2026-06-18
+
+**Bibliothèque** : nouvelle page `/bibliotheque` (nav 📚 Biblio) pour parcourir
+toute la documentation du workspace, groupée en « étagères » par catégorie.
+
+- Réutilise `GET /notes?type=documentation` (aucune route backend ajoutée).
+- Recherche (titre + titre_alt + contenu), tri récent / A→Z.
+- Légende de catégories cliquables (chips colorées + compteurs, « Sans catégorie »).
+- Étagères à bandeau coloré repliable + grille responsive de `NoteCard`.
+- Route + entrée de nav + composant `BibliothequeView.jsx` ; calcul 100 % client.
+
+---
+
 ## Build 9 — 2026-06-18
 
 Filtrage par catégorie de documentation dans ObjetDetail et ThemeDetail : un

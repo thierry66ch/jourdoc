@@ -83,6 +83,7 @@ Tiptap (rich text : starter-kit, link, underline), vite-plugin-pwa (injectManife
   /calendar               → CalendarView (mois/sem/7j/matrice/année + filtres)
   /medias /media/:id      → MediaGallery / MediaDetail
   /objets /themes /elements → managers hiérarchie + éléments
+  /bibliotheque           → BibliothequeView (documentation par catégorie)
   /notes/:id /notes/:id/edit /new → NoteView / NoteForm
   /objet/:id /theme/:id   → ObjetDetail / ThemeDetail
   /todoist-tasks          → TodoistTasks
