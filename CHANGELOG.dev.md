@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 13 — 2026-06-18
+
+Fix restauration de la position de défilement de la Bibliothèque : le conteneur
+scrollé n'est pas toujours `.jd-main` (parfois la fenêtre). Écouteur capturant sur
+`window` (attrape aussi le scroll des descendants), lecture/écriture agnostiques
+(`.jd-main` **ou** window), restauration avec ré-essais pour absorber le reflow
+(chargement des vignettes).
+
+---
+
 ## Build 12 — 2026-06-18
 
 Bibliothèque — finitions :

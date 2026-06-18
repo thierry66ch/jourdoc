@@ -61,28 +61,41 @@ export default function BibliothequeView() {
       .finally(() => setLoading(false))
   }, [wsId, token])
 
-  // Sauvegarde / restauration de la position de défilement (conteneur .jd-main)
+  // Sauvegarde / restauration de la position de défilement.
+  // Le conteneur scrollé est tantôt .jd-main, tantôt la fenêtre → on reste agnostique :
+  // écouteur capturant sur window (attrape aussi le scroll des descendants).
   const restoredRef = useRef(false)
-  useEffect(() => {
+  const scrollKey = `biblio_scroll_${wsId}`
+  const readScroll = () => {
     const main = document.querySelector('.jd-main')
-    if (!main) return
-    const key = `biblio_scroll_${wsId}`
+    return (main && main.scrollTop) || window.scrollY || document.documentElement.scrollTop || 0
+  }
+
+  useEffect(() => {
     let raf = 0
     const onScroll = () => {
       if (raf) return
-      raf = requestAnimationFrame(() => { sessionStorage.setItem(key, String(main.scrollTop)); raf = 0 })
+      raf = requestAnimationFrame(() => { sessionStorage.setItem(scrollKey, String(readScroll())); raf = 0 })
     }
-    main.addEventListener('scroll', onScroll, { passive: true })
-    return () => { main.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf) }
-  }, [wsId])
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true })
+    return () => { window.removeEventListener('scroll', onScroll, { capture: true }); if (raf) cancelAnimationFrame(raf) }
+  }, [scrollKey])
 
   useEffect(() => {
     if (loading || restoredRef.current) return
     restoredRef.current = true
-    const main = document.querySelector('.jd-main')
-    const y = Number(sessionStorage.getItem(`biblio_scroll_${wsId}`) || 0)
-    if (main && y > 0) requestAnimationFrame(() => { main.scrollTop = y })
-  }, [loading, wsId])
+    const y = Number(sessionStorage.getItem(scrollKey) || 0)
+    if (!y) return
+    let tries = 0
+    const apply = () => {
+      const main = document.querySelector('.jd-main')
+      if (main) main.scrollTop = y
+      window.scrollTo(0, y)
+      // ré-essai tant que la cible n'est pas atteinte (contenu encore en reflow)
+      if (Math.abs(readScroll() - y) > 4 && tries++ < 10) requestAnimationFrame(apply)
+    }
+    requestAnimationFrame(apply)
+  }, [loading, scrollKey])
 
   // Recherche + filtres objet/thème (hiérarchiques) + tri
   const matched = useMemo(() => {
