@@ -726,8 +726,12 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
     sql`SELECT o.id, o.nom, o.nom_court FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${id}`,
     sql`SELECT t.id, t.nom, t.nom_court FROM jd_note_theme nt JOIN jd_themes t ON t.id = nt.theme_id WHERE nt.note_id = ${id} ORDER BY t.nom`,
     sql`SELECT m.id, m.type_media, m.nom_original, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id WHERE nm.note_id = ${id} ORDER BY m.created_at`,
-    sql`SELECT nn.note_cible_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_cible_id WHERE nn.note_source_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
-    sql`SELECT nn.note_source_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_source_id WHERE nn.note_cible_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
+    sql`SELECT nn.note_cible_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at,
+      (SELECT json_build_object('id',dc.id,'nom',dc.nom,'icon',dc.icon,'couleur',dc.couleur) FROM jd_doc_categorie dc WHERE dc.id = n.doc_categorie_id) AS doc_categorie
+      FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_cible_id WHERE nn.note_source_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
+    sql`SELECT nn.note_source_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at,
+      (SELECT json_build_object('id',dc.id,'nom',dc.nom,'icon',dc.icon,'couleur',dc.couleur) FROM jd_doc_categorie dc WHERE dc.id = n.doc_categorie_id) AS doc_categorie
+      FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_source_id WHERE nn.note_cible_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
     sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${id} ORDER BY e.nom`,
   ])
 

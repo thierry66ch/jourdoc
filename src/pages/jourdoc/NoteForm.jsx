@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { useJdData, authHeader, mediaUrl } from './hooks'
+import { useJdData, authHeader, mediaUrl, noteVisual } from './hooks'
 import HierarchyPicker from './HierarchyPicker'
 import ElementPicker from './ElementPicker'
 import MediaPicker from './MediaPicker'
@@ -25,7 +25,7 @@ const sortByDate = arr => [...arr].sort((a, b) => {
 
 function NoteLienChip({ note, onClick, onRemove }) {
   const typeKey = note.nature ?? note.type ?? 'journal'
-  const icon = NATURE_ICO[typeKey] ?? '📔'
+  const icon = noteVisual(note).icon
   const d = note.date ? new Date(note.date + 'T00:00:00').toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' }) : ''
   return (
     <div className={`note-lien-chip note-lien-chip--${typeKey}`}>

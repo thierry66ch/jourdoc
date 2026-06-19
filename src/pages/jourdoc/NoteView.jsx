@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader, mediaUrl, docCategorieBadgeStyle } from './hooks'
+import { authHeader, mediaUrl, docCategorieBadgeStyle, noteVisual } from './hooks'
 import RichTextView from './RichTextView'
 import { buildToc } from './toc'
 import MediaCard from './MediaCard'
@@ -28,7 +28,7 @@ function ChainChip({ note, onClick }) {
   const typeKey = note.nature ?? note.type ?? 'journal'
   return (
     <button className={`note-view__chain-chip note-view__chain-chip--${typeKey}`} onClick={onClick} title={note.titre}>
-      <span className="note-view__chain-chip__icon">{NATURE_ICON[typeKey] ?? '📔'}</span>
+      <span className="note-view__chain-chip__icon">{noteVisual(note).icon}</span>
       <span className="note-view__chain-chip__title">{note.titre_alt ?? note.titre}</span>
       {note.date && <em className="note-view__chain-chip__date">{fmtDateShort(note.date)}</em>}
     </button>

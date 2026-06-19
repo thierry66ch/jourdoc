@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 25 — 2026-06-19
+
+Catégorie de doc aussi dans les **chips de notes liées** : `NoteLienChip` (NoteForm)
+et `ChainChip` (fil de notes, NoteView) passent par `noteVisual`. Les requêtes de
+liens du `GET /notes/:id` renvoient désormais `doc_categorie` (json_build_object),
+donc les liens existants affichent l'icône de leur catégorie (plus seulement le 📄).
+
+---
+
 ## Build 24 — 2026-06-19
 
 **Catégorie de doc affichée partout** : helper `noteVisual(note)` (hooks.js) centralise
