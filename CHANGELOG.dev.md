@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 26 — 2026-06-19
+
+Fix popup de mention `@` : l'icône des notes était codée en dur (📔). Elle est
+maintenant calculée par `noteVisual(n)` → reflète la vraie nature/type/catégorie
+(💡 conseil, ⚡ activité, 👁 observation…).
+
+---
+
 ## Build 25 — 2026-06-19
 
 Catégorie de doc aussi dans les **chips de notes liées** : `NoteLienChip` (NoteForm)

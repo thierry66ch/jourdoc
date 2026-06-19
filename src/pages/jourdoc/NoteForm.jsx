@@ -163,7 +163,7 @@ export default function NoteForm() {
       try {
         const r = await fetch(`${API_ROUTES.JD_NOTES_SEARCH(wsId)}?q=${encodeURIComponent(query)}`, { headers: authHeader(token) })
         const d = await r.json()
-        notes = (d.notes || []).slice(0, 6).map(n => ({ id: `note:${n.id}`, label: n.titre || '(sans titre)', type: 'note', icon: '📔' }))
+        notes = (d.notes || []).slice(0, 6).map(n => ({ id: `note:${n.id}`, label: n.titre || '(sans titre)', type: 'note', icon: noteVisual(n).icon }))
       } catch { /* ignore */ }
     }
     return [...local, ...notes]
