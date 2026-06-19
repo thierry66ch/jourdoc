@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { marked } from 'marked'
 import TurndownService from 'turndown'
 import { gfm } from 'turndown-plugin-gfm'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
+import { buildToc } from './toc'
 import RichTextEditor from './RichTextEditor'
 import RichTextView from './RichTextView'
 
@@ -38,6 +39,14 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const [dirty, setDirty]     = useState(false)
   const editorHtmlRef = useRef('')
   const downTargetRef = useRef(null) // pour distinguer un vrai clic backdrop d'un drag de sélection
+  const bodyRef = useRef(null)
+
+  // Table des matières (vue lecture) — titres avec id + liste cliquable
+  const { html: viewHtml, items: toc } = useMemo(() => buildToc(html), [html])
+  function gotoHeading(id) {
+    const target = bodyRef.current?.querySelector(`#${CSS.escape(id)}`)
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   function requestClose() {
     if (dirty && !window.confirm('Modifications non enregistrées. Fermer sans enregistrer ?')) return
@@ -113,7 +122,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
             <button type="button" className="btn btn-ghost md-modal__close" onClick={requestClose} title="Fermer">✕</button>
           </div>
         </div>
-        <div className="md-modal__body">
+        <div className="md-modal__body" ref={bodyRef}>
           {loading ? (
             <div className="jd-loading">Chargement…</div>
           ) : mode === 'edit' ? (
@@ -123,7 +132,21 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
               sourceToHtml={s => mdToHtml(s)}
               placeholder="Rédigez votre document Markdown…" />
           ) : html ? (
-            <RichTextView content={html} className="md-modal__view" />
+            <>
+              {toc.length >= 2 && (
+                <details className="md-toc" open>
+                  <summary>📑 Sommaire</summary>
+                  <ul>
+                    {toc.map(item => (
+                      <li key={item.id} className={`md-toc__l${item.level}`}>
+                        <button type="button" onClick={() => gotoHeading(item.id)}>{item.text}</button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+              <RichTextView content={viewHtml} className="md-modal__view" />
+            </>
           ) : (
             <p className="md-modal__empty">Document vide.</p>
           )}

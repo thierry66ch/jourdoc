@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 22 — 2026-06-19
+
+**Table des matières** (phase 5) : dans le visualiseur de document Markdown, un
+sommaire repliable (`📑 Sommaire`) est généré depuis les titres (h1–h3) — `toc.js`
+ajoute un id à chaque titre et renvoie la liste cliquable (scroll fluide vers la
+section). Affiché à partir de 2 titres.
+
+---
+
 ## Build 21 — 2026-06-18
 
 **Callouts / encadrés** (phase 3) : nœud Tiptap custom (`callout.js`) à 4 variantes —
