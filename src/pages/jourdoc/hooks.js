@@ -61,6 +61,16 @@ export function useJdData(wsId, token) {
   return { objets, themes, docCategories, searchDepth, pickerMode, loading, reload }
 }
 
+// Statuts de documentation
+export const DOC_STATUTS = [
+  { value: 'brouillon', label: 'Brouillon', icon: '✏️', couleur: 'var(--text-muted)' },
+  { value: 'valide',    label: 'Validé',    icon: '✅', couleur: 'var(--success)' },
+  { value: 'obsolete',  label: 'Obsolète',  icon: '⚠️', couleur: 'var(--danger)' },
+]
+export function docStatut(value) {
+  return DOC_STATUTS.find(s => s.value === value) || null
+}
+
 // Style de badge pour la catégorie de documentation (couleur hex → fond translucide)
 export function docCategorieBadgeStyle(couleur) {
   const c = couleur || '#d97706'

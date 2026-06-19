@@ -747,13 +747,17 @@ jourdoc.post('/:wsId/notes', async (c) => {
   // theme_ids = source de vérité ; theme_id (legacy) accepté en repli
   const theme_ids = Array.isArray(body.theme_ids) ? body.theme_ids : (body.theme_id != null ? [body.theme_id] : [])
   const primaryTheme = theme_ids[0] ?? null
-  // catégorie : uniquement pour la documentation
-  const docCategorieId = type === 'documentation' ? (body.doc_categorie_id ?? null) : null
+  // champs propres à la documentation (NULL pour le journal)
+  const isDoc = type === 'documentation'
+  const docCategorieId = isDoc ? (body.doc_categorie_id ?? null) : null
+  const docAuteur      = isDoc ? (body.doc_auteur?.trim() || null) : null
+  const docStatut      = isDoc ? (body.doc_statut || null) : null
+  const docReference   = isDoc ? (body.doc_reference?.trim() || null) : null
   if (!titre) return c.json({ error: 'titre requis' }, 400)
 
   const [r] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, titre, titre_alt, contenu, date, source_url)
-    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
+    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_auteur, doc_statut, doc_reference, titre, titre_alt, contenu, date, source_url)
+    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docAuteur}, ${docStatut}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
     RETURNING id
   `
   const noteId = r.id
@@ -782,12 +786,16 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
     ? (Array.isArray(body.theme_ids) ? body.theme_ids : [])
     : (body.theme_id !== undefined ? (body.theme_id != null ? [body.theme_id] : []) : undefined)
   const primaryTheme = theme_ids ? (theme_ids[0] ?? null) : (body.theme_id ?? null)
-  // catégorie : uniquement pour la documentation
-  const docCategorieId = type === 'documentation' ? (body.doc_categorie_id ?? null) : null
+  // champs propres à la documentation (NULL pour le journal)
+  const isDoc = type === 'documentation'
+  const docCategorieId = isDoc ? (body.doc_categorie_id ?? null) : null
+  const docAuteur      = isDoc ? (body.doc_auteur?.trim() || null) : null
+  const docStatut      = isDoc ? (body.doc_statut || null) : null
+  const docReference   = isDoc ? (body.doc_reference?.trim() || null) : null
 
   await sql`
     UPDATE jd_notes SET type=${type}, nature=${nature ?? null}, theme_id=${primaryTheme},
-      doc_categorie_id=${docCategorieId},
+      doc_categorie_id=${docCategorieId}, doc_auteur=${docAuteur}, doc_statut=${docStatut}, doc_reference=${docReference},
       titre=${titre}, titre_alt=${titre_alt ?? null}, contenu=${contenu ?? null},
       date=${date ?? null}, source_url=${source_url ?? null}, updated_at=NOW()
     WHERE id=${id} AND workspace_id=${wsId}

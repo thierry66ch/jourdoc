@@ -97,6 +97,7 @@ Référentiel ouvert par workspace, sous-natures des notes `documentation`.
 | `nature` | TEXT CHECK | `observation` \| `activite` \| NULL (documentation) |
 | `theme_id` | → `jd_themes.id` | **legacy** — conservé, = 1er thème (voir liaison `jd_note_theme`) |
 | `doc_categorie_id` | → `jd_doc_categorie.id` | `ON DELETE SET NULL` — catégorie (documentation uniquement) |
+| `doc_auteur` / `doc_statut` / `doc_reference` | TEXT | champs documentation : auteur/source, statut (`brouillon`/`valide`/`obsolete`), date de réf. / version |
 | `titre` | TEXT | obligatoire, auto-générable |
 | `titre_alt` | TEXT | version courte (noms courts) pour le calendrier compact |
 | `contenu` | TEXT | HTML (Tiptap) |
@@ -147,6 +148,7 @@ import('./db/db.js').then(async ({ default: sql }) => {
 - `003_add_picker_mode.sql` — `workspaces.jd_picker_mode_mobile` / `_desktop`
 - `004_note_theme_multi.sql` — table `jd_note_theme` + reprise des `theme_id` existants
 - `005_doc_categorie.sql` — table `jd_doc_categorie` + `jd_notes.doc_categorie_id` + seed
+- `006_doc_fields.sql` — `jd_notes.doc_auteur` / `doc_statut` / `doc_reference`
 
 **Convention** : nouvelle évolution de schéma → fichier de migration numéroté
 **et** mise à jour de `schema.sql` (référence d'un schéma vierge).

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { useJdData, authHeader, mediaUrl, noteVisual } from './hooks'
+import { useJdData, authHeader, mediaUrl, noteVisual, DOC_STATUTS } from './hooks'
 import HierarchyPicker from './HierarchyPicker'
 import ElementPicker from './ElementPicker'
 import MediaPicker from './MediaPicker'
@@ -56,6 +56,9 @@ export default function NoteForm() {
     type:      location.state?.type    ?? 'journal',
     nature:    location.state?.nature  ?? 'observation',
     doc_categorie_id: location.state?.doc_categorie_id ?? null,
+    doc_auteur:    '',
+    doc_statut:    null,
+    doc_reference: '',
     theme_ids:   location.state?.theme_ids ?? [],
     objet_ids:   location.state?.objet_ids ?? [],
     element_ids: [],
@@ -87,6 +90,9 @@ export default function NoteForm() {
           type: note.type,
           nature: note.nature ?? 'observation',
           doc_categorie_id: note.doc_categorie_id ?? null,
+          doc_auteur:    note.doc_auteur ?? '',
+          doc_statut:    note.doc_statut ?? null,
+          doc_reference: note.doc_reference ?? '',
           theme_ids:   (note.themes ?? []).map(t => t.id),
           objet_ids:   note.objets.map(o => o.id),
           element_ids: (note.elements ?? []).map(e => e.id),
@@ -355,14 +361,47 @@ export default function NoteForm() {
           />
         </div>
 
-        {/* Source URL */}
+        {/* Champs documentation */}
         {form.type === 'documentation' && (
-          <div className="form-field">
-            <label className="form-label">Source URL</label>
-            <input className="input" type="url" value={form.source_url}
-              onChange={e => setForm(f => ({ ...f, source_url: e.target.value }))}
-              placeholder="https://…" />
-          </div>
+          <>
+            <div className="jd-form-row">
+              <div className="form-field">
+                <label className="form-label">Auteur / source</label>
+                <input className="input" value={form.doc_auteur}
+                  onChange={e => setForm(f => ({ ...f, doc_auteur: e.target.value }))}
+                  placeholder="Ex : Manuel Bayer 2023, INRA…" />
+              </div>
+              <div className="form-field">
+                <label className="form-label">Date de référence / version</label>
+                <input className="input" value={form.doc_reference}
+                  onChange={e => setForm(f => ({ ...f, doc_reference: e.target.value }))}
+                  placeholder="Ex : éd. 2024, v2.1…" />
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Statut</label>
+              <div className="jd-segmented" style={{ flexWrap: 'wrap' }}>
+                <button type="button"
+                  className={`jd-seg-btn${form.doc_statut == null ? ' active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, doc_statut: null }))}>— Aucun</button>
+                {DOC_STATUTS.map(s => (
+                  <button key={s.value} type="button"
+                    className={`jd-seg-btn${form.doc_statut === s.value ? ' active' : ''}`}
+                    onClick={() => setForm(f => ({ ...f, doc_statut: s.value }))}>
+                    {s.icon} {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-field">
+              <label className="form-label">Source URL</label>
+              <input className="input" type="url" value={form.source_url}
+                onChange={e => setForm(f => ({ ...f, source_url: e.target.value }))}
+                placeholder="https://…" />
+            </div>
+          </>
         )}
 
         {/* ── Médias liés ── */}

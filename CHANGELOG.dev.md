@@ -4,6 +4,20 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 27 — 2026-06-19
+
+**Documentation enrichie** : trois champs propres aux notes de type documentation.
+
+- DB : migration `006` → `jd_notes.doc_auteur`, `doc_statut`, `doc_reference`.
+- Backend : POST/PUT acceptent et stockent ces champs (NULL pour le journal).
+  Lecture via `n.*` (déjà incluse).
+- Front : NoteForm affiche (type=documentation) Auteur/source, Date de référence/
+  version, et un Statut segmenté (✏️ Brouillon / ✅ Validé / ⚠️ Obsolète / Aucun).
+  NoteView : badge de statut dans l'en-tête + bloc sidebar « 📚 Documentation »
+  (auteur, référence). NoteCard : badge de statut. Helpers `DOC_STATUTS` / `docStatut`.
+
+---
+
 ## Build 26 — 2026-06-19
 
 Fix popup de mention `@` : l'icône des notes était codée en dur (📔). Elle est

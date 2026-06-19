@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader, mediaUrl, docCategorieBadgeStyle, noteVisual } from './hooks'
+import { authHeader, mediaUrl, docCategorieBadgeStyle, noteVisual, docStatut } from './hooks'
 import RichTextView from './RichTextView'
 import { buildToc } from './toc'
 import MediaCard from './MediaCard'
@@ -151,6 +151,12 @@ export default function NoteView() {
                   {NATURE_ICON[typeKey]} {NATURE_LABEL[typeKey]}
                 </span>
               )}
+              {docStatut(note.doc_statut) && (
+                <span className="jd-badge jd-badge--doc-cat"
+                  style={{ color: docStatut(note.doc_statut).couleur, borderColor: docStatut(note.doc_statut).couleur }}>
+                  {docStatut(note.doc_statut).icon} {docStatut(note.doc_statut).label}
+                </span>
+              )}
               {note.date && (
                 <span className="note-view__date">{fmtDateLong(note.date)}</span>
               )}
@@ -241,6 +247,19 @@ export default function NoteView() {
                   <span key={e.id} className="jd-chip jd-chip--element">{e.nom}</span>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Documentation : auteur / référence */}
+          {(note.doc_auteur || note.doc_reference) && (
+            <div className="note-view__sidebar-block">
+              <h4 className="note-view__sidebar-title">📚 Documentation</h4>
+              {note.doc_auteur && (
+                <p className="note-view__doc-meta"><span>Auteur / source</span>{note.doc_auteur}</p>
+              )}
+              {note.doc_reference && (
+                <p className="note-view__doc-meta"><span>Référence / version</span>{note.doc_reference}</p>
+              )}
             </div>
           )}
 
