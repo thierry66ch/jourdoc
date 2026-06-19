@@ -2,12 +2,9 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { daysOfMonth, fmtDay, fmtDayShort, toISO, sortedIds } from './calUtils'
 import NoteCard from './NoteCard'
+import { noteVisual } from './hooks'
 
 const WEEKDAYS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di']
-const NATURE_COLOR = { observation: 'obs', activite: 'act', documentation: 'doc', journal: 'jrn' }
-const NATURE_ICO   = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
-
-function dotClass(n) { return NATURE_COLOR[n.nature ?? n.type] ?? 'jrn' }
 
 export default function CalendarMonth({ notes, year, month }) {
   const { wsId } = useParams()
@@ -59,7 +56,7 @@ export default function CalendarMonth({ notes, year, month }) {
 
               <div className="cal-cell__dots">
                 {dayNotes.slice(0, 6).map((n, idx) => (
-                  <span key={idx} className={`cal-dot cal-dot--${dotClass(n)}`} />
+                  <span key={idx} className="cal-dot" style={{ background: noteVisual(n).couleur }} />
                 ))}
                 {dayNotes.length > 6 && <span className="cal-dot-more">+{dayNotes.length - 6}</span>}
               </div>
@@ -77,7 +74,7 @@ export default function CalendarMonth({ notes, year, month }) {
                       className="cal-cell__popup-item"
                       onClick={() => navigate(`/jourdoc/${wsId}/notes/${n.id}`, { state: { noteIds: sortedIds(notes) } })}
                     >
-                      <span>{NATURE_ICO[n.nature ?? n.type] ?? '📔'}</span>
+                      <span>{noteVisual(n).icon}</span>
                       <span className="cal-cell__popup-title">{n.titre_alt ?? n.titre}</span>
                     </button>
                   ))}

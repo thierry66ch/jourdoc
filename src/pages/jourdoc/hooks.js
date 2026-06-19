@@ -67,6 +67,23 @@ export function docCategorieBadgeStyle(couleur) {
   return { background: `${c}22`, color: c, borderColor: `${c}55` }
 }
 
+// Icône + couleur d'une note, en tenant compte de la catégorie de documentation.
+// Journal → nature ; documentation → sa catégorie (sinon repli 📄).
+const NOTE_VISUAL = {
+  observation:   { icon: '👁', couleur: 'var(--success)',    label: 'Observation' },
+  activite:      { icon: '⚡', couleur: 'var(--accent)',     label: 'Activité' },
+  documentation: { icon: '📄', couleur: '#d97706',           label: 'Documentation' },
+  journal:       { icon: '📔', couleur: 'var(--text-muted)', label: 'Journal' },
+}
+export function noteVisual(note) {
+  if (note?.type === 'documentation' && note.doc_categorie) {
+    const c = note.doc_categorie
+    return { icon: c.icon || '📄', couleur: c.couleur || '#d97706', label: c.nom }
+  }
+  const key = note?.nature ?? note?.type ?? 'journal'
+  return NOTE_VISUAL[key] ?? NOTE_VISUAL.journal
+}
+
 // Construit une Map id → chemin court (ex. "arb/fru/pom") depuis la liste plate
 export function buildPathMap(items) {
   const map = new Map(items.map(i => [i.id, i]))

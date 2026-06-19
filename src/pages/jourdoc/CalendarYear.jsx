@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { weeksOfYear, toISO, sortedIds } from './calUtils'
 import NoteCard from './NoteCard'
+import { noteVisual } from './hooks'
 
 const MONTHS_FR = ['Janvier','Février','Mars','Avril','Mai','Juin',
                    'Juillet','Août','Septembre','Octobre','Novembre','Décembre']
-const NATURE_COLOR = { observation: 'obs', activite: 'act', documentation: 'doc', journal: 'jrn' }
-const NATURE_ICO   = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
-function dotClass(n) { return NATURE_COLOR[n.nature ?? n.type] ?? 'jrn' }
 
 function fmtShort(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' })
@@ -82,7 +80,7 @@ export default function CalendarYear({ notes, year }) {
                     <span className="cal-year__day">{dayNum}</span>
                     <div className="cal-cell__dots">
                       {wNotes.slice(0, 8).map((n, i) => (
-                        <span key={i} className={`cal-dot cal-dot--${dotClass(n)}`} />
+                        <span key={i} className="cal-dot" style={{ background: noteVisual(n).couleur }} />
                       ))}
                       {wNotes.length > 8 && <span className="cal-dot-more">+{wNotes.length - 8}</span>}
                     </div>
@@ -97,7 +95,7 @@ export default function CalendarYear({ notes, year }) {
                           <button key={n.id} className="cal-cell__popup-item"
                             onClick={() => navigate(`/jourdoc/${wsId}/notes/${n.id}`,
                               { state: { noteIds: sortedIds(wNotes) } })}>
-                            <span>{NATURE_ICO[n.nature ?? n.type] ?? '📔'}</span>
+                            <span>{noteVisual(n).icon}</span>
                             <span className="cal-cell__popup-title">{n.titre_alt ?? n.titre}</span>
                           </button>
                         ))}

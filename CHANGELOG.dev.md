@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 24 — 2026-06-19
+
+**Catégorie de doc affichée partout** : helper `noteVisual(note)` (hooks.js) centralise
+icône + couleur d'une note en tenant compte de la catégorie de documentation. Utilisé
+dans le calendrier (mois, année, semaine/7j, matrice) et la recherche/liens de notes
+(NoteLinkPicker) → les notes de doc affichent l'icône/couleur de leur catégorie au lieu
+du générique 📄. Pastilles du calendrier passées en couleur inline (support des couleurs
+arbitraires du référentiel).
+
+---
+
 ## Build 23 — 2026-06-19
 
 Table des matières étendue au **contenu des notes** (NoteView), en plus des

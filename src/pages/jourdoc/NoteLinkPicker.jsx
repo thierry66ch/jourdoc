@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader } from './hooks'
+import { authHeader, noteVisual } from './hooks'
 
-const NATURE_ICO = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
 const NATURE_KEY = n => n.nature ?? n.type ?? 'journal'
 
 function fmtDate(iso) {
@@ -57,7 +56,7 @@ export default function NoteLinkPicker({ wsId, token, currentNoteId, onSelect, o
           {results.map(n => (
             <li key={n.id}>
               <button className={`note-link-picker__item note-link-picker__item--${NATURE_KEY(n)}`} onClick={() => onSelect(n)}>
-                <span className="note-link-picker__icon">{NATURE_ICO[NATURE_KEY(n)] ?? '📔'}</span>
+                <span className="note-link-picker__icon">{noteVisual(n).icon}</span>
                 <span className="note-link-picker__title">{n.titre}</span>
                 {n.titre_alt && <span className="note-link-picker__alt">{n.titre_alt}</span>}
                 <span className="note-link-picker__date">{fmtDate(n.date)}</span>

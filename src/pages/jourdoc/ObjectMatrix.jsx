@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { daysOfMonth, fmtDay, toISO, sortedIds } from './calUtils'
+import { noteVisual } from './hooks'
 
 const OBJ_COL_W = 180   // largeur fixe colonne objet (px)
 const DAY_COL_W = 34    // largeur fixe colonne jour (px)
 const ROW_H     = 34    // hauteur fixe ligne (px)
 
-const NATURE_FG = { observation: 'var(--success)', activite: 'var(--accent)', documentation: '#d97706' }
 const NATURE_BG = { observation: 'rgba(16,185,129,.12)', activite: 'rgba(99,102,241,.12)', documentation: 'rgba(245,158,11,.1)' }
-const NATURE_ICO = { observation: '👁', activite: '⚡', documentation: '📄' }
 
 function CellDots({ dayNotes }) {
   const max = 4
@@ -17,7 +16,7 @@ function CellDots({ dayNotes }) {
       {dayNotes.slice(0, max).map((n, i) => (
         <span key={i} style={{
           width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-          background: NATURE_FG[n.nature ?? n.type] ?? 'var(--text-muted)',
+          background: noteVisual(n).couleur,
         }} />
       ))}
       {dayNotes.length > max && (
@@ -188,7 +187,7 @@ export default function ObjectMatrix({ notes, objets, year, month }) {
             {popup.notes.map(n => (
               <button key={n.id} className="matrix-popup__note"
                 onClick={() => { setPopup(null); navigate(`/jourdoc/${wsId}/notes/${n.id}`, { state: { noteIds: sortedIds(notes) } }) }}>
-                <span>{NATURE_ICO[n.nature ?? n.type] ?? '📔'}</span>
+                <span>{noteVisual(n).icon}</span>
                 <span className="matrix-popup__titre">{n.titre}</span>
               </button>
             ))}

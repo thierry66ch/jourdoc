@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { daysOfWeek, daysOfLast7, fmtDay, fmtDayShort, fmtWeekday, toISO, sortedIds } from './calUtils'
 import NoteCard from './NoteCard'
+import { noteVisual } from './hooks'
 
-const NATURE_ICO = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
 const NATURE_KEY = n => n.nature ?? n.type ?? 'journal'
 
 function WeekNoteItem({ note, contextNoteIds }) {
@@ -19,7 +19,7 @@ function WeekNoteItem({ note, contextNoteIds }) {
       onClick={() => navigate(`/jourdoc/${wsId}/notes/${note.id}`,
         contextNoteIds?.length ? { state: { noteIds: contextNoteIds } } : undefined)}
     >
-      <span className="week-note-item__icon">{NATURE_ICO[key] ?? '📔'}</span>
+      <span className="week-note-item__icon">{noteVisual(note).icon}</span>
       <span className="week-note-item__title">{display}</span>
     </div>
   )
