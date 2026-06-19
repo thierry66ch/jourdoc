@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 23 — 2026-06-19
+
+Table des matières étendue au **contenu des notes** (NoteView), en plus des
+documents Markdown : sommaire repliable (`📑`) à partir de 3 titres, réutilise
+`toc.js` + le style `.md-toc`. Scroll fluide vers la section.
+
+---
+
 ## Build 22 — 2026-06-19
 
 **Table des matières** (phase 5) : dans le visualiseur de document Markdown, un

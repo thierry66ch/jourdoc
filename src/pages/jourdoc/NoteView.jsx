@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader, mediaUrl, docCategorieBadgeStyle } from './hooks'
 import RichTextView from './RichTextView'
+import { buildToc } from './toc'
 import MediaCard from './MediaCard'
 import Lightbox from './Lightbox'
 import MarkdownModal from './MarkdownModal'
@@ -69,6 +70,13 @@ export default function NoteView() {
       .then(d => setNote(d.note ?? null))
       .finally(() => setLoading(false))
   }, [wsId, noteId, token])
+
+  // Sommaire du contenu (titres h1–h3)
+  const contentRef = useRef(null)
+  const { html: contentHtml, items: contentToc } = useMemo(() => buildToc(note?.contenu ?? ''), [note])
+  function gotoHeading(id) {
+    contentRef.current?.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   if (loading) return <div className="jd-loading">Chargement…</div>
   if (!note) return (
@@ -156,7 +164,21 @@ export default function NoteView() {
           {/* Contenu */}
           <div className="note-view__body">
             {note.contenu
-              ? <div onClick={onMentionClick}><RichTextView content={note.contenu} /></div>
+              ? <div onClick={onMentionClick} ref={contentRef}>
+                  {contentToc.length >= 3 && (
+                    <details className="md-toc">
+                      <summary>📑 Sommaire</summary>
+                      <ul>
+                        {contentToc.map(item => (
+                          <li key={item.id} className={`md-toc__l${item.level}`}>
+                            <button type="button" onClick={() => gotoHeading(item.id)}>{item.text}</button>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  <RichTextView content={contentHtml} />
+                </div>
               : <p style={{ color: 'var(--text-subtle)', fontStyle: 'italic' }}>Aucun contenu rédigé.</p>
             }
           </div>
