@@ -1117,8 +1117,9 @@ jourdoc.get('/:wsId/extdocs/tree', async (c) => {
       .map(i => ({ name: i.name, dir: i.type === 'directory' }))
       .sort((a, b) => (Number(b.dir) - Number(a.dir)) || a.name.localeCompare(b.name, 'fr'))
     return c.json({ path: rel, entries })
-  } catch {
-    return c.json({ error: 'Lecture impossible', entries: [] }, 500)
+  } catch (e) {
+    console.error('[extdocs/tree] error:', e?.status, e?.message)
+    return c.json({ error: `Lecture impossible (${e?.status || ''} ${(e?.message || '').slice(0, 100)})`, entries: [] }, 500)
   }
 })
 
