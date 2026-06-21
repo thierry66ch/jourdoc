@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 31 — 2026-06-21
+
+Fix surbrillance des chips neutres de la Bibliothèque (Tous/Toutes, Sans statut,
+Sans catégorie) : la classe `.active` ne faisait qu'un léger halo → fond plein
+accent. Les chips colorées gardent leur couleur (style inline prioritaire).
+
+---
+
 ## Build 30 — 2026-06-21
 
 Fix : le filtre par statut de la Bibliothèque ne s'appliquait pas (`selStatut`

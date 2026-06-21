@@ -3674,7 +3674,10 @@ button, input, select, textarea { font: inherit; color: inherit }
   cursor: pointer; transition: filter .12s;
 }
 .biblio__chip:hover { filter: brightness(.97) }
-.biblio__chip.active { box-shadow: 0 0 0 2px var(--accent-bg) }
+/* Chip active : fond plein. Les chips colorées (catégorie/statut) imposent leur
+   couleur via le style inline, qui l'emporte sur cette règle. */
+.biblio__chip.active { background: var(--accent); color: #fff; border-color: var(--accent) }
+.biblio__chip.active .biblio__chip-n { background: rgba(255,255,255,.25) }
 .biblio__chip-n {
   font-size: .6875rem; font-weight: 700; opacity: .8;
   background: rgba(0,0,0,.08); border-radius: var(--r-full); padding: 0 .35rem;
