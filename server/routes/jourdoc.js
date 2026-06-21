@@ -1087,7 +1087,7 @@ jourdoc.put('/:wsId/medias/:id/content', async (c) => {
 
 // ── FICHIERS EXTERNES LIÉS (dossier WEBDAV_PATH_EXTDOCS) ──────
 
-const EXTDOCS = () => process.env.WEBDAV_PATH_EXTDOCS || ''
+const EXTDOCS = () => (process.env.WEBDAV_PATH_EXTDOCS || '').trim()
 // Nettoie un chemin relatif (interdit toute évasion hors EXTDOCS)
 function cleanRel(p) {
   return String(p || '').split('/').filter(s => s && s !== '.' && s !== '..').join('/')
