@@ -153,7 +153,7 @@ export default function BibliothequeView() {
     const noneItems = visible.filter(n => !n.doc_categorie)
     if (noneItems.length) out.push({ key: '__none__', cat: null, items: noneItems })
     return out
-  }, [matched, docCategories, selCat])
+  }, [matched, docCategories, selCat, selStatut])
 
   const flatIds = useMemo(() => groups.flatMap(g => g.items.map(n => n.id)), [groups])
   const totalCats = docCategories.filter(c => counts.m.get(c.id)).length + (counts.none ? 1 : 0)

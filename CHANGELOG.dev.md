@@ -4,6 +4,13 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 30 — 2026-06-21
+
+Fix : le filtre par statut de la Bibliothèque ne s'appliquait pas (`selStatut`
+manquait dans les dépendances du `useMemo` des étagères).
+
+---
+
 ## Build 29 — 2026-06-21
 
 Bibliothèque : **filtre par statut** (chips colorées + compteurs, « Sans statut »),
