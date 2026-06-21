@@ -1057,7 +1057,7 @@ jourdoc.get('/:wsId/medias/:id/content', async (c) => {
   try {
     const content = await getTextFile(media.fichier)
     // Dossier de base (relatif à EXTDOCS) pour résoudre les images relatives d'un doc lié
-    const ext = process.env.WEBDAV_PATH_EXTDOCS || ''
+    const ext = EXTDOCS()
     const base = media.externe && ext && media.fichier.startsWith(ext + '/')
       ? media.fichier.slice(ext.length + 1).split('/').slice(0, -1).join('/')
       : ''

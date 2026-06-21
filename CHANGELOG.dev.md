@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 40 — 2026-06-21
+
+Fix image cassée dans les MD liés : la route `medias/:id/content` calculait le
+dossier `base` avec la variable d'env **brute** (tab parasite) alors que `fichier`
+est stocké nettoyé → `startsWith` échouait → `base` vide → image cherchée au mauvais
+endroit. Utilise désormais le helper trimmé `EXTDOCS()`.
+
+---
+
 ## Build 37 — 2026-06-21
 
 WebDAV : **compte propriétaire** (`apps@pogil.ch`) au lieu du compte en partage →
