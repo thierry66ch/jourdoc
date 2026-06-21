@@ -80,6 +80,7 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | POST | `/jourdoc/:wsId/doc-categories` | Créer `{ nom, icon, couleur }` |
 | PUT | `/jourdoc/:wsId/doc-categories/:id` | Modifier `{ nom, icon, couleur, ordre }` |
 | DELETE | `/jourdoc/:wsId/doc-categories/:id` | Supprimer (FK `SET NULL` sur les notes) |
+| GET/POST/PUT/DELETE | `/jourdoc/:wsId/doc-statuts[/:id]` | Référentiel des statuts de doc (même schéma que les catégories) |
 
 ### Notes
 

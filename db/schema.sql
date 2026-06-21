@@ -107,6 +107,18 @@ CREATE TABLE IF NOT EXISTS jd_doc_categorie (
   UNIQUE (workspace_id, nom)
 );
 
+-- Statuts de documentation (gérables par workspace)
+CREATE TABLE IF NOT EXISTS jd_doc_statut (
+  id           SERIAL PRIMARY KEY,
+  workspace_id INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
+  nom          TEXT NOT NULL,
+  icon         TEXT,
+  couleur      TEXT,
+  ordre        INTEGER DEFAULT 0,
+  created_at   TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (workspace_id, nom)
+);
+
 CREATE TABLE IF NOT EXISTS jd_notes (
   id              SERIAL PRIMARY KEY,
   workspace_id    INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -114,8 +126,8 @@ CREATE TABLE IF NOT EXISTS jd_notes (
   nature          TEXT CHECK (nature IN ('observation', 'activite')),
   theme_id        INTEGER REFERENCES jd_themes(id),
   doc_categorie_id INTEGER REFERENCES jd_doc_categorie(id) ON DELETE SET NULL,
+  doc_statut_id   INTEGER REFERENCES jd_doc_statut(id) ON DELETE SET NULL,
   doc_auteur      TEXT,
-  doc_statut      TEXT,
   doc_reference   TEXT,
   titre           TEXT,
   titre_alt       TEXT,
@@ -188,6 +200,8 @@ CREATE INDEX IF NOT EXISTS idx_jd_notes_theme      ON jd_notes(theme_id);
 CREATE INDEX IF NOT EXISTS idx_jd_note_theme_theme ON jd_note_theme(theme_id);
 CREATE INDEX IF NOT EXISTS idx_jd_doc_categorie_ws    ON jd_doc_categorie(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_notes_doc_categorie ON jd_notes(doc_categorie_id);
+CREATE INDEX IF NOT EXISTS idx_jd_doc_statut_ws       ON jd_doc_statut(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_jd_notes_doc_statut    ON jd_notes(doc_statut_id);
 CREATE INDEX IF NOT EXISTS idx_jd_objets_workspace ON jd_objets(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_themes_workspace ON jd_themes(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_medias_workspace ON jd_medias(workspace_id);

@@ -82,11 +82,12 @@ Compte unique, login 2 étapes par OTP email. Colonnes `otp_code`, `otp_expires`
 ### `jd_elements` (étiquettes plates)
 `id` · `workspace_id` (CASCADE) · `nom` · `created_at` · `UNIQUE (workspace_id, nom)`.
 
-### `jd_doc_categorie` (catégories de documentation)
-Référentiel ouvert par workspace, sous-natures des notes `documentation`.
-`id` · `workspace_id` (CASCADE) · `nom` · `icon` (emoji) · `couleur` (hex) ·
-`ordre` · `created_at` · `UNIQUE (workspace_id, nom)`. Seedé avec 5 défauts
-(Conseil, Descriptif, Manuel, Norme, Exemple) à la création d'un workspace.
+### `jd_doc_categorie` / `jd_doc_statut` (référentiels documentation)
+Référentiels ouverts par workspace : sous-natures (`jd_doc_categorie`) et statuts
+(`jd_doc_statut`) des notes `documentation`. Même schéma : `id` · `workspace_id`
+(CASCADE) · `nom` · `icon` (emoji) · `couleur` (hex) · `ordre` · `created_at` ·
+`UNIQUE (workspace_id, nom)`. Seedés à la création d'un workspace (catégories :
+Conseil/Descriptif/Manuel/Norme/Exemple ; statuts : Brouillon/Validé/Obsolète).
 
 ### `jd_notes`
 | Colonne | Type | Notes |
@@ -96,8 +97,9 @@ Référentiel ouvert par workspace, sous-natures des notes `documentation`.
 | `type` | TEXT CHECK | `journal` \| `documentation` |
 | `nature` | TEXT CHECK | `observation` \| `activite` \| NULL (documentation) |
 | `theme_id` | → `jd_themes.id` | **legacy** — conservé, = 1er thème (voir liaison `jd_note_theme`) |
-| `doc_categorie_id` | → `jd_doc_categorie.id` | `ON DELETE SET NULL` — catégorie (documentation uniquement) |
-| `doc_auteur` / `doc_statut` / `doc_reference` | TEXT | champs documentation : auteur/source, statut (`brouillon`/`valide`/`obsolete`), date de réf. / version |
+| `doc_categorie_id` | → `jd_doc_categorie.id` | `ON DELETE SET NULL` — catégorie (documentation) |
+| `doc_statut_id` | → `jd_doc_statut.id` | `ON DELETE SET NULL` — statut (documentation) |
+| `doc_auteur` / `doc_reference` | TEXT | documentation : auteur/source, date de réf. / version |
 | `titre` | TEXT | obligatoire, auto-générable |
 | `titre_alt` | TEXT | version courte (noms courts) pour le calendrier compact |
 | `contenu` | TEXT | HTML (Tiptap) |
@@ -149,6 +151,7 @@ import('./db/db.js').then(async ({ default: sql }) => {
 - `004_note_theme_multi.sql` — table `jd_note_theme` + reprise des `theme_id` existants
 - `005_doc_categorie.sql` — table `jd_doc_categorie` + `jd_notes.doc_categorie_id` + seed
 - `006_doc_fields.sql` — `jd_notes.doc_auteur` / `doc_statut` / `doc_reference`
+- `007_doc_statut_ref.sql` — table `jd_doc_statut` + `jd_notes.doc_statut_id` (remplace `doc_statut` texte)
 
 **Convention** : nouvelle évolution de schéma → fichier de migration numéroté
 **et** mise à jour de `schema.sql` (référence d'un schéma vierge).

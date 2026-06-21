@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { mediaUrl, docCategorieBadgeStyle, docStatut } from './hooks'
+import { mediaUrl, docCategorieBadgeStyle } from './hooks'
 import Lightbox from './Lightbox'
 
 const NATURE_ICON = { observation: '👁', activite: '⚡' }
@@ -42,9 +42,9 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
             {note.nature ?? note.type}
           </span>
         )}
-        {docStatut(note.doc_statut) && (
-          <span className="jd-badge jd-badge--doc-cat" style={{ color: docStatut(note.doc_statut).couleur, borderColor: docStatut(note.doc_statut).couleur }}>
-            {docStatut(note.doc_statut).icon} {docStatut(note.doc_statut).label}
+        {note.doc_statut && (
+          <span className="jd-badge jd-badge--doc-cat" style={{ color: note.doc_statut.couleur, borderColor: note.doc_statut.couleur }}>
+            {note.doc_statut.icon} {note.doc_statut.nom}
           </span>
         )}
         {showDate && note.date && <span className="jd-note-card__date">{fmtNoteDate(note.date)}</span>}

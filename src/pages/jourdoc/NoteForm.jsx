@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { useJdData, authHeader, mediaUrl, noteVisual, DOC_STATUTS } from './hooks'
+import { useJdData, authHeader, mediaUrl, noteVisual } from './hooks'
 import HierarchyPicker from './HierarchyPicker'
 import ElementPicker from './ElementPicker'
 import MediaPicker from './MediaPicker'
@@ -46,7 +46,7 @@ export default function NoteForm() {
   const { token } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { objets, themes, docCategories, pickerMode } = useJdData(wsId, token)
+  const { objets, themes, docCategories, docStatuts, pickerMode } = useJdData(wsId, token)
   const isEdit = Boolean(noteId)
 
   // Médias pré-sélectionnés depuis la galerie (navigation state)
@@ -56,8 +56,8 @@ export default function NoteForm() {
     type:      location.state?.type    ?? 'journal',
     nature:    location.state?.nature  ?? 'observation',
     doc_categorie_id: location.state?.doc_categorie_id ?? null,
+    doc_statut_id: null,
     doc_auteur:    '',
-    doc_statut:    null,
     doc_reference: '',
     theme_ids:   location.state?.theme_ids ?? [],
     objet_ids:   location.state?.objet_ids ?? [],
@@ -90,8 +90,8 @@ export default function NoteForm() {
           type: note.type,
           nature: note.nature ?? 'observation',
           doc_categorie_id: note.doc_categorie_id ?? null,
+          doc_statut_id: note.doc_statut_id ?? null,
           doc_auteur:    note.doc_auteur ?? '',
-          doc_statut:    note.doc_statut ?? null,
           doc_reference: note.doc_reference ?? '',
           theme_ids:   (note.themes ?? []).map(t => t.id),
           objet_ids:   note.objets.map(o => o.id),
@@ -380,16 +380,20 @@ export default function NoteForm() {
             </div>
 
             <div className="form-field">
-              <label className="form-label">Statut</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="form-label">Statut</label>
+                <button type="button" className="jd-auto-btn"
+                  onClick={() => navigate(`/jourdoc/${wsId}/settings`)}>⚙️ Gérer</button>
+              </div>
               <div className="jd-segmented" style={{ flexWrap: 'wrap' }}>
                 <button type="button"
-                  className={`jd-seg-btn${form.doc_statut == null ? ' active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, doc_statut: null }))}>— Aucun</button>
-                {DOC_STATUTS.map(s => (
-                  <button key={s.value} type="button"
-                    className={`jd-seg-btn${form.doc_statut === s.value ? ' active' : ''}`}
-                    onClick={() => setForm(f => ({ ...f, doc_statut: s.value }))}>
-                    {s.icon} {s.label}
+                  className={`jd-seg-btn${form.doc_statut_id == null ? ' active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, doc_statut_id: null }))}>— Aucun</button>
+                {docStatuts.map(s => (
+                  <button key={s.id} type="button"
+                    className={`jd-seg-btn${form.doc_statut_id === s.id ? ' active' : ''}`}
+                    onClick={() => setForm(f => ({ ...f, doc_statut_id: s.id }))}>
+                    {s.icon} {s.nom}
                   </button>
                 ))}
               </div>

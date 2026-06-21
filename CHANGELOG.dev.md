@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 28 — 2026-06-21
+
+**Statuts de documentation gérables par workspace** (comme les catégories) :
+
+- DB : migration `007` → référentiel `jd_doc_statut` (nom, icône, couleur, ordre),
+  `jd_notes.doc_statut_id` (FK SET NULL) remplace la colonne texte `doc_statut`.
+  Reprise des valeurs existantes ; seed Brouillon/Validé/Obsolète par workspace.
+- Backend : CRUD `/:wsId/doc-statuts` ; notes POST/PUT `doc_statut_id` ; payloads
+  exposent `doc_statut {nom,icon,couleur}` (withData, detail, search). Export enrichi.
+- Front : `useJdData` charge `docStatuts` ; NoteForm sélectionne le statut depuis le
+  référentiel ; NoteView/NoteCard affichent l'objet `doc_statut`. **Composant de
+  gestion généralisé** `BadgeRefManager` (utilisé pour catégories ET statuts ;
+  `DocCategorieManager` supprimé). Section « 🏁 Statuts de documentation » dans la
+  page Workspace (ordre + couleurs personnalisables).
+
+---
+
 ## Build 27 — 2026-06-19
 
 **Documentation enrichie** : trois champs propres aux notes de type documentation.

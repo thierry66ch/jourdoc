@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader, mediaUrl, docCategorieBadgeStyle, noteVisual, docStatut } from './hooks'
+import { authHeader, mediaUrl, docCategorieBadgeStyle, noteVisual } from './hooks'
 import RichTextView from './RichTextView'
 import { buildToc } from './toc'
 import MediaCard from './MediaCard'
@@ -151,10 +151,10 @@ export default function NoteView() {
                   {NATURE_ICON[typeKey]} {NATURE_LABEL[typeKey]}
                 </span>
               )}
-              {docStatut(note.doc_statut) && (
+              {note.doc_statut && (
                 <span className="jd-badge jd-badge--doc-cat"
-                  style={{ color: docStatut(note.doc_statut).couleur, borderColor: docStatut(note.doc_statut).couleur }}>
-                  {docStatut(note.doc_statut).icon} {docStatut(note.doc_statut).label}
+                  style={{ color: note.doc_statut.couleur, borderColor: note.doc_statut.couleur }}>
+                  {note.doc_statut.icon} {note.doc_statut.nom}
                 </span>
               )}
               {note.date && (

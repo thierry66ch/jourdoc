@@ -242,6 +242,7 @@ jourdoc.post('/workspaces', async (c) => {
     INSERT INTO user_app_access (user_id, app_id) VALUES (${userId}, ${app.id}) ON CONFLICT DO NOTHING
   `
   await seedDocCategories(ws.id)
+  await seedDocStatuts(ws.id)
   return c.json({ id: ws.id, name: name.trim() }, 201)
 })
 
@@ -251,6 +252,14 @@ async function seedDocCategories(wsId) {
     SELECT ${wsId}, d.nom, d.icon, d.couleur, d.ordre FROM (VALUES
       ('Conseil','💡','#f59e0b',1),('Descriptif','📋','#0ea5e9',2),
       ('Manuel','📖','#8b5cf6',3),('Norme','📐','#ef4444',4),('Exemple','✨','#10b981',5)
+    ) AS d(nom,icon,couleur,ordre) ON CONFLICT (workspace_id, nom) DO NOTHING`
+}
+
+// Statuts de documentation par défaut (nouveau workspace)
+async function seedDocStatuts(wsId) {
+  await sql`INSERT INTO jd_doc_statut (workspace_id, nom, icon, couleur, ordre)
+    SELECT ${wsId}, d.nom, d.icon, d.couleur, d.ordre FROM (VALUES
+      ('Brouillon','✏️','#94a3b8',1),('Validé','✅','#10b981',2),('Obsolète','⚠️','#ef4444',3)
     ) AS d(nom,icon,couleur,ordre) ON CONFLICT (workspace_id, nom) DO NOTHING`
 }
 
@@ -275,11 +284,16 @@ function normalizeNote(note) {
   return { ...note, date: fmtDate(note.date) }
 }
 
-// Catégorie de documentation (référentiel) pour affichage du badge
+// Référentiels de documentation (catégorie / statut) pour affichage du badge
 async function docCategorie(id) {
   if (!id) return null
   const [cat] = await sql`SELECT id, nom, icon, couleur FROM jd_doc_categorie WHERE id = ${id}`
   return cat ?? null
+}
+async function docStatutRef(id) {
+  if (!id) return null
+  const [s] = await sql`SELECT id, nom, icon, couleur FROM jd_doc_statut WHERE id = ${id}`
+  return s ?? null
 }
 
 async function withData(notes) {
@@ -291,7 +305,8 @@ async function withData(notes) {
       sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${note.id} ORDER BY e.nom`,
     ])
     const doc_categorie = await docCategorie(note.doc_categorie_id)
-    return { ...normalizeNote(note), objets, themes, medias, elements, doc_categorie }
+    const doc_statut = await docStatutRef(note.doc_statut_id)
+    return { ...normalizeNote(note), objets, themes, medias, elements, doc_categorie, doc_statut }
   }))
 }
 
@@ -397,6 +412,52 @@ jourdoc.delete('/:wsId/doc-categories/:id', async (c) => {
   const wsId = c.get('wsId'); const id = Number(c.req.param('id'))
   // FK ON DELETE SET NULL : les notes concernées deviennent « sans catégorie »
   await sql`DELETE FROM jd_doc_categorie WHERE id=${id} AND workspace_id=${wsId}`
+  return c.json({ ok: true })
+})
+
+// ── STATUTS DE DOCUMENTATION ─────────────────────────────────
+
+jourdoc.get('/:wsId/doc-statuts', async (c) => {
+  const wsId = c.get('wsId')
+  const statuts = await sql`
+    SELECT ds.id, ds.nom, ds.icon, ds.couleur, ds.ordre,
+      (SELECT COUNT(*) FROM jd_notes n WHERE n.doc_statut_id = ds.id) AS note_count
+    FROM jd_doc_statut ds WHERE ds.workspace_id = ${wsId}
+    ORDER BY ds.ordre, ds.nom
+  `
+  return c.json({ statuts })
+})
+
+jourdoc.post('/:wsId/doc-statuts', async (c) => {
+  const wsId = c.get('wsId')
+  const { nom, icon, couleur } = await c.req.json()
+  if (!nom?.trim()) return c.json({ error: 'Nom requis' }, 400)
+  const [existing] = await sql`SELECT id FROM jd_doc_statut WHERE workspace_id=${wsId} AND nom=${nom.trim()}`
+  if (existing) return c.json({ id: existing.id, existing: true })
+  const [{ max }] = await sql`SELECT COALESCE(MAX(ordre),0) AS max FROM jd_doc_statut WHERE workspace_id=${wsId}`
+  const [r] = await sql`
+    INSERT INTO jd_doc_statut (workspace_id, nom, icon, couleur, ordre)
+    VALUES (${wsId}, ${nom.trim()}, ${icon ?? null}, ${couleur ?? null}, ${Number(max) + 1})
+    RETURNING id
+  `
+  return c.json({ id: r.id }, 201)
+})
+
+jourdoc.put('/:wsId/doc-statuts/:id', async (c) => {
+  const wsId = c.get('wsId'); const id = Number(c.req.param('id'))
+  const { nom, icon, couleur, ordre } = await c.req.json()
+  if (!nom?.trim()) return c.json({ error: 'Nom requis' }, 400)
+  await sql`
+    UPDATE jd_doc_statut
+    SET nom=${nom.trim()}, icon=${icon ?? null}, couleur=${couleur ?? null}, ordre=${ordre ?? 0}
+    WHERE id=${id} AND workspace_id=${wsId}
+  `
+  return c.json({ ok: true })
+})
+
+jourdoc.delete('/:wsId/doc-statuts/:id', async (c) => {
+  const wsId = c.get('wsId'); const id = Number(c.req.param('id'))
+  await sql`DELETE FROM jd_doc_statut WHERE id=${id} AND workspace_id=${wsId}`
   return c.json({ ok: true })
 })
 
@@ -677,7 +738,9 @@ jourdoc.get('/:wsId/notes/search', async (c) => {
     SELECT id, titre, titre_alt, type, nature, date, theme_id, doc_categorie_id,
       (SELECT nom FROM jd_themes WHERE id = theme_id) AS theme_nom,
       (SELECT json_build_object('id', dc.id, 'nom', dc.nom, 'icon', dc.icon, 'couleur', dc.couleur)
-        FROM jd_doc_categorie dc WHERE dc.id = jd_notes.doc_categorie_id) AS doc_categorie
+        FROM jd_doc_categorie dc WHERE dc.id = jd_notes.doc_categorie_id) AS doc_categorie,
+      (SELECT json_build_object('id', ds.id, 'nom', ds.nom, 'icon', ds.icon, 'couleur', ds.couleur)
+        FROM jd_doc_statut ds WHERE ds.id = jd_notes.doc_statut_id) AS doc_statut
     FROM jd_notes
     WHERE workspace_id = ${wsId} AND id != ${exclude || -1}
       AND (titre ILIKE ${like} OR titre_alt ILIKE ${like})
@@ -736,8 +799,9 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
   ])
 
   const doc_categorie = await docCategorie(note.doc_categorie_id)
+  const doc_statut = await docStatutRef(note.doc_statut_id)
   const fmtN = n => ({ ...n, date: fmtDate(n.date) })
-  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements, doc_categorie } })
+  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements, doc_categorie, doc_statut } })
 })
 
 jourdoc.post('/:wsId/notes', async (c) => {
@@ -750,14 +814,14 @@ jourdoc.post('/:wsId/notes', async (c) => {
   // champs propres à la documentation (NULL pour le journal)
   const isDoc = type === 'documentation'
   const docCategorieId = isDoc ? (body.doc_categorie_id ?? null) : null
+  const docStatutId    = isDoc ? (body.doc_statut_id ?? null) : null
   const docAuteur      = isDoc ? (body.doc_auteur?.trim() || null) : null
-  const docStatut      = isDoc ? (body.doc_statut || null) : null
   const docReference   = isDoc ? (body.doc_reference?.trim() || null) : null
   if (!titre) return c.json({ error: 'titre requis' }, 400)
 
   const [r] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_auteur, doc_statut, doc_reference, titre, titre_alt, contenu, date, source_url)
-    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docAuteur}, ${docStatut}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
+    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_statut_id, doc_auteur, doc_reference, titre, titre_alt, contenu, date, source_url)
+    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docStatutId}, ${docAuteur}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
     RETURNING id
   `
   const noteId = r.id
@@ -789,13 +853,13 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
   // champs propres à la documentation (NULL pour le journal)
   const isDoc = type === 'documentation'
   const docCategorieId = isDoc ? (body.doc_categorie_id ?? null) : null
+  const docStatutId    = isDoc ? (body.doc_statut_id ?? null) : null
   const docAuteur      = isDoc ? (body.doc_auteur?.trim() || null) : null
-  const docStatut      = isDoc ? (body.doc_statut || null) : null
   const docReference   = isDoc ? (body.doc_reference?.trim() || null) : null
 
   await sql`
     UPDATE jd_notes SET type=${type}, nature=${nature ?? null}, theme_id=${primaryTheme},
-      doc_categorie_id=${docCategorieId}, doc_auteur=${docAuteur}, doc_statut=${docStatut}, doc_reference=${docReference},
+      doc_categorie_id=${docCategorieId}, doc_statut_id=${docStatutId}, doc_auteur=${docAuteur}, doc_reference=${docReference},
       titre=${titre}, titre_alt=${titre_alt ?? null}, contenu=${contenu ?? null},
       date=${date ?? null}, source_url=${source_url ?? null}, updated_at=NOW()
     WHERE id=${id} AND workspace_id=${wsId}
@@ -1488,11 +1552,12 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const { format = 'json', medias: withMediasParam = '0' } = c.req.query()
   const withMedias = withMediasParam === '1'
 
-  const [objets, themes, elements, docCategories, rawNotes, rawMedias] = await Promise.all([
+  const [objets, themes, elements, docCategories, docStatuts, rawNotes, rawMedias] = await Promise.all([
     sql`SELECT * FROM jd_objets        WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_themes        WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_elements      WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_doc_categorie WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_doc_statut    WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_notes         WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_medias        WHERE workspace_id=${wsId}`,
   ])
@@ -1512,7 +1577,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const date = new Date().toISOString().slice(0, 10)
 
   if (format === 'json') {
-    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, doc_categories: docCategories, notes, medias: rawMedias }, null, 2)
+    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, doc_categories: docCategories, doc_statuts: docStatuts, notes, medias: rawMedias }, null, 2)
     c.header('Content-Type', 'application/json')
     c.header('Content-Disposition', `attachment; filename="${slug}-${date}.json"`)
     return c.body(payload)
@@ -1582,6 +1647,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     { name: 'themes.csv',        data: toCsv(themes) },
     { name: 'elements.csv',      data: toCsv(elements) },
     { name: 'doc_categories.csv', data: toCsv(docCategories) },
+    { name: 'doc_statuts.csv',    data: toCsv(docStatuts) },
     { name: 'notes.csv',         data: toCsv(rawNotes) },
     { name: 'note_objets.csv',   data: toCsv(noteObjets) },
     { name: 'note_themes.csv',   data: toCsv(noteThemes) },

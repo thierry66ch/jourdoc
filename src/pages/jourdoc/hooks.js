@@ -27,6 +27,7 @@ export function useJdData(wsId, token) {
   const [objets, setObjets]           = useState([])
   const [themes, setThemes]           = useState([])
   const [docCategories, setDocCategories] = useState([])
+  const [docStatuts, setDocStatuts]   = useState([])
   const [searchDepth, setSearchDepth] = useState(3)
   const [pickerModes, setPickerModes] = useState({ mobile: 'filter', desktop: 'scroll' })
   const [loading, setLoading]         = useState(true)
@@ -35,15 +36,17 @@ export function useJdData(wsId, token) {
   const reload = useCallback(async () => {
     setLoading(true)
     try {
-      const [ro, rt, rw, rc] = await Promise.all([
+      const [ro, rt, rw, rc, rs] = await Promise.all([
         fetch(API_ROUTES.JD_OBJETS(wsId), { headers: authHeader(token) }).then(r => r.json()),
         fetch(API_ROUTES.JD_THEMES(wsId), { headers: authHeader(token) }).then(r => r.json()),
         fetch(API_ROUTES.JD_WS(wsId), { headers: authHeader(token) }).then(r => r.json()),
         fetch(API_ROUTES.JD_DOC_CATEGORIES(wsId), { headers: authHeader(token) }).then(r => r.json()),
+        fetch(API_ROUTES.JD_DOC_STATUTS(wsId), { headers: authHeader(token) }).then(r => r.json()),
       ])
       setObjets(ro.objets ?? [])
       setThemes(rt.themes ?? [])
       setDocCategories(rc.categories ?? [])
+      setDocStatuts(rs.statuts ?? [])
       setSearchDepth(rw.workspace?.search_depth ?? 3)
       setPickerModes({
         mobile:  rw.workspace?.picker_mode_mobile  ?? 'filter',
@@ -58,17 +61,7 @@ export function useJdData(wsId, token) {
 
   // Mode résolu pour la plateforme courante : 'filter' (réduire) ou 'scroll' (défiler).
   const pickerMode = isMobile ? pickerModes.mobile : pickerModes.desktop
-  return { objets, themes, docCategories, searchDepth, pickerMode, loading, reload }
-}
-
-// Statuts de documentation
-export const DOC_STATUTS = [
-  { value: 'brouillon', label: 'Brouillon', icon: '✏️', couleur: 'var(--text-muted)' },
-  { value: 'valide',    label: 'Validé',    icon: '✅', couleur: 'var(--success)' },
-  { value: 'obsolete',  label: 'Obsolète',  icon: '⚠️', couleur: 'var(--danger)' },
-]
-export function docStatut(value) {
-  return DOC_STATUTS.find(s => s.value === value) || null
+  return { objets, themes, docCategories, docStatuts, searchDepth, pickerMode, loading, reload }
 }
 
 // Style de badge pour la catégorie de documentation (couleur hex → fond translucide)

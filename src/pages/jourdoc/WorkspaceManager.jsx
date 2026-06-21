@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
 import CsvImporter from './CsvImporter'
-import DocCategorieManager from './DocCategorieManager'
+import BadgeRefManager from './BadgeRefManager'
 
 const ROLE_LABEL = { owner: 'Propriétaire', member: 'Membre' }
 
@@ -517,7 +517,23 @@ export default function WorkspaceManager() {
           Liste ouverte mais à garder courte. Chaque catégorie a une icône et une couleur,
           affichées en badge sur les notes.
         </p>
-        <DocCategorieManager wsId={wsId} token={token} />
+        <BadgeRefManager wsId={wsId} token={token}
+          listRoute={API_ROUTES.JD_DOC_CATEGORIES} itemRoute={API_ROUTES.JD_DOC_CATEGORIE}
+          itemsKey="categories" defaultEmoji="🏷️" term="catégorie"
+          addPlaceholder="Nouvelle catégorie…" emptyLabel="Aucune catégorie." />
+      </section>
+
+      {/* ── Statuts de documentation ── */}
+      <section className="ws-manager__section">
+        <h3 className="ws-manager__title">🏁 Statuts de documentation</h3>
+        <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.75rem' }}>
+          Cycle de vie des notes de documentation (brouillon, validé, obsolète…).
+          Ordre et couleurs personnalisables ; affichés en badge sur les notes.
+        </p>
+        <BadgeRefManager wsId={wsId} token={token}
+          listRoute={API_ROUTES.JD_DOC_STATUTS} itemRoute={API_ROUTES.JD_DOC_STATUT}
+          itemsKey="statuts" defaultEmoji="🏁" defaultColor="#10b981" term="statut"
+          addPlaceholder="Nouveau statut…" emptyLabel="Aucun statut." />
       </section>
 
       {/* ── Todoist ── */}
