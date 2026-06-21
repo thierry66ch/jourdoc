@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 33 — 2026-06-21
+
+Fix navigation « Retour » autour de l'éditeur de note : l'éditeur restait dans la
+pile d'historique. Désormais `replace` partout — NoteView « Modifier » remplace la
+vue, NoteForm enregistrement/annulation reviennent en lecture sans empiler l'éditeur.
+Résultat : depuis la note enregistrée, un seul « Retour » ramène à la page d'origine.
+Le contexte précédent/suivant (`noteIds`) est conservé à travers l'édition.
+
+---
+
 ## Build 32 — 2026-06-21
 
 Sélecteur de couleur amélioré (`ColorField`, `react-colorful`) : pastille ouvrant

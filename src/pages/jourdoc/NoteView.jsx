@@ -131,7 +131,7 @@ export default function NoteView() {
         )}
 
         <button className="btn btn-primary" style={{ padding: '.45rem 1rem', fontSize: '.875rem' }}
-          onClick={() => navigate(`/jourdoc/${wsId}/notes/${noteId}/edit`)}>✏️ Modifier</button>
+          onClick={() => navigate(`/jourdoc/${wsId}/notes/${noteId}/edit`, { state: location.state, replace: true })}>✏️ Modifier</button>
       </div>
 
       {/* Layout 2 colonnes desktop */}

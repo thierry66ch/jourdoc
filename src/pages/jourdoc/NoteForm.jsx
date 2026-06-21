@@ -201,7 +201,8 @@ export default function NoteForm() {
       })
       if (!res.ok) throw new Error()
       if (isEdit) {
-        navigate(`/jourdoc/${wsId}/notes/${noteId}`)
+        // replace : l'éditeur ne reste pas dans la pile (Retour → page d'origine)
+        navigate(`/jourdoc/${wsId}/notes/${noteId}`, { state: location.state, replace: true })
       } else {
         const { id: newId } = await res.json()
         await Promise.all(pendingLinks.map(lk =>
@@ -210,7 +211,7 @@ export default function NoteForm() {
             body: JSON.stringify({ note_cible_id: lk.id }),
           })
         ))
-        navigate(`/jourdoc/${wsId}/notes/${newId}`)
+        navigate(`/jourdoc/${wsId}/notes/${newId}`, { replace: true })
       }
     } catch {
       setError('Erreur lors de la sauvegarde.')
@@ -225,10 +226,17 @@ export default function NoteForm() {
     navigate(`/jourdoc/${wsId}`)
   }
 
+  // Annuler : note existante → retour en lecture (sans laisser l'éditeur dans la pile) ;
+  // nouvelle note → retour à la page précédente.
+  function cancelEdit() {
+    if (isEdit) navigate(`/jourdoc/${wsId}/notes/${noteId}`, { state: location.state, replace: true })
+    else navigate(-1)
+  }
+
   return (
     <div className="jd-note-form">
       <div className="jd-form-header">
-        <button className="btn btn-ghost" style={{ padding: '.35rem .6rem', fontSize: '.875rem' }} onClick={() => navigate(-1)}>
+        <button className="btn btn-ghost" style={{ padding: '.35rem .6rem', fontSize: '.875rem' }} onClick={cancelEdit}>
           ← Retour
         </button>
         <h2>{isEdit ? 'Modifier la note' : 'Nouvelle note'}</h2>
@@ -550,7 +558,7 @@ export default function NoteForm() {
 
         <div className="form-actions" style={{ marginTop: '.5rem' }}>
           {isEdit && <button type="button" className="btn btn-danger" onClick={handleDelete}>Supprimer</button>}
-          <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Annuler</button>
+          <button type="button" className="btn btn-ghost" onClick={cancelEdit}>Annuler</button>
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? '…' : isEdit ? 'Enregistrer' : 'Créer la note'}
           </button>
