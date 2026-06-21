@@ -110,6 +110,14 @@ Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamique
 **Inbox** (`server/routes/inbox.js`) : `GET /:wsId/inbox` liste, `POST /:wsId/inbox/scan`
 importe les fichiers déposés (sous-dossier `WEBDAV_PATH_INBOX/{wsId}/`).
 
+**Fichiers liés (externes)** — pièces jointes par *référence* (sans copie) à un fichier
+sous `WEBDAV_PATH_EXTDOCS`. `ExtDocsBrowser` (navigateur d'arborescence) → `POST /medias/link`
+crée un média `externe=true` (MD, PDF, image…). L'original n'est jamais renommé/déplacé/
+supprimé (suppression = détachement de la référence). Les MD liés sont **lecture seule**
+(édition en externe) ; au rendu, les **images relatives** sont résolues à la volée vers le
+proxy `extdocs/file` (token frais), et les **formules** via KaTeX (`marked-katex-extension`).
+Dépendances : `katex`, `marked-katex-extension`.
+
 **Documents Markdown** (`MarkdownModal.jsx`) — nouveau `type_media='markdown'`.
 Pièces jointes `.md` (import ou création « + Document » depuis une note). Modal
 plein écran : visualiseur (md→HTML via `marked` → `RichTextView`) et **éditeur

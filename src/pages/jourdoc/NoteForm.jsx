@@ -10,6 +10,7 @@ import MediaCard from './MediaCard'
 import NoteLinkPicker from './NoteLinkPicker'
 import RichTextEditor from './RichTextEditor'
 import MarkdownModal from './MarkdownModal'
+import ExtDocsBrowser from './ExtDocsBrowser'
 
 function today() {
   const d = new Date()
@@ -73,6 +74,7 @@ export default function NoteForm() {
   const [mediaDetails, setMediaDetails] = useState([])  // détail des médias liés (pour miniatures)
   const [showPicker, setShowPicker] = useState(initMediaIds.length > 0)
   const [mdOpen, setMdOpen] = useState(null) // null | { create: true } | { mediaId }
+  const [extBrowser, setExtBrowser] = useState(false)
   const [liens, setLiens] = useState([])           // notes sortantes (cette note → autres)
   const [liensEntrants, setLiensEntrants] = useState([])   // notes entrantes (autres → cette note)
   const [pendingLinks, setPendingLinks] = useState(location.state?.pending_links ?? [])  // liens en attente (mode création)
@@ -179,6 +181,16 @@ export default function NoteForm() {
   function onMdCreated(media) {
     setForm(f => ({ ...f, media_ids: [...f.media_ids, media.id] }))
     setMediaDetails(d => [...d, { id: media.id, type_media: 'markdown', nom_original: media.nom_original, fichier: media.fichier }])
+  }
+
+  // Fichier externe lié → l'attacher à la note (sans copie)
+  function onLinkPicked(media) {
+    if (media?.id) {
+      setForm(f => f.media_ids.includes(media.id) ? f : { ...f, media_ids: [...f.media_ids, media.id] })
+      setMediaDetails(d => d.some(m => m.id === media.id) ? d
+        : [...d, { id: media.id, type_media: media.type_media, nom_original: media.nom_original, fichier: media.fichier, externe: true }])
+    }
+    setExtBrowser(false)
   }
 
   async function handleSubmit(e) {
@@ -427,9 +439,11 @@ export default function NoteForm() {
                 </span>
               )}
             </label>
-            <div style={{ display: 'flex', gap: '.5rem' }}>
+            <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
               <button type="button" className="jd-auto-btn"
                 onClick={() => setMdOpen({ create: true })}>📝 + Document</button>
+              <button type="button" className="jd-auto-btn"
+                onClick={() => setExtBrowser(true)}>🔗 Lier</button>
               <button type="button" className="jd-auto-btn"
                 onClick={() => setShowPicker(o => !o)}>
                 {showPicker ? 'Fermer' : 'Choisir des médias'}
@@ -573,6 +587,12 @@ export default function NoteForm() {
           onClose={() => setMdOpen(null)}
           onCreated={onMdCreated}
         />
+      )}
+
+      {/* Navigateur de fichiers externes (lier) */}
+      {extBrowser && (
+        <ExtDocsBrowser wsId={wsId} token={token}
+          onPick={onLinkPicked} onClose={() => setExtBrowser(false)} />
       )}
     </div>
   )

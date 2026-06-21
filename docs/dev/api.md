@@ -105,7 +105,10 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 |---|---|---|
 | POST | `/jourdoc/:wsId/medias` | Upload multipart → EXIF + HEIC→JPEG + resize → WebDAV (accepte aussi `.md`) |
 | POST | `/jourdoc/:wsId/medias/markdown` | Créer un document Markdown `{ nom, content }` → média `type_media='markdown'` |
-| GET | `/jourdoc/:wsId/medias/:id/content` | Lire le texte d'un document markdown → `{ content, nom_original }` |
+| GET | `/jourdoc/:wsId/medias/:id/content` | Lire le texte d'un markdown → `{ content, nom_original, base, externe }` |
+| GET | `/jourdoc/:wsId/extdocs/tree?path=` | Arborescence du dossier externe (`WEBDAV_PATH_EXTDOCS`) → `{ path, entries:[{name,dir}] }` |
+| POST | `/jourdoc/:wsId/medias/link` | Lier un fichier externe `{ path }` (référence, sans copie ; `externe=true`) |
+| GET | `/jourdoc/:wsId/extdocs/file?path=&t=` | Proxy d'un fichier sous EXTDOCS (images relatives des MD liés) |
 | PUT | `/jourdoc/:wsId/medias/:id/content` | Réenregistrer le texte `{ content, nom }` sur WebDAV |
 | GET | `/jourdoc/:wsId/medias` | Liste filtrée `?date_from= &date_to= &type_media= &lie=` |
 | GET | `/jourdoc/:wsId/medias/:id/file` | **Proxy WebDAV** (sert le binaire ; accepte `?t=`) |

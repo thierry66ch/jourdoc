@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { marked } from 'marked'
+import markedKatex from 'marked-katex-extension'
+import 'katex/dist/katex.min.css'
 import TurndownService from 'turndown'
 import { gfm } from 'turndown-plugin-gfm'
 import { API_ROUTES } from '@pogil/shared'
@@ -7,6 +9,22 @@ import { authHeader } from './hooks'
 import { buildToc } from './toc'
 import RichTextEditor from './RichTextEditor'
 import RichTextView from './RichTextView'
+
+marked.use(markedKatex({ throwOnError: false, nonStandard: true })) // formules $…$ / $$…$$
+
+// Réécrit les images relatives d'un doc lié vers le proxy EXTDOCS (avec token)
+function resolveImages(html, wsId, token, base) {
+  if (typeof window === 'undefined' || !html) return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('img').forEach(img => {
+    const src = img.getAttribute('src') || ''
+    if (/^(https?:|data:|blob:|\/)/i.test(src)) return // absolu/externe : on laisse
+    const rel = base ? `${base}/${src}` : src
+    img.setAttribute('src', `${API_ROUTES.JD_EXTDOCS_FILE(wsId)}?path=${encodeURIComponent(rel)}&t=${token}`)
+    img.setAttribute('loading', 'lazy')
+  })
+  return doc.body.innerHTML
+}
 
 const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' })
 td.use(gfm) // tableaux, barré, listes de tâches → Markdown GFM
@@ -34,6 +52,8 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const [mode, setMode]   = useState(isCreate ? 'edit' : 'view')
   const [name, setName]   = useState((initialName || 'Document').replace(/\.md$/i, ''))
   const [html, setHtml]   = useState('')
+  const [base, setBase]   = useState('')      // dossier (relatif EXTDOCS) pour résoudre les images
+  const [externe, setExterne] = useState(false) // doc lié → lecture seule (édition en externe)
   const [loading, setLoading] = useState(!isCreate)
   const [saving, setSaving]   = useState(false)
   const [dirty, setDirty]     = useState(false)
@@ -41,8 +61,9 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const downTargetRef = useRef(null) // pour distinguer un vrai clic backdrop d'un drag de sélection
   const bodyRef = useRef(null)
 
-  // Table des matières (vue lecture) — titres avec id + liste cliquable
-  const { html: viewHtml, items: toc } = useMemo(() => buildToc(html), [html])
+  // Vue lecture : images résolues (proxy EXTDOCS) + table des matières
+  const { html: viewHtml, items: toc } = useMemo(
+    () => buildToc(resolveImages(html, wsId, token, base)), [html, base, wsId, token])
   function gotoHeading(id) {
     const target = bodyRef.current?.querySelector(`#${CSS.escape(id)}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -61,6 +82,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
       .then(d => {
         const h = mdToHtml(d.content)
         setHtml(h); editorHtmlRef.current = h
+        setBase(d.base || ''); setExterne(!!d.externe)
         if (d.nom_original) setName(d.nom_original.replace(/\.md$/i, ''))
       })
       .finally(() => setLoading(false))
@@ -111,9 +133,12 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
             <span className="md-modal__title">📝 {name}</span>
           )}
           <div className="md-modal__actions">
+            {externe && <span className="md-modal__ext" title="Document lié — édité en externe">🔗 lié</span>}
             {mode === 'view' ? (
-              <button type="button" className="btn btn-ghost"
-                onClick={() => { editorHtmlRef.current = html; setMode('edit') }}>✏️ Éditer</button>
+              !externe && (
+                <button type="button" className="btn btn-ghost"
+                  onClick={() => { editorHtmlRef.current = html; setMode('edit') }}>✏️ Éditer</button>
+              )
             ) : (
               <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
                 {saving ? '…' : '💾 Enregistrer'}

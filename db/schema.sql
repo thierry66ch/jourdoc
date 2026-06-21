@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS jd_medias (
   taille        INTEGER,
   date_prise    DATE,
   lie           BOOLEAN DEFAULT FALSE,
+  externe       BOOLEAN DEFAULT FALSE,  -- TRUE = fichier lié (externe), non supprimé au détachement
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 

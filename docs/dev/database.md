@@ -125,7 +125,8 @@ Conseil/Descriptif/Manuel/Norme/Exemple ; statuts : Brouillon/Validé/Obsolète)
 `id` · `workspace_id` (CASCADE) · `fichier` (**chemin WebDAV complet**, ex.
 `/pogil.ch/Apps_datas/JourDoc/uploads/2/uuid.jpg`) · `nom_original` · `type_media`
 (`photo` | `pdf`) · `mime_type` · `taille` · `date_prise` (DATE, EXIF ou upload) ·
-`lie` BOOLEAN (lié à au moins une note) · `created_at`.
+`lie` BOOLEAN (lié à au moins une note) · `externe` BOOLEAN (fichier *lié* sous
+`WEBDAV_PATH_EXTDOCS` — non supprimé au détachement) · `created_at`.
 
 Le proxy `GET /:wsId/medias/:id/file` dérive `dir` et `filename` du `fichier`
 par `lastIndexOf('/')`. Uploads sous `WEBDAV_PATH_UPLOADS/{wsId}/`,
@@ -152,6 +153,7 @@ import('./db/db.js').then(async ({ default: sql }) => {
 - `005_doc_categorie.sql` — table `jd_doc_categorie` + `jd_notes.doc_categorie_id` + seed
 - `006_doc_fields.sql` — `jd_notes.doc_auteur` / `doc_statut` / `doc_reference`
 - `007_doc_statut_ref.sql` — table `jd_doc_statut` + `jd_notes.doc_statut_id` (remplace `doc_statut` texte)
+- `008_media_externe.sql` — `jd_medias.externe` (pièces jointes *liées*)
 
 **Convention** : nouvelle évolution de schéma → fichier de migration numéroté
 **et** mise à jour de `schema.sql` (référence d'un schéma vierge).

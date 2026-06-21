@@ -97,6 +97,22 @@ export async function listFiles(appPath) {
 }
 
 /**
+ * Liste le contenu d'un dossier (dossiers ET fichiers) — pour le navigateur EXTDOCS.
+ * @param {string} appPath - chemin complet du dossier
+ * @returns {Array<{name, type, size, mime}>} type = 'file' | 'directory'
+ */
+export async function listDir(appPath) {
+  const client = getClient()
+  try {
+    const items = await client.getDirectoryContents(appPath)
+    return items.map(i => ({ name: i.basename, type: i.type, size: i.size, mime: i.mime }))
+  } catch (e) {
+    if (e.message?.includes('404')) return []
+    throw e
+  }
+}
+
+/**
  * Supprime un fichier sur WebDAV.
  * @param {string} appPath
  * @param {string} filename

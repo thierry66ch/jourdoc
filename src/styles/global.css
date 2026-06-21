@@ -3674,6 +3674,25 @@ button, input, select, textarea { font: inherit; color: inherit }
 .md-toc__l2 { padding-left: 1rem }
 .md-toc__l3 { padding-left: 2rem }
 .md-modal__empty { color: var(--text-muted); text-align: center; padding: 2rem }
+.md-modal__view img { max-width: 100%; height: auto; border-radius: var(--r-sm); margin: .35rem 0 }
+.md-modal__ext { font-size: .75rem; color: var(--text-muted); padding: .2rem .5rem; border: 1px solid var(--border); border-radius: var(--r-full); white-space: nowrap }
+
+/* Navigateur de fichiers externes (ExtDocsBrowser) */
+.md-modal__panel.extdocs { height: 80vh; max-height: 80vh; width: min(560px, 100%) }
+.extdocs__path {
+  padding: .4rem .75rem; font-size: .8125rem; font-family: var(--font-mono);
+  color: var(--text-muted); background: var(--surface-alt); border-bottom: 1px solid var(--border);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.extdocs__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .15rem }
+.extdocs__row {
+  display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
+  padding: .5rem .65rem; border: none; background: none; cursor: pointer;
+  border-radius: var(--r-sm); font-size: .9rem; color: var(--text);
+}
+.extdocs__row:hover { background: var(--accent-bg); color: var(--accent) }
+.extdocs__row:disabled { opacity: .5; cursor: default }
+.extdocs__empty { padding: .75rem .65rem; color: var(--text-muted); font-size: .8125rem }
 /* L'éditeur occupe toute la hauteur du modal */
 .md-modal__body .rte { display: flex; flex-direction: column; min-height: 100% }
 

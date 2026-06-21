@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
-import { uploadFile, downloadFile, deleteFile, listFiles, getTextFile, putTextFile } from '../../packages/storage/index.js'
+import { uploadFile, downloadFile, deleteFile, listFiles, listDir, getTextFile, putTextFile } from '../../packages/storage/index.js'
 
 const jourdoc = new Hono()
 
@@ -1056,7 +1056,12 @@ jourdoc.get('/:wsId/medias/:id/content', async (c) => {
   if (!media) return c.json({ error: 'Not found' }, 404)
   try {
     const content = await getTextFile(media.fichier)
-    return c.json({ content, nom_original: media.nom_original })
+    // Dossier de base (relatif à EXTDOCS) pour résoudre les images relatives d'un doc lié
+    const ext = process.env.WEBDAV_PATH_EXTDOCS || ''
+    const base = media.externe && ext && media.fichier.startsWith(ext + '/')
+      ? media.fichier.slice(ext.length + 1).split('/').slice(0, -1).join('/')
+      : ''
+    return c.json({ content, nom_original: media.nom_original, base, externe: !!media.externe })
   } catch {
     return c.json({ error: 'Read failed' }, 500)
   }
@@ -1077,6 +1082,79 @@ jourdoc.put('/:wsId/medias/:id/content', async (c) => {
     return c.json({ ok: true, nom_original: newNom })
   } catch {
     return c.json({ error: 'Write failed' }, 500)
+  }
+})
+
+// ── FICHIERS EXTERNES LIÉS (dossier WEBDAV_PATH_EXTDOCS) ──────
+
+const EXTDOCS = () => process.env.WEBDAV_PATH_EXTDOCS || ''
+// Nettoie un chemin relatif (interdit toute évasion hors EXTDOCS)
+function cleanRel(p) {
+  return String(p || '').split('/').filter(s => s && s !== '.' && s !== '..').join('/')
+}
+function extType(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase()
+  if (MARKDOWN_EXTS.has(ext)) return 'markdown'
+  if (ext === 'pdf') return 'pdf'
+  if (IMAGE_EXTS.has(ext)) return 'photo'
+  return 'fichier'
+}
+function mimeForName(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase()
+  return ({ jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', avif: 'image/avif', svg: 'image/svg+xml', pdf: 'application/pdf',
+    md: 'text/markdown', markdown: 'text/markdown' })[ext] || 'application/octet-stream'
+}
+
+// Arborescence du dossier externe (dossiers + fichiers)
+jourdoc.get('/:wsId/extdocs/tree', async (c) => {
+  if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré', entries: [] }, 200)
+  const rel = cleanRel(c.req.query('path'))
+  const full = rel ? `${EXTDOCS()}/${rel}` : EXTDOCS()
+  try {
+    const items = await listDir(full)
+    const entries = items
+      .map(i => ({ name: i.name, dir: i.type === 'directory' }))
+      .sort((a, b) => (Number(b.dir) - Number(a.dir)) || a.name.localeCompare(b.name, 'fr'))
+    return c.json({ path: rel, entries })
+  } catch {
+    return c.json({ error: 'Lecture impossible', entries: [] }, 500)
+  }
+})
+
+// Lier un fichier externe (référence, sans copie)
+jourdoc.post('/:wsId/medias/link', async (c) => {
+  const wsId = c.get('wsId')
+  if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré' }, 400)
+  const rel = cleanRel((await c.req.json()).path)
+  if (!rel) return c.json({ error: 'Chemin requis' }, 400)
+  const full = `${EXTDOCS()}/${rel}`
+  const name = rel.split('/').pop()
+  const tm = extType(name)
+  const [existing] = await sql`SELECT id FROM jd_medias WHERE workspace_id=${wsId} AND fichier=${full}`
+  if (existing) return c.json({ id: existing.id, existing: true, nom_original: name, type_media: tm, externe: true })
+  const [r] = await sql`
+    INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, externe, date_prise)
+    VALUES (${wsId}, ${full}, ${name}, ${tm}, ${mimeForName(name)}, TRUE, ${new Date().toISOString().slice(0, 10)})
+    RETURNING id
+  `
+  return c.json({ id: r.id, fichier: full, nom_original: name, type_media: tm, externe: true }, 201)
+})
+
+// Proxy : sert un fichier sous EXTDOCS (images relatives des MD liés, etc.)
+jourdoc.get('/:wsId/extdocs/file', async (c) => {
+  if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré' }, 404)
+  const rel = cleanRel(c.req.query('path'))
+  if (!rel) return c.json({ error: 'path requis' }, 400)
+  const full = `${EXTDOCS()}/${rel}`
+  try {
+    const lastSlash = full.lastIndexOf('/')
+    const buf = await downloadFile(full.substring(0, lastSlash), full.substring(lastSlash + 1))
+    c.header('Content-Type', mimeForName(full))
+    c.header('Cache-Control', 'private, max-age=3600')
+    return c.body(buf)
+  } catch {
+    return c.json({ error: 'Download failed' }, 500)
   }
 })
 
@@ -1126,12 +1204,13 @@ jourdoc.delete('/:wsId/medias/:id', async (c) => {
   const [media] = await sql`SELECT * FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
   if (!media) return c.json({ error: 'Not found' }, 404)
 
-  const lastSlash = media.fichier.lastIndexOf('/')
-  const dir = media.fichier.substring(0, lastSlash)
-  const filename = media.fichier.substring(lastSlash + 1)
-  try {
-    await deleteFile(dir, filename)
-  } catch { /* fichier déjà absent */ }
+  // Fichier lié (externe) : on ne supprime QUE la référence, jamais l'original
+  if (!media.externe) {
+    const lastSlash = media.fichier.lastIndexOf('/')
+    try {
+      await deleteFile(media.fichier.substring(0, lastSlash), media.fichier.substring(lastSlash + 1))
+    } catch { /* fichier déjà absent */ }
+  }
   await sql`DELETE FROM jd_medias WHERE id=${id}`
   return c.json({ ok: true })
 })

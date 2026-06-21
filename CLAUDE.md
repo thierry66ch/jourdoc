@@ -196,6 +196,7 @@ WEBDAV_PASSWORD=                                   # mot de passe d'application 
 
 WEBDAV_PATH_UPLOADS=/pogil.ch/Apps_datas/JourDoc/uploads
 WEBDAV_PATH_INBOX=/pogil.ch/Apps_datas/JourDoc/inbox
+WEBDAV_PATH_EXTDOCS=/pogil.ch/Apps_datas/JourDoc/external   # fichiers « liés » (référence externe)
 
 TODOIST_CLIENT_ID=
 TODOIST_CLIENT_SECRET=

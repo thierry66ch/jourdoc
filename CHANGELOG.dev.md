@@ -4,6 +4,25 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 35 — 2026-06-21
+
+**Documents liés (externes) — Phase 1.** Pièces jointes par *référence* à un fichier
+sous `WEBDAV_PATH_EXTDOCS` (dossier `external`), sans copie ni déplacement.
+
+- DB : migration `008` → `jd_medias.externe`.
+- Backend : `storage.listDir` ; `GET /extdocs/tree` (arborescence) ; `POST /medias/link`
+  (lier MD/PDF/image…) ; `GET /extdocs/file` (proxy borné + assaini) ; `/medias/:id/content`
+  renvoie `base`/`externe` ; la suppression d'un média lié ne touche pas l'original.
+- Front : `ExtDocsBrowser` (navigateur de dossiers) + bouton « 🔗 Lier » dans NoteForm.
+  `MarkdownModal` : docs liés en **lecture seule**, **images relatives résolues à la volée**
+  (proxy `extdocs/file` + token), **formules KaTeX** (`marked-katex-extension`). PDF/images
+  liés via le proxy média existant.
+- Dépendances : `katex`, `marked-katex-extension`.
+
+⚠️ À faire côté infra : ajouter `WEBDAV_PATH_EXTDOCS` dans les variables Vercel.
+
+---
+
 ## Build 34 — 2026-06-21
 
 NoteCard : les **thèmes** quittent le bandeau du haut (saturé par les badges
