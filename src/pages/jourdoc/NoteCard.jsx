@@ -48,14 +48,11 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
           </span>
         )}
         {showDate && note.date && <span className="jd-note-card__date">{fmtNoteDate(note.date)}</span>}
-        {note.themes?.length > 0
-          ? note.themes.map(t => <span key={t.id} className="jd-note-card__theme">{t.nom}</span>)
-          : note.theme_nom && <span className="jd-note-card__theme">{note.theme_nom}</span>}
       </div>
 
       <p className="jd-note-card__titre">{note.titre}</p>
 
-      {(note.objets?.length > 0 || note.elements?.length > 0) && (
+      {(note.objets?.length > 0 || note.elements?.length > 0 || note.themes?.length > 0 || note.theme_nom) && (
         <div className="jd-note-card__objets">
           {note.objets?.map(o => (
             <span key={o.id} className="jd-chip" onClick={e => {
@@ -66,6 +63,14 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
           {note.elements?.map(e => (
             <span key={e.id} className="jd-chip jd-chip--element">{e.nom}</span>
           ))}
+          {note.themes?.length > 0
+            ? note.themes.map(t => (
+                <span key={t.id} className="jd-chip jd-chip--theme" onClick={e => {
+                  e.stopPropagation()
+                  navigate(`/jourdoc/${wsId}/theme/${t.id}`)
+                }}>🏷️ {t.nom}</span>
+              ))
+            : note.theme_nom && <span className="jd-chip jd-chip--theme">🏷️ {note.theme_nom}</span>}
         </div>
       )}
 

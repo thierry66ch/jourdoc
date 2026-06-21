@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 34 — 2026-06-21
+
+NoteCard : les **thèmes** quittent le bandeau du haut (saturé par les badges
+catégorie + statut) pour rejoindre la rangée de chips **sous le titre**, après
+objets et éléments (ordre éditeur : Objets → Éléments → Thèmes). Chips thème
+cliquables (→ page thème), nouvelle teinte `jd-chip--theme`.
+
+---
+
 ## Build 33 — 2026-06-21
 
 Fix navigation « Retour » autour de l'éditeur de note : l'éditeur restait dans la

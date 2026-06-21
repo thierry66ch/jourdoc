@@ -1151,6 +1151,8 @@ button, input, select, textarea { font: inherit; color: inherit }
 .jd-chip:hover { background: var(--accent-bg); border-color: var(--accent); color: var(--accent) }
 .jd-chip--element { background: color-mix(in srgb, #f59e0b 12%, transparent); border-color: #f59e0b44; color: #b45309; cursor: default }
 .jd-chip--element:hover { background: color-mix(in srgb, #f59e0b 20%, transparent); border-color: #f59e0b; color: #92400e }
+.jd-chip--theme { background: color-mix(in srgb, #6366f1 12%, transparent); border-color: #6366f144; color: #4f46e5 }
+.jd-chip--theme:hover { background: color-mix(in srgb, #6366f1 22%, transparent); border-color: #6366f1; color: #4338ca }
 
 /* ── ElementPicker ──────────────────────── */
 .element-picker { position: relative }
