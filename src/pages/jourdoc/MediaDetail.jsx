@@ -5,6 +5,7 @@ import { API_ROUTES } from '@pogil/shared'
 import { authHeader, mediaUrl } from './hooks'
 import NoteCard from './NoteCard'
 import Lightbox from './Lightbox'
+import MarkdownModal from './MarkdownModal'
 
 export default function MediaDetail() {
   const { wsId, mediaId } = useParams()
@@ -15,6 +16,7 @@ export default function MediaDetail() {
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
   const [lightbox, setLightbox] = useState(false)
+  const [mdOpen, setMdOpen] = useState(false)
 
   useEffect(() => {
     setLoading(true)
@@ -39,13 +41,21 @@ export default function MediaDetail() {
 
       {/* Aperçu */}
       {media && (
-        <div className="jd-media-detail__preview" onClick={() => media.type_media !== 'pdf' && setLightbox(true)}>
+        <div className="jd-media-detail__preview"
+          onClick={() => {
+            if (media.type_media === 'markdown') setMdOpen(true)
+            else if (media.type_media !== 'pdf') setLightbox(true)
+          }}>
           {media.type_media === 'pdf' ? (
             <div className="jd-media-detail__pdf">📄<p>{media.nom_original}</p></div>
+          ) : media.type_media === 'markdown' ? (
+            <div className="jd-media-detail__pdf">📝<p>{media.nom_original}</p></div>
           ) : (
             <img src={mediaUrl(wsId, media.id, token)} alt={media.nom_original} className="jd-media-detail__img" />
           )}
-          {media.type_media !== 'pdf' && (
+          {media.type_media === 'markdown' ? (
+            <span className="jd-media-detail__zoom">📖 Ouvrir</span>
+          ) : media.type_media !== 'pdf' && (
             <span className="jd-media-detail__zoom">🔍 Agrandir</span>
           )}
         </div>
@@ -71,6 +81,10 @@ export default function MediaDetail() {
 
       {lightbox && media && (
         <Lightbox media={media} src={mediaUrl(wsId, media.id, token)} onClose={() => setLightbox(false)} />
+      )}
+
+      {mdOpen && media && (
+        <MarkdownModal wsId={wsId} token={token} mediaId={media.id} onClose={() => setMdOpen(false)} />
       )}
     </div>
   )

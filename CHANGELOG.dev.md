@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 41 — 2026-06-21
+
+MediaDetail : aperçu des médias **markdown** (icône 📝 + « Ouvrir » → MarkdownModal)
+au lieu d'une `<img>` cassée. Les pages de média lié (clic icône lien dans la galerie)
+s'affichent correctement.
+
+---
+
 ## Build 40 — 2026-06-21
 
 Fix image cassée dans les MD liés : la route `medias/:id/content` calculait le
