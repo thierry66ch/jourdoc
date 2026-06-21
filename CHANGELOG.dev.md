@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 37 — 2026-06-21
+
+WebDAV : **compte propriétaire** (`apps@pogil.ch`) au lieu du compte en partage →
+le PROPFIND (listing) fonctionne enfin à tous les niveaux. Conséquences :
+
+- **Navigateur d'arborescence restauré** dans « 🔗 Lier » (au lieu de la saisie de
+  chemin) — on parcourt `external/` et on clique le fichier.
+- **Images Markdown** : décodage du `%20` (exports type Notion) avant résolution vers
+  le proxy `extdocs/file` → images affichées. Formules `$…$`/`$$…$$` OK.
+- (L'inbox scan redevient également fonctionnel, même cause.)
+
+⚠️ Vercel : mettre à jour `WEBDAV_USER`=`apps@pogil.ch`, `WEBDAV_PASSWORD` (compte
+propriétaire) **et** `WEBDAV_PATH_EXTDOCS`.
+
+---
+
 ## Build 36 — 2026-06-21
 
 Documents liés — adaptation à une **limite WebDAV** : sur le partage Infomaniak,

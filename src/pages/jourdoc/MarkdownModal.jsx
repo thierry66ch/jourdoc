@@ -17,8 +17,11 @@ function resolveImages(html, wsId, token, base) {
   if (typeof window === 'undefined' || !html) return html
   const doc = new DOMParser().parseFromString(html, 'text/html')
   doc.querySelectorAll('img').forEach(img => {
-    const src = img.getAttribute('src') || ''
-    if (/^(https?:|data:|blob:|\/)/i.test(src)) return // absolu/externe : on laisse
+    const raw = img.getAttribute('src') || ''
+    if (/^(https?:|data:|blob:|\/)/i.test(raw)) return // absolu/externe : on laisse
+    // Le lien Markdown encode les espaces (%20…) : décoder avant de bâtir le chemin
+    let src = raw
+    try { src = decodeURIComponent(raw) } catch { /* garder tel quel */ }
     const rel = base ? `${base}/${src}` : src
     img.setAttribute('src', `${API_ROUTES.JD_EXTDOCS_FILE(wsId)}?path=${encodeURIComponent(rel)}&t=${token}`)
     img.setAttribute('loading', 'lazy')

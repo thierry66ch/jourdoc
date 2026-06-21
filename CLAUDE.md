@@ -255,12 +255,15 @@ import('./db/db.js').then(async ({ default: sql }) => {
     Trier topologiquement avant INSERT pour éviter les FK violations.
 13. **Sequences après import** → réinitialiser avec `setval` après import avec
     `OVERRIDING SYSTEM VALUE`.
-14. **PROPFIND / listing WebDAV indisponible** → sur le partage Infomaniak (dossier
-    `Apps_datas` partagé), `getDirectoryContents`/`stat`/`exists` renvoient **404** ;
-    seul l'accès fichier direct (GET/PUT) fonctionne. Donc pas de navigation
-    d'arborescence ni de vérification par `stat` (le « lier » vérifie par GET ; l'inbox
-    scan, qui repose sur le listing, est inopérant tel quel). Listing réel = passer par
-    l'API REST kDrive (non implémenté).
+14. **WebDAV : compte PROPRIÉTAIRE obligatoire pour le listing** → avec un compte qui
+    accède à `Apps_datas` en **partage** (ex. `thierry.portmann@pogil.ch`),
+    `getDirectoryContents`/`stat`/`exists` renvoient **404** (seul le GET/PUT fichier
+    marche). Avec le compte **propriétaire** du dossier (`apps@pogil.ch`), le PROPFIND
+    fonctionne à tous les niveaux. ⇒ `WEBDAV_USER`/`WEBDAV_PASSWORD` doivent être ceux du
+    compte propriétaire (navigateur EXTDOCS + inbox scan en dépendent).
+15. **Images Markdown encodées** → les liens d'images des exports (Notion…) encodent les
+    espaces (`%20`). Décoder le `src` (`decodeURIComponent`) avant de bâtir le chemin du
+    proxy `extdocs/file`, sinon double-encodage → 404.
 
 ## État de production (2026-06-16)
 
