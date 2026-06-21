@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 29 — 2026-06-21
+
+Bibliothèque : **filtre par statut** (chips colorées + compteurs, « Sans statut »),
+en plus du filtre par catégorie. Persisté en URL (`st`). Le filtrage des étagères
+combine catégorie × statut × objet × thème × recherche.
+
+---
+
 ## Build 28 — 2026-06-21
 
 **Statuts de documentation gérables par workspace** (comme les catégories) :

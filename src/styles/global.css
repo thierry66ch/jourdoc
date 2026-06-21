@@ -3664,7 +3664,8 @@ button, input, select, textarea { font: inherit; color: inherit }
 .biblio__tools { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap }
 .biblio__search { width: min(20rem, 60vw); padding: .5rem .75rem; font-size: .875rem }
 
-.biblio__legend { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: 1.25rem }
+.biblio__legend { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin-bottom: 1.25rem }
+.biblio__legend-label { font-size: .75rem; font-weight: 700; color: var(--text-muted); margin-right: .15rem }
 .biblio__chip {
   display: inline-flex; align-items: center; gap: .35rem;
   padding: .3rem .65rem; border-radius: var(--r-full);

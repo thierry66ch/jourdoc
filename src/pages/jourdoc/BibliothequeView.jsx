@@ -21,7 +21,7 @@ export default function BibliothequeView() {
   const { wsId } = useParams()
   const navigate = useNavigate()
   const { token } = useAuth()
-  const { objets, themes, docCategories, searchDepth, pickerMode } = useJdData(wsId, token)
+  const { objets, themes, docCategories, docStatuts, searchDepth, pickerMode } = useJdData(wsId, token)
   const [params, setParams] = useSearchParams()
 
   const [notes, setNotes]     = useState([])
@@ -31,6 +31,9 @@ export default function BibliothequeView() {
   const [sort, setSort]       = useState(() => params.get('sort') || 'recent') // 'recent' | 'alpha'
   const [selCat, setSelCat]   = useState(() => {
     const c = params.get('cat'); return c == null ? null : (c === '__none__' ? '__none__' : Number(c))
+  })
+  const [selStatut, setSelStatut] = useState(() => {
+    const s = params.get('st'); return s == null ? null : (s === '__none__' ? '__none__' : Number(s))
   })
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [density, setDensity] = useState(() => localStorage.getItem('biblio_density') || 'cards')
@@ -48,10 +51,11 @@ export default function BibliothequeView() {
     if (q) p.q = q
     if (sort !== 'recent') p.sort = sort
     if (selCat != null) p.cat = String(selCat)
+    if (selStatut != null) p.st = String(selStatut)
     if (objetFilter) { p.of = String(objetFilter); if (objetDir !== 'both') p.od = objetDir }
     if (themeFilter) { p.tf = String(themeFilter); if (themeDir !== 'both') p.td = themeDir }
     setParams(p, { replace: true })
-  }, [q, sort, selCat, objetFilter, objetDir, themeFilter, themeDir, setParams])
+  }, [q, sort, selCat, selStatut, objetFilter, objetDir, themeFilter, themeDir, setParams])
 
   useEffect(() => {
     setLoading(true)
@@ -127,9 +131,20 @@ export default function BibliothequeView() {
     return { m, none }
   }, [matched])
 
+  const statutCounts = useMemo(() => {
+    const m = new Map(); let none = 0
+    for (const n of matched) {
+      if (n.doc_statut) m.set(n.doc_statut.id, (m.get(n.doc_statut.id) ?? 0) + 1)
+      else none++
+    }
+    return { m, none }
+  }, [matched])
+
   const groups = useMemo(() => {
-    const visible = selCat == null ? matched
+    let visible = selCat == null ? matched
       : matched.filter(n => selCat === '__none__' ? !n.doc_categorie : n.doc_categorie?.id === selCat)
+    if (selStatut != null) visible = visible.filter(n =>
+      selStatut === '__none__' ? !n.doc_statut : n.doc_statut?.id === selStatut)
     const out = []
     for (const c of docCategories) {
       const items = visible.filter(n => n.doc_categorie?.id === c.id)
@@ -144,6 +159,7 @@ export default function BibliothequeView() {
   const totalCats = docCategories.filter(c => counts.m.get(c.id)).length + (counts.none ? 1 : 0)
 
   function toggleCat(id) { setSelCat(s => s === id ? null : id) }
+  function toggleStatut(id) { setSelStatut(s => s === id ? null : id) }
   function toggleCollapse(key) {
     setCollapsed(s => { const n = new Set(s); n.has(key) ? n.delete(key) : n.add(key); return n })
   }
@@ -262,12 +278,38 @@ export default function BibliothequeView() {
         )}
       </div>
 
+      {/* Filtre par statut */}
+      {docStatuts.length > 0 && (statutCounts.m.size > 0 || statutCounts.none > 0) && (
+        <div className="biblio__legend">
+          <span className="biblio__legend-label">🏁 Statut</span>
+          <button type="button" className={`biblio__chip${selStatut == null ? ' active' : ''}`}
+            onClick={() => setSelStatut(null)}>Tous</button>
+          {docStatuts.map(s => {
+            const n = statutCounts.m.get(s.id) ?? 0
+            if (!n) return null
+            const active = selStatut === s.id
+            return (
+              <button key={s.id} type="button"
+                className={`biblio__chip${active ? ' active' : ''}`}
+                style={active ? { background: s.couleur, color: '#fff', borderColor: s.couleur } : docCategorieBadgeStyle(s.couleur)}
+                onClick={() => toggleStatut(s.id)}>
+                {s.icon || '🏁'} {s.nom} <span className="biblio__chip-n">{n}</span>
+              </button>
+            )
+          })}
+          {statutCounts.none > 0 && (
+            <button type="button" className={`biblio__chip${selStatut === '__none__' ? ' active' : ''}`}
+              onClick={() => toggleStatut('__none__')}>— Sans statut <span className="biblio__chip-n">{statutCounts.none}</span></button>
+          )}
+        </div>
+      )}
+
       {loading ? (
         <div className="jd-loading">Chargement…</div>
       ) : groups.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state__icon">📚</div>
-          <p>{q || objetFilter || themeFilter ? 'Aucun document pour ces filtres.' : 'Aucune note de documentation.'}</p>
+          <p>{q || objetFilter || themeFilter || selCat != null || selStatut != null ? 'Aucun document pour ces filtres.' : 'Aucune note de documentation.'}</p>
         </div>
       ) : (
         groups.map(g => {
