@@ -255,6 +255,12 @@ import('./db/db.js').then(async ({ default: sql }) => {
     Trier topologiquement avant INSERT pour éviter les FK violations.
 13. **Sequences après import** → réinitialiser avec `setval` après import avec
     `OVERRIDING SYSTEM VALUE`.
+14. **PROPFIND / listing WebDAV indisponible** → sur le partage Infomaniak (dossier
+    `Apps_datas` partagé), `getDirectoryContents`/`stat`/`exists` renvoient **404** ;
+    seul l'accès fichier direct (GET/PUT) fonctionne. Donc pas de navigation
+    d'arborescence ni de vérification par `stat` (le « lier » vérifie par GET ; l'inbox
+    scan, qui repose sur le listing, est inopérant tel quel). Listing réel = passer par
+    l'API REST kDrive (non implémenté).
 
 ## État de production (2026-06-16)
 

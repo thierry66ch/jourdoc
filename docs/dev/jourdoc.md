@@ -111,7 +111,9 @@ Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamique
 importe les fichiers déposés (sous-dossier `WEBDAV_PATH_INBOX/{wsId}/`).
 
 **Fichiers liés (externes)** — pièces jointes par *référence* (sans copie) à un fichier
-sous `WEBDAV_PATH_EXTDOCS`. `ExtDocsBrowser` (navigateur d'arborescence) → `POST /medias/link`
+sous `WEBDAV_PATH_EXTDOCS`. `ExtDocsBrowser` = **saisie du chemin relatif** (le listing
+d'arborescence WebDAV est indisponible sur ce partage Infomaniak — PROPFIND renvoie 404,
+seul l'accès fichier direct marche) → `POST /medias/link` vérifie l'existence par GET et
 crée un média `externe=true` (MD, PDF, image…). L'original n'est jamais renommé/déplacé/
 supprimé (suppression = détachement de la référence). Les MD liés sont **lecture seule**
 (édition en externe) ; au rendu, les **images relatives** sont résolues à la volée vers le

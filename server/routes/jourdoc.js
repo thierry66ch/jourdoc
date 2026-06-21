@@ -1131,6 +1131,14 @@ jourdoc.post('/:wsId/medias/link', async (c) => {
   const full = `${EXTDOCS()}/${rel}`
   const name = rel.split('/').pop()
   const tm = extType(name)
+  // Le listing/stat WebDAV (PROPFIND) est indisponible sur ce partage → on vérifie
+  // l'existence par un GET direct (qui, lui, fonctionne).
+  try {
+    const ls = full.lastIndexOf('/')
+    await downloadFile(full.substring(0, ls), full.substring(ls + 1))
+  } catch {
+    return c.json({ error: 'Fichier introuvable sous external/ (vérifie le chemin)' }, 404)
+  }
   const [existing] = await sql`SELECT id FROM jd_medias WHERE workspace_id=${wsId} AND fichier=${full}`
   if (existing) return c.json({ id: existing.id, existing: true, nom_original: name, type_media: tm, externe: true })
   const [r] = await sql`

@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 36 — 2026-06-21
+
+Documents liés — adaptation à une **limite WebDAV** : sur le partage Infomaniak,
+le PROPFIND (listing/stat/exists) renvoie **404** ; seul l'accès fichier direct (GET)
+fonctionne. Le navigateur d'arborescence devient donc une **saisie du chemin relatif**
+(sous `external/`). La route `link` vérifie l'existence par **GET** au lieu de `stat`.
+Piège documenté dans CLAUDE.md (#14) — concerne aussi l'inbox scan, inopérant tel quel.
+
+---
+
 ## Build 35 — 2026-06-21
 
 **Documents liés (externes) — Phase 1.** Pièces jointes par *référence* à un fichier
