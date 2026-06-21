@@ -1113,6 +1113,28 @@ button, input, select, textarea { font: inherit; color: inherit }
 .doc-cat-add { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap }
 .doc-cat-add-btn { padding: .45rem 1rem; font-size: .875rem }
 
+/* Sélecteur de couleur (pastille + popover 2D) */
+.color-field { position: relative; flex-shrink: 0 }
+.color-field__swatch {
+  width: 2.2rem; height: 2.2rem; padding: 0;
+  border: 1px solid var(--border); border-radius: var(--r-sm); cursor: pointer;
+}
+.color-field__pop {
+  position: absolute; z-index: 300; top: calc(100% + 4px); right: 0;
+  width: 216px; padding: .6rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r); box-shadow: var(--shadow-lg);
+  display: flex; flex-direction: column; gap: .5rem;
+}
+.color-field__pop .react-colorful { width: 100%; height: 150px }
+.color-field__presets { display: grid; grid-template-columns: repeat(8, 1fr); gap: .25rem }
+.color-field__preset {
+  width: 100%; aspect-ratio: 1; padding: 0; cursor: pointer;
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+}
+.color-field__preset:hover { transform: scale(1.12) }
+.color-field__hex { padding: .35rem .5rem; font-size: .8125rem; font-family: var(--font-mono) }
+
 /* Chips (objets liés) */
 .jd-chip {
   display: inline-block;

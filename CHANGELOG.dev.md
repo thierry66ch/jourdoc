@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 32 — 2026-06-21
+
+Sélecteur de couleur amélioré (`ColorField`, `react-colorful`) : pastille ouvrant
+un popover avec **carré saturation/luminosité + barre de teinte** (cible 2D),
+nuances prédéfinies et saisie hex. Remplace l'`<input type=color>` natif dans le
+gestionnaire de référentiels (catégories + statuts de doc).
+
+---
+
 ## Build 31 — 2026-06-21
 
 Fix surbrillance des chips neutres de la Bibliothèque (Tous/Toutes, Sans statut,

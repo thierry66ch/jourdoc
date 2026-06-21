@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { authHeader } from './hooks'
+import ColorField from './ColorField'
 
 const PALETTE = ['#f59e0b', '#0ea5e9', '#8b5cf6', '#ef4444', '#10b981', '#ec4899', '#64748b', '#14b8a6']
 
@@ -82,9 +83,9 @@ export default function BadgeRefManager({
             <input className="input doc-cat-nom" value={it.nom}
               onChange={e => patchLocal(it.id, { nom: e.target.value })}
               onBlur={() => save(it)} />
-            <input type="color" className="doc-cat-color" value={it.couleur || '#d97706'}
-              onChange={e => patchLocal(it.id, { couleur: e.target.value })}
-              onBlur={() => save(it)} aria-label="Couleur" />
+            <ColorField value={it.couleur || '#d97706'}
+              onChange={c => patchLocal(it.id, { couleur: c })}
+              onClose={() => save(it)} />
             <span className="doc-cat-count">{it.note_count > 0 ? `${it.note_count}×` : ''}</span>
             <div className="doc-cat-actions">
               <button type="button" onClick={() => move(i, -1)} disabled={i === 0} title="Monter">↑</button>
@@ -102,8 +103,7 @@ export default function BadgeRefManager({
         <input className="input doc-cat-nom" placeholder={addPlaceholder} value={nom}
           onChange={e => setNom(e.target.value)}
           onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add() } }} />
-        <input type="color" className="doc-cat-color" value={couleur}
-          onChange={e => setCol(e.target.value)} aria-label="Couleur" />
+        <ColorField value={couleur} onChange={setCol} />
         <button type="button" className="btn btn-primary doc-cat-add-btn"
           onClick={add} disabled={!nom.trim() || busy}>Ajouter</button>
       </div>
