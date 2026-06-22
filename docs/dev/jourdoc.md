@@ -115,10 +115,13 @@ sous `WEBDAV_PATH_EXTDOCS`. `ExtDocsBrowser` = **saisie du chemin relatif** (le 
 d'arborescence WebDAV est indisponible sur ce partage Infomaniak — PROPFIND renvoie 404,
 seul l'accès fichier direct marche) → `POST /medias/link` vérifie l'existence par GET et
 crée un média `externe=true` (MD, PDF, image…). L'original n'est jamais renommé/déplacé/
-supprimé (suppression = détachement de la référence). Les MD liés sont **lecture seule**
-(édition en externe) ; au rendu, les **images relatives** sont résolues à la volée vers le
-proxy `extdocs/file` (token frais), et les **formules** via KaTeX (`marked-katex-extension`).
-Dépendances : `katex`, `marked-katex-extension`.
+supprimé (suppression = détachement de la référence). Les MD liés sont **éditables in-app**
+(écrits dans le fichier externe via `PUT /medias/:id/content`, sans renommage) : au rendu
+**et en édition**, les **images relatives** sont résolues vers le proxy `extdocs/file`
+(token frais) puis **reconverties en relatif au save** (`unresolveImages`) ; **formules**
+via KaTeX (`marked-katex-extension`). Ouverture directe d'une pièce jointe au clic sur sa
+vignette (NoteCard : image/PDF → lightbox, markdown → MarkdownModal). Dépendances : `katex`,
+`marked-katex-extension`.
 
 **Documents Markdown** (`MarkdownModal.jsx`) — nouveau `type_media='markdown'`.
 Pièces jointes `.md` (import ou création « + Document » depuis une note). Modal

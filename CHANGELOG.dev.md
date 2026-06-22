@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 42 — 2026-06-21
+
+Suite docs liés (retours terrain) :
+
+- **Retrait** du bouton « + Document » (création MD in-app) — redondant avec la liaison.
+- **Édition in-app des MD liés** : le doc lié devient éditable (WYSIWYG + source), écrit
+  dans le fichier externe via `PUT content` (sans renommage). Images résolues à l'affichage
+  en édition et **reconverties en chemins relatifs au save** (`unresolveImages`) → liens
+  d'images préservés dans le `.md`.
+- **Ouverture directe d'une pièce jointe** au clic sur sa vignette dans la NoteCard :
+  image/PDF → lightbox, markdown → MarkdownModal, sans ouvrir la note. Overlays confinés
+  (stopPropagation) pour ne pas naviguer.
+
+---
+
 ## Build 41 — 2026-06-21
 
 MediaDetail : aperçu des médias **markdown** (icône 📝 + « Ouvrir » → MarkdownModal)

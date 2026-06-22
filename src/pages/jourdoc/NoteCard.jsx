@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { mediaUrl, docCategorieBadgeStyle } from './hooks'
 import Lightbox from './Lightbox'
+import MarkdownModal from './MarkdownModal'
 
 const NATURE_ICON = { observation: '👁', activite: '⚡' }
 const TYPE_ICON   = { journal: '📔', documentation: '📄' }
@@ -25,8 +26,10 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
   const { token } = useAuth()
   const navigate = useNavigate()
   const [lbIdx, setLbIdx] = useState(-1)
+  const [mdOpen, setMdOpen] = useState(null) // id du média markdown ouvert
 
-  const photoMedias = (note.medias ?? []).filter(m => m.type_media !== 'pdf' && m.type_media !== 'markdown')
+  // Médias ouvrables en lightbox (photos + PDF) ; les markdown ouvrent le modal dédié
+  const lbMedias = (note.medias ?? []).filter(m => m.type_media !== 'markdown')
 
   return (
     <div className="jd-note-card" onClick={() => navigate(`/jourdoc/${wsId}/notes/${note.id}`,
@@ -78,18 +81,20 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
       {note.medias?.length > 0 && (
         <div className="jd-note-card__medias">
           {note.medias.slice(0, 5).map((m, idx) =>
-            m.type_media === 'pdf'
-              ? <div key={m.id} className="jd-thumb jd-thumb--pdf"
-                  onClick={e => e.stopPropagation()} title={m.nom_original}>📄</div>
-              : m.type_media === 'markdown'
-              ? <div key={m.id} className="jd-thumb jd-thumb--pdf"
-                  onClick={e => e.stopPropagation()} title={m.nom_original}>📝</div>
+            m.type_media === 'markdown'
+              ? <div key={m.id} className="jd-thumb jd-thumb--pdf" title={m.nom_original}
+                  style={{ cursor: 'pointer' }}
+                  onClick={e => { e.stopPropagation(); setMdOpen(m.id) }}>📝</div>
+              : m.type_media === 'pdf'
+              ? <div key={m.id} className="jd-thumb jd-thumb--pdf" title={m.nom_original}
+                  style={{ cursor: 'zoom-in' }}
+                  onClick={e => { e.stopPropagation(); const i = lbMedias.findIndex(x => x.id === m.id); if (i >= 0) setLbIdx(i) }}>📄</div>
               : <img key={m.id} className="jd-thumb" src={mediaUrl(wsId, m.id, token)}
-                  alt="" loading="lazy" title={m.nom_original}
+                  alt="" loading="lazy" title={m.nom_original} style={{ cursor: 'zoom-in' }}
                   onClick={e => {
                     e.stopPropagation()
-                    const pIdx = photoMedias.findIndex(pm => pm.id === m.id)
-                    if (pIdx >= 0) setLbIdx(pIdx)
+                    const i = lbMedias.findIndex(x => x.id === m.id)
+                    if (i >= 0) setLbIdx(i)
                   }} />
           )}
           {note.medias.length > 5 && (
@@ -119,15 +124,22 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
         </div>
       )}
 
-      {/* Lightbox sur les photos de cette note */}
-      {lbIdx >= 0 && (
-        <Lightbox
-          media={photoMedias[lbIdx]}
-          src={mediaUrl(wsId, photoMedias[lbIdx]?.id, token)}
-          onClose={() => setLbIdx(-1)}
-          onPrev={lbIdx > 0 ? () => setLbIdx(i => i - 1) : null}
-          onNext={lbIdx < photoMedias.length - 1 ? () => setLbIdx(i => i + 1) : null}
-        />
+      {/* Overlays (clics confinés : ne pas naviguer vers la note) */}
+      {(lbIdx >= 0 || mdOpen != null) && (
+        <div onClick={e => e.stopPropagation()}>
+          {lbIdx >= 0 && (
+            <Lightbox
+              media={lbMedias[lbIdx]}
+              src={mediaUrl(wsId, lbMedias[lbIdx]?.id, token)}
+              onClose={() => setLbIdx(-1)}
+              onPrev={lbIdx > 0 ? () => setLbIdx(i => i - 1) : null}
+              onNext={lbIdx < lbMedias.length - 1 ? () => setLbIdx(i => i + 1) : null}
+            />
+          )}
+          {mdOpen != null && (
+            <MarkdownModal wsId={wsId} token={token} mediaId={mdOpen} onClose={() => setMdOpen(null)} />
+          )}
+        </div>
       )}
     </div>
   )

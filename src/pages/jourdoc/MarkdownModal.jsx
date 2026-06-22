@@ -29,6 +29,25 @@ function resolveImages(html, wsId, token, base) {
   return doc.body.innerHTML
 }
 
+// Inverse de resolveImages : proxy EXTDOCS → chemin relatif encodé (pour réenregistrer le .md)
+function unresolveImages(html, wsId, base) {
+  if (typeof window === 'undefined' || !html) return html
+  const prefix = API_ROUTES.JD_EXTDOCS_FILE(wsId)
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('img').forEach(img => {
+    const src = img.getAttribute('src') || ''
+    if (!src.startsWith(prefix)) return
+    try {
+      const qs = new URLSearchParams(src.slice(src.indexOf('?') + 1))
+      let p = qs.get('path') || '' // déjà décodé → "1/Test MD/image.png"
+      if (base && (p === base || p.startsWith(base + '/'))) p = p.slice(base.length + 1)
+      img.removeAttribute('loading')
+      img.setAttribute('src', p.split('/').map(encodeURIComponent).join('/')) // → "Test%20MD/image.png"
+    } catch { /* laisser tel quel */ }
+  })
+  return doc.body.innerHTML
+}
+
 const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' })
 td.use(gfm) // tableaux, barré, listes de tâches → Markdown GFM
 // Encadrés → alertes GFM (> [!TIP]) pour préserver le contenu en Markdown
@@ -56,7 +75,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const [name, setName]   = useState((initialName || 'Document').replace(/\.md$/i, ''))
   const [html, setHtml]   = useState('')
   const [base, setBase]   = useState('')      // dossier (relatif EXTDOCS) pour résoudre les images
-  const [externe, setExterne] = useState(false) // doc lié → lecture seule (édition en externe)
+  const [externe, setExterne] = useState(false) // doc lié (fichier externe)
   const [loading, setLoading] = useState(!isCreate)
   const [saving, setSaving]   = useState(false)
   const [dirty, setDirty]     = useState(false)
@@ -67,6 +86,8 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   // Vue lecture : images résolues (proxy EXTDOCS) + table des matières
   const { html: viewHtml, items: toc } = useMemo(
     () => buildToc(resolveImages(html, wsId, token, base)), [html, base, wsId, token])
+  // Édition : images résolues pour s'afficher dans le WYSIWYG (reconverties au save)
+  const editHtml = useMemo(() => resolveImages(html, wsId, token, base), [html, wsId, token, base])
   function gotoHeading(id) {
     const target = bodyRef.current?.querySelector(`#${CSS.escape(id)}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -100,7 +121,8 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
 
   async function save() {
     setSaving(true)
-    const content = td.turndown(editorHtmlRef.current || '')
+    // Reconvertir les URLs proxy en chemins relatifs avant la sérialisation Markdown
+    const content = td.turndown(unresolveImages(editorHtmlRef.current || '', wsId, base))
     try {
       if (currentId == null) {
         const res = await fetch(API_ROUTES.JD_MEDIA_MARKDOWN(wsId), {
@@ -111,13 +133,14 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
         setCurrentId(media.id)
         onCreated?.(media)
       } else {
+        // Doc lié : ne PAS renommer le fichier externe (on n'envoie pas `nom`)
         await fetch(API_ROUTES.JD_MEDIA_CONTENT(wsId, currentId), {
           method: 'PUT', headers: authHeader(token),
-          body: JSON.stringify({ nom: name, content }),
+          body: JSON.stringify(externe ? { content } : { nom: name, content }),
         })
         onSaved?.()
       }
-      setHtml(editorHtmlRef.current)
+      setHtml(mdToHtml(content))
       setDirty(false)
       setMode('view')
     } finally { setSaving(false) }
@@ -129,19 +152,17 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
       onClick={e => { if (e.target === e.currentTarget && downTargetRef.current === e.currentTarget) requestClose() }}>
       <div className="md-modal__panel" onClick={e => e.stopPropagation()}>
         <div className="md-modal__bar">
-          {mode === 'edit' ? (
+          {mode === 'edit' && !externe ? (
             <input className="input md-modal__name" value={name}
               onChange={e => setName(e.target.value)} placeholder="Nom du document" />
           ) : (
             <span className="md-modal__title">📝 {name}</span>
           )}
           <div className="md-modal__actions">
-            {externe && <span className="md-modal__ext" title="Document lié — édité en externe">🔗 lié</span>}
+            {externe && <span className="md-modal__ext" title="Document lié (fichier externe)">🔗 lié</span>}
             {mode === 'view' ? (
-              !externe && (
-                <button type="button" className="btn btn-ghost"
-                  onClick={() => { editorHtmlRef.current = html; setMode('edit') }}>✏️ Éditer</button>
-              )
+              <button type="button" className="btn btn-ghost"
+                onClick={() => { editorHtmlRef.current = editHtml; setMode('edit') }}>✏️ Éditer</button>
             ) : (
               <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
                 {saving ? '…' : '💾 Enregistrer'}
@@ -154,10 +175,10 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
           {loading ? (
             <div className="jd-loading">Chargement…</div>
           ) : mode === 'edit' ? (
-            <RichTextEditor key={`md-${currentId ?? 'new'}`} initialContent={html}
+            <RichTextEditor key={`md-${currentId ?? 'new'}`} initialContent={editHtml}
               onChange={h => { editorHtmlRef.current = h; setDirty(true) }}
-              htmlToSource={h => td.turndown(h || '')}
-              sourceToHtml={s => mdToHtml(s)}
+              htmlToSource={h => td.turndown(unresolveImages(h || '', wsId, base))}
+              sourceToHtml={s => resolveImages(mdToHtml(s), wsId, token, base)}
               placeholder="Rédigez votre document Markdown…" />
           ) : html ? (
             <>

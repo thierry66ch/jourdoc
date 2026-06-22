@@ -177,12 +177,6 @@ export default function NoteForm() {
     return [...local, ...notes]
   }
 
-  // Document Markdown créé depuis l'éditeur → l'attacher à la note
-  function onMdCreated(media) {
-    setForm(f => ({ ...f, media_ids: [...f.media_ids, media.id] }))
-    setMediaDetails(d => [...d, { id: media.id, type_media: 'markdown', nom_original: media.nom_original, fichier: media.fichier }])
-  }
-
   // Fichier externe lié → l'attacher à la note (sans copie)
   function onLinkPicked(media) {
     if (media?.id) {
@@ -441,9 +435,7 @@ export default function NoteForm() {
             </label>
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
               <button type="button" className="jd-auto-btn"
-                onClick={() => setMdOpen({ create: true })}>📝 + Document</button>
-              <button type="button" className="jd-auto-btn"
-                onClick={() => setExtBrowser(true)}>🔗 Lier</button>
+                onClick={() => setExtBrowser(true)}>🔗 Lier un document</button>
               <button type="button" className="jd-auto-btn"
                 onClick={() => setShowPicker(o => !o)}>
                 {showPicker ? 'Fermer' : 'Choisir des médias'}
@@ -579,13 +571,12 @@ export default function NoteForm() {
         </div>
       </form>
 
-      {/* Document Markdown (création / édition) */}
+      {/* Document Markdown (édition d'un doc lié) */}
       {mdOpen && (
         <MarkdownModal
           wsId={wsId} token={token}
           mediaId={mdOpen.mediaId ?? null}
           onClose={() => setMdOpen(null)}
-          onCreated={onMdCreated}
         />
       )}
 
