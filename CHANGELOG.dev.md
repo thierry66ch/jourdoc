@@ -4,6 +4,19 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 45 — 2026-06-22
+
+Bundles Notion = zip imbriqué :
+
+- **Zips imbriqués dépliés** : un export Notion est un `.zip` contenant un autre `.zip`
+  (`ExportBlock-…-Part-N.zip`). `collectZipFiles` aplatit récursivement les zips internes
+  *en place* (sans préfixer leur nom) → l'arborescence réelle (et les liens d'images
+  relatifs) est conservée. Corrige l'erreur « sans .md » sur les exports Notion.
+- **Détail des erreurs de scan** affiché dans le message (fichier — cause), au lieu d'un
+  simple compteur opaque.
+
+---
+
 ## Build 44 — 2026-06-22
 
 Corrections retours test bundles (D) :

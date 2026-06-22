@@ -214,7 +214,8 @@ export default function MediaGallery() {
       if (data.total === 0) { setScanMsg({ type: 'info', text: 'Inbox vide.' }); return }
       const ok = data.integrated?.length ?? 0
       const errs = data.errors?.length ?? 0
-      setScanMsg({ type: errs ? 'warn' : 'ok', text: `${ok} fichier(s) intégré(s) sur ${data.total}${errs ? ` · ${errs} erreur(s)` : ''}.` })
+      const detail = errs ? ` · ${errs} erreur(s) : ${data.errors.map(e => `${e.file} — ${e.error}`).join(' ; ')}` : ''
+      setScanMsg({ type: errs ? 'warn' : 'ok', text: `${ok} fichier(s) intégré(s) sur ${data.total}${detail}` })
       if (ok > 0) await loadMedias()
     } catch (err) {
       setScanMsg({ type: 'error', text: `Erreur réseau : ${err.message}` })

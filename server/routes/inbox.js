@@ -28,51 +28,66 @@ function isJunkEntry(entryName) {
   return base === '.DS_Store' || base === 'Thumbs.db' || base.startsWith('._')
 }
 
+// Aplatit récursivement un .zip en liste de fichiers {path, data}.
+// Les .zip imbriqués (export Notion = zip d'un zip « ExportBlock-…-Part-N.zip ») sont
+// dépliés en place (sans préfixer leur propre nom) → l'arborescence interne réelle
+// (et donc les liens d'images relatifs) est conservée. Parasites macOS ignorés.
+function collectZipFiles(buffer, AdmZip, prefix = '') {
+  const zip = new AdmZip(buffer)
+  const out = []
+  for (const e of zip.getEntries()) {
+    if (e.isDirectory || isJunkEntry(e.entryName)) continue
+    const rel = e.entryName.replace(/\\/g, '/')
+    if (/\.zip$/i.test(rel)) {
+      out.push(...collectZipFiles(e.getData(), AdmZip, prefix)) // déplier en place
+    } else {
+      out.push({ path: prefix ? `${prefix}/${rel}` : rel, data: e.getData() })
+    }
+  }
+  return out
+}
+
 // Décompresse un bundle .zip (MD + images) dans uploads/{wsId}/{uuid}/ en préservant
 // l'arborescence interne, puis crée un média markdown GÉRÉ (non externe) par fichier .md.
 // Les images relatives sont alors résolues via /medias/:id/relfile (dossier réel du MD).
-// Robuste : parasites macOS ignorés ; l'échec d'un asset n'annule pas le doc.
+// Robuste : zips imbriqués dépliés, parasites macOS ignorés, l'échec d'un asset n'annule pas le doc.
 async function importZipBundle({ wsId, inboxPath, file }) {
   const buffer = await downloadFile(inboxPath, file.filename)
   const { default: AdmZip } = await import('adm-zip')
-  const zip = new AdmZip(buffer)
-  const entries = zip.getEntries()
-    .filter(e => !e.isDirectory && !isJunkEntry(e.entryName))
-  const mdEntries = entries.filter(e => /\.(md|markdown)$/i.test(e.entryName))
-  if (!mdEntries.length) throw new Error('archive .zip sans fichier .md (après filtrage des parasites)')
+  const files = collectZipFiles(buffer, AdmZip)
+  const mdFiles = files.filter(f => /\.(md|markdown)$/i.test(f.path))
+  if (!mdFiles.length) throw new Error('archive .zip sans fichier .md (après dépliage des zips imbriqués)')
 
   const bundleFolder = randomUUID()
   const destBase = `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}/${bundleFolder}`
 
-  const split = (rel) => {
-    const r = rel.replace(/\\/g, '/')
-    const slash = r.lastIndexOf('/')
+  const split = (p) => {
+    const slash = p.lastIndexOf('/')
     return {
-      dir:  slash >= 0 ? `${destBase}/${r.slice(0, slash)}` : destBase,
-      name: slash >= 0 ? r.slice(slash + 1) : r,
+      dir:  slash >= 0 ? `${destBase}/${p.slice(0, slash)}` : destBase,
+      name: slash >= 0 ? p.slice(slash + 1) : p,
     }
   }
 
   // Upload de toutes les entrées (structure interne conservée → images relatives intactes)
   const failed = []
-  for (const e of entries) {
-    const { dir, name } = split(e.entryName)
+  for (const f of files) {
+    const { dir, name } = split(f.path)
     try {
-      await uploadFile(dir, name, e.getData(), mimeForName(name))
+      await uploadFile(dir, name, f.data, mimeForName(name))
     } catch (err) {
-      failed.push(`${e.entryName} (${err.message})`)
+      failed.push(`${f.path} (${err.message})`)
     }
   }
 
   // Un média markdown par .md (chemin réel ⇒ images résolues relativement à son dossier)
   const out = []
-  for (const md of mdEntries) {
-    const { dir, name } = split(md.entryName)
+  for (const md of mdFiles) {
+    const { dir, name } = split(md.path)
     const fichier = `${dir}/${name}`
-    const taille = md.getData().length
     const [media] = await sql`
       INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise, lie)
-      VALUES (${wsId}, ${fichier}, ${name}, 'markdown', 'text/markdown', ${taille}, ${today()}, FALSE)
+      VALUES (${wsId}, ${fichier}, ${name}, 'markdown', 'text/markdown', ${md.data.length}, ${today()}, FALSE)
       RETURNING id`
     out.push({ original: file.filename, media_id: media.id, destName: name, ...(failed.length ? { warnings: failed } : {}) })
   }

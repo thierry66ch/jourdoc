@@ -113,7 +113,9 @@ importe les fichiers déposés (sous-dossier `WEBDAV_PATH_INBOX/{wsId}/`). Selon
 - **`.zip`** (bundle MD + images, ex. export Notion) → **décompressé** dans
   `uploads/{wsId}/{uuid}/` en **préservant l'arborescence interne** (les liens d'images
   relatifs restent valides), un média `markdown` **géré** (non externe, éditable in-app)
-  créé par fichier `.md` (`adm-zip`) ;
+  créé par fichier `.md` (`adm-zip`). Les **zips imbriqués** (export Notion = zip d'un
+  `ExportBlock-…-Part-N.zip`) sont **dépliés récursivement en place** ; parasites macOS
+  (`__MACOSX`, `.DS_Store`, `._*`) ignorés ; l'échec d'un asset n'annule pas le doc ;
 - **`.md`** autonome → déplacé dans `uploads/{wsId}/`, média `markdown` géré.
 
 **Images relatives d'un MD** (lié *ou* importé) : résolues à l'affichage **et** en édition
