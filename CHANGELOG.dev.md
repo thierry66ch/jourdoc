@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 51 — 2026-06-22
+
+Tableaux MD (suite) : le build 49 ne suffisait pas — la détection d'en-tête de
+turndown-plugin-gfm reste trop fragile (gardait des tableaux en HTML brut). Désormais on
+**sérialise les tableaux nous-mêmes** (`extractTables`/`tableToGfm` dans `mdConvert.js`) :
+chaque `<table>` est remplacé par un jeton puis converti en GFM (1re ligne = en-tête,
+cellules via turndown inline aplati). Indépendant de la détection d'en-tête → tableaux
+toujours en pipes éditables, avec/sans en-tête, gras/liens/maths/surlignage préservés.
+
+---
+
 ## Build 50 — 2026-06-22
 
 **Hotfix page blanche sur la vue d'une note.** Régression du build 48 : `useSwipe`

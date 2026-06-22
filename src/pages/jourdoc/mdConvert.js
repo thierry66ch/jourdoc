@@ -108,34 +108,41 @@ td.addRule('highlight', {
   replacement: content => `==${content}==`,
 })
 
-// Prépare les tableaux pour une sérialisation GFM propre.
-// Tiptap emballe le contenu des cellules dans <p> (→ retours ligne qui CASSENT le
-// tableau GFM) et tolère les tableaux sans en-tête (→ turndown les garde en HTML brut,
-// donc non éditables dans le .md). On aplatit les cellules et on promeut la 1re ligne
-// en en-tête si aucune cellule <th> n'existe.
-function normalizeTablesForMd(html) {
-  if (typeof window === 'undefined' || !html || !html.includes('<table')) return html
+// Tableaux → GFM, sérialisés nous-mêmes (la détection d'en-tête de turndown-plugin-gfm
+// est fragile et garde en HTML brut les tableaux sans <th> ; Tiptap emballe en plus les
+// cellules dans <p>, ce qui injecte des retours ligne cassant le tableau). On remplace
+// chaque <table> par un jeton, on le convertit après coup : 1re ligne = en-tête, contenu
+// de cellule via turndown inline (gras/liens/maths/surlignage) aplati sur une ligne.
+function cellToMd(innerHTML) {
+  return td.turndown(innerHTML || '').replace(/\s*\n+\s*/g, ' ').replace(/\|/g, '\\|').trim()
+}
+function tableToGfm(table) {
+  const rows = Array.from(table.rows)
+  if (!rows.length) return ''
+  const matrix = rows.map(r => Array.from(r.cells).map(c => cellToMd(c.innerHTML)))
+  const cols = Math.max(...matrix.map(r => r.length))
+  const pad = r => { const x = r.slice(); while (x.length < cols) x.push(''); return x }
+  const line = cells => `| ${cells.join(' | ')} |`
+  const sep = `| ${Array(cols).fill('---').join(' | ')} |`
+  return ['', line(pad(matrix[0])), sep, ...matrix.slice(1).map(r => line(pad(r))), ''].join('\n')
+}
+function extractTables(html) {
+  if (typeof window === 'undefined' || !html.includes('<table')) return { html, tables: [] }
   const doc = new DOMParser().parseFromString(html, 'text/html')
-  doc.querySelectorAll('table').forEach(table => {
-    // 1. aplatir le contenu des cellules (retirer les <p>, paragraphes multiples → espace)
-    table.querySelectorAll('th, td').forEach(cell => {
-      cell.innerHTML = cell.innerHTML
-        .replace(/<\/p>\s*<p[^>]*>/gi, ' ')
-        .replace(/<\/?p[^>]*>/gi, '')
-        .trim()
-    })
-    // 2. GFM exige une ligne d'en-tête : sans <th>, promouvoir la 1re ligne
-    if (!table.querySelector('th')) {
-      const firstRow = table.querySelector('tr')
-      firstRow?.querySelectorAll('td').forEach(tdCell => {
-        const th = doc.createElement('th')
-        for (const a of tdCell.attributes) th.setAttribute(a.name, a.value)
-        th.innerHTML = tdCell.innerHTML
-        tdCell.replaceWith(th)
-      })
-    }
+  const tables = []
+  doc.querySelectorAll('table').forEach((table, i) => {
+    tables.push(tableToGfm(table))
+    const ph = doc.createElement('p')
+    ph.textContent = `XJDTABLE${i}X`
+    table.replaceWith(ph)
   })
-  return doc.body.innerHTML
+  return { html: doc.body.innerHTML, tables }
 }
 
-export function htmlToMd(html) { return td.turndown(normalizeTablesForMd(html || '')) }
+export function htmlToMd(html) {
+  const { html: prepared, tables } = extractTables(html || '')
+  let md = td.turndown(prepared)
+  // remplacement par fonction → pas d'interprétation de `$` (formules dans le tableau)
+  tables.forEach((t, i) => { md = md.replace(`XJDTABLE${i}X`, () => t) })
+  return md
+}
