@@ -2918,10 +2918,24 @@ button, input, select, textarea { font: inherit; color: inherit }
   background: var(--surface); border: 1px solid var(--border); border-bottom: none;
   border-radius: var(--r-sm) var(--r-sm) 0 0; flex-wrap: wrap;
 }
-.milkdown { background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 var(--r-sm) var(--r-sm) }
+.milkdown { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 var(--r-sm) var(--r-sm) }
 .milkdown .ProseMirror mark, .milkdown .ProseMirror .milkdown-highlight {
   background: #fef08a; color: inherit; padding: 0 .1em; border-radius: 2px;
 }
+/* Menu slash « / » */
+.milkdown-slash {
+  position: absolute; z-index: 50; min-width: 230px; max-height: 320px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm);
+  box-shadow: var(--shadow-md); padding: .25rem;
+}
+.milkdown-slash:not([data-show="true"]) { display: none }
+.milkdown-slash__item {
+  display: flex; align-items: center; gap: .6rem; width: 100%; text-align: left;
+  padding: .35rem .5rem; border: none; background: none; color: var(--text);
+  border-radius: var(--r-sm); cursor: pointer; font-size: .9rem;
+}
+.milkdown-slash__item:hover, .milkdown-slash__item.is-active { background: var(--surface-alt) }
+.milkdown-slash__ic { display: inline-block; width: 1.6rem; text-align: center; font-weight: 600; color: var(--text-muted) }
 .milkdown .ProseMirror {
   outline: none;
   padding: 1rem 1.25rem;

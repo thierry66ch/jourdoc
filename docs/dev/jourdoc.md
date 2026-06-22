@@ -153,14 +153,18 @@ markdown-natif**. État unique = `md` (source).
   affiché vers le proxy `relfile` authentifié (`resolveSrc`), **sans** modifier le chemin
   relatif stocké dans le markdown → la source `.md` reste portable.
 
-- **Toolbar** (`MilkdownToolbar.jsx`) : gras/italique/barré/surligné/code, H1–H3, listes,
-  citation, encadré, bloc de code, tableau, ligne — via `callCommand` (rendue dans le
-  `MilkdownProvider`, `useInstance`).
+- **Toolbar** (`MilkdownToolbar.jsx`) : gras/italique/barré/surligné/code, **effacer la
+  mise en forme**, H1–H3 + **¶ (paragraphe)**, listes, citation, bloc de code, ligne,
+  **4 encadrés**, tableau (insérer + **ajouter/supprimer ligne·colonne**, supprimer table) —
+  via `callCommand` (rendue dans le `MilkdownProvider`, `useInstance`).
+- **Menu slash « / »** (`milkdownSlash.js`) : `slashFactory` + `SlashProvider`, rendu/sélection
+  maison (filtrage accent-insensible, nav ↑/↓/Entrée/Échap). Insère titres, listes, citation,
+  code, tableau, ligne, 4 encadrés. Configuré via `configureSlash(ctx)` dans `.config()`.
 - **Surlignage & callouts** (`milkdownExtras.js`) : `==texte==` (markSchema) et
   `> [!TIP]` (nodeSchema, variantes info/tip/warning/success). Chacun branche un `$remark`
   (parse via transform mdast + stringify via `toMarkdownExtensions`) ↔ markSchema/nodeSchema
-  Milkdown → **round-trip markdown natif** (pas de conversion HTML). Reste optionnel : menu
-  slash « / ».
+  Milkdown → **round-trip markdown natif** (pas de conversion HTML). Commandes additionnelles :
+  `clearFormattingCommand`, `deleteRow/Column/TableCommand`.
 
 Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`). Lecture/édition depuis
 NoteView, MediaGallery et NoteCard ; exclu des lightbox/vignettes photo. Fermeture protégée

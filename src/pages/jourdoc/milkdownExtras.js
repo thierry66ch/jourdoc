@@ -1,6 +1,7 @@
 import { $markSchema, $nodeSchema, $command, $inputRule, $remark } from '@milkdown/kit/utils'
 import { markRule } from '@milkdown/kit/prose'
 import { toggleMark, wrapIn } from '@milkdown/kit/prose/commands'
+import { deleteRow, deleteColumn, deleteTable } from '@milkdown/kit/prose/tables'
 import { visit } from 'unist-util-visit'
 
 // Extensions Milkdown : surlignage (==texte==) et encadrés/callouts (> [!TIP]).
@@ -108,8 +109,25 @@ export const calloutSchema = $nodeSchema('callout', () => ({
 }))
 export const wrapInCalloutCommand = $command('WrapInCallout', ctx => (variant = 'info') => wrapIn(calloutSchema.type(ctx), { variant }))
 
+// ── Effacer la mise en forme (marks + bloc → paragraphe) ─────────────────────
+export const clearFormattingCommand = $command('JdClearFormatting', () => () => (state, dispatch) => {
+  const { from, to, empty } = state.selection
+  const tr = state.tr
+  if (!empty) tr.removeMark(from, to)          // retire toutes les marks de la sélection
+  const para = state.schema.nodes.paragraph
+  if (para) tr.setBlockType(from, to, para)    // titre/bloc → paragraphe
+  if (dispatch) dispatch(tr.scrollIntoView())
+  return true
+})
+
+// ── Tableau : suppression ligne/colonne/tableau (prosemirror-tables) ─────────
+export const deleteRowCommand = $command('JdDeleteRow', () => () => deleteRow)
+export const deleteColumnCommand = $command('JdDeleteColumn', () => () => deleteColumn)
+export const deleteTableCommand = $command('JdDeleteTable', () => () => deleteTable)
+
 // Tous les plugins à brancher (les $… sont soit un plugin, soit un tuple → flat profond)
 export const milkdownExtras = [
   highlightRemark, highlightSchema, highlightInputRule, toggleHighlightCommand,
   calloutRemark, calloutSchema, wrapInCalloutCommand,
+  clearFormattingCommand, deleteRowCommand, deleteColumnCommand, deleteTableCommand,
 ].flat(Infinity)

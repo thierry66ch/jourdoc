@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 54 — 2026-06-22
+
+Éditeur Milkdown — menu slash, callouts complets, effacer format, édition tableaux :
+
+- **Menu slash « / »** (`milkdownSlash.js`) : `slashFactory` + `SlashProvider`, rendu et
+  sélection maison. Filtrage par texte (accents ignorés), navigation ↑/↓/Entrée/Échap.
+  Items : titres, listes, citation, bloc de code, tableau, ligne, **4 encadrés**.
+- **Callouts : 4 variantes** (info/astuce/attention/succès) dans la toolbar ET le slash.
+- **Effacer la mise en forme** (`clearFormattingCommand`) : retire les marks + repasse le
+  bloc en paragraphe (enlève un titre). Boutons « T_x » et « ¶ ».
+- **Édition de tableaux** : insérer/supprimer ligne, insérer/supprimer colonne, supprimer
+  le tableau (gfm `addRow/ColAfterCommand` + prosemirror-tables `deleteRow/Column/Table`).
+
+---
+
 ## Build 53 — 2026-06-22
 
 Habillage de l'éditeur Milkdown + recâblage surlignage/callouts (markdown-natif) :

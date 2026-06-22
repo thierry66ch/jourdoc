@@ -8,6 +8,7 @@ import { math } from '@milkdown/plugin-math'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { milkdownExtras } from './milkdownExtras'
+import { slash, configureSlash } from './milkdownSlash'
 import MilkdownToolbar from './MilkdownToolbar'
 import 'katex/dist/katex.min.css'
 import '@milkdown/kit/prose/view/style/prosemirror.css'
@@ -52,6 +53,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
           nodeViews: { ...(prev?.nodeViews || {}), image: imageNodeView(resolveSrc) },
         }))
         ctx.get(listenerCtx).markdownUpdated((_, md) => onChange?.(md))
+        configureSlash(ctx)
       })
       .use(commonmark)
       .use(gfm)
@@ -59,6 +61,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
       .use(listener)
       .use(math)
       .use(milkdownExtras)
+      .use(slash)
   )
 
   // Expose une lecture synchrone du markdown courant (pour l'enregistrement)
