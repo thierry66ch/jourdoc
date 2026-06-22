@@ -1,5 +1,33 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { API_ROUTES } from '@pogil/shared'
+
+/**
+ * Swipe horizontal tactile, robuste au scroll vertical incliné.
+ * Ne déclenche que si le geste est franchement horizontal :
+ *   |dx| ≥ threshold ET |dx| ≥ |dy| * ratio (sinon c'est un scroll vertical).
+ * @returns {{ onTouchStart, onTouchEnd }} handlers à étaler sur l'élément.
+ */
+export function useSwipe({ onLeft, onRight, threshold = 60, ratio = 2 } = {}) {
+  const start = useRef(null)
+  return {
+    onTouchStart: e => {
+      if (e.touches.length !== 1) { start.current = null; return } // ignore pinch/multi-touch
+      const t = e.touches[0]
+      start.current = { x: t.clientX, y: t.clientY }
+    },
+    onTouchEnd: e => {
+      if (!start.current) return
+      const t = e.changedTouches[0]
+      const dx = t.clientX - start.current.x
+      const dy = t.clientY - start.current.y
+      start.current = null
+      if (Math.abs(dx) < threshold) return            // pas assez de course horizontale
+      if (Math.abs(dx) < Math.abs(dy) * ratio) return // trajectoire trop verticale → scroll
+      if (dx > 0) onRight?.()
+      else onLeft?.()
+    },
+  }
+}
 
 function authHeader(token) {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }

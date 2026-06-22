@@ -1,7 +1,10 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
+import { useSwipe } from './hooks'
 
 export default function Lightbox({ media, src, onClose, onPrev, onNext }) {
-  const touchX = useRef(null)
+  // Swipe robuste (ignore le scroll vertical incliné) + stop la propagation
+  // pour ne pas déclencher en plus la navigation de la vue sous-jacente.
+  const swipe = useSwipe({ onRight: () => onPrev?.(), onLeft: () => onNext?.() })
 
   useEffect(() => {
     function onKey(e) {
@@ -15,18 +18,10 @@ export default function Lightbox({ media, src, onClose, onPrev, onNext }) {
 
   if (!media) return null
 
-  function onTouchStart(e) { touchX.current = e.touches[0].clientX }
-  function onTouchEnd(e) {
-    if (touchX.current === null) return
-    const dx = e.changedTouches[0].clientX - touchX.current
-    touchX.current = null
-    if (dx > 60) onPrev?.()
-    else if (dx < -60) onNext?.()
-  }
-
   return (
     <div className="lightbox" onClick={onClose}
-      onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      onTouchStart={e => { e.stopPropagation(); swipe.onTouchStart(e) }}
+      onTouchEnd={e => { e.stopPropagation(); swipe.onTouchEnd(e) }}>
       {/* Précédent */}
       {onPrev && (
         <button className="lightbox__nav lightbox__nav--prev"

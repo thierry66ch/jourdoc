@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 48 — 2026-06-22
+
+Swipe mobile — fin des navigations accidentelles :
+
+- **Hook `useSwipe`** (`hooks.js`) : ne déclenche que si le geste est franchement
+  horizontal (`|dx| ≥ 60` **et** `|dx| ≥ |dy|·2`), sinon c'est un scroll vertical.
+  Ignore le multi-touch. Appliqué à JourDocJournal (jour ±1), CalendarView (période),
+  NoteView (note ±1) et Lightbox (image ±1).
+- **Overlays ne fuient plus le geste** : Lightbox et MarkdownModal **stoppent la
+  propagation tactile** → un swipe dans une image/un doc ouvert depuis la liste ne
+  navigue plus la liste en arrière-plan (le bug bubbling via portal React). La Lightbox
+  faisait même double navigation (image + note) — corrigé.
+
+---
+
 ## Build 47 — 2026-06-22
 
 Éditeur Markdown — formules, callouts, surlignage :

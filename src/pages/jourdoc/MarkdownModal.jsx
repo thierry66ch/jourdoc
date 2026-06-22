@@ -127,7 +127,9 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   return (
     <div className="md-modal"
       onMouseDown={e => { downTargetRef.current = e.target }}
-      onClick={e => { if (e.target === e.currentTarget && downTargetRef.current === e.currentTarget) requestClose() }}>
+      onClick={e => { if (e.target === e.currentTarget && downTargetRef.current === e.currentTarget) requestClose() }}
+      onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
+
       <div className="md-modal__panel" onClick={e => e.stopPropagation()}>
         <div className="md-modal__bar">
           {mode === 'edit' && !externe ? (

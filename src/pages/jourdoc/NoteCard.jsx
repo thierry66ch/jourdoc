@@ -129,7 +129,8 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
           (un :hover transform sur .jd-note-card piégerait le position:fixed → cadre tronqué
           + clignotement). Clics confinés (stopPropagation) : ne pas naviguer vers la note. */}
       {(lbIdx >= 0 || mdOpen != null) && createPortal(
-        <div onClick={e => e.stopPropagation()}>
+        <div onClick={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()} onTouchEnd={e => e.stopPropagation()}>
           {lbIdx >= 0 && (
             <Lightbox
               media={lbMedias[lbIdx]}

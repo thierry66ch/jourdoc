@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader } from './hooks'
+import { authHeader, useSwipe } from './hooks'
 import { sortedIds } from './calUtils'
 import NoteCard from './NoteCard'
 
@@ -29,16 +29,10 @@ export default function JourDocJournal() {
   const [date, setDate] = useState(isoToday())
   const [notes, setNotes] = useState([])
   const [loading, setLoading] = useState(true)
-  const touchX = useRef(null)
-
-  function onTouchStart(e) { touchX.current = e.touches[0].clientX }
-  function onTouchEnd(e) {
-    if (touchX.current === null) return
-    const dx = e.changedTouches[0].clientX - touchX.current
-    touchX.current = null
-    if (dx > 50) setDate(d => shiftDate(d, -1))
-    else if (dx < -50) setDate(d => { const next = shiftDate(d, 1); return next <= isoToday() ? next : d })
-  }
+  const swipe = useSwipe({
+    onRight: () => setDate(d => shiftDate(d, -1)),
+    onLeft:  () => setDate(d => { const next = shiftDate(d, 1); return next <= isoToday() ? next : d }),
+  })
 
   useEffect(() => {
     setLoading(true)
@@ -50,7 +44,7 @@ export default function JourDocJournal() {
   }, [wsId, token, date])
 
   return (
-    <div className="jd-journal" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <div className="jd-journal" {...swipe}>
       {/* Sélecteur de date */}
       <div className="jd-journal__nav">
         <button className="jd-date-arrow" onClick={() => setDate(d => shiftDate(d, -1))}>‹</button>
