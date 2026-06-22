@@ -2936,6 +2936,8 @@ button, input, select, textarea { font: inherit; color: inherit }
 .rte-content .ProseMirror ol { padding-left: 1.5rem; list-style: decimal; margin: .375rem 0 }
 .rte-content .ProseMirror li { margin-bottom: .125rem }
 .rte-content .ProseMirror li > ul, .rte-content .ProseMirror li > ol { margin: .125rem 0 }
+.rte-content .ProseMirror img { max-width: 100%; height: auto; border-radius: var(--r-sm); margin: .375rem 0 }
+.rte-content .ProseMirror img.ProseMirror-selectednode { outline: 2px solid var(--accent) }
 .rte-content .ProseMirror code { font-family: var(--font-mono); font-size: .875em; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 3px; padding: .1em .3em }
 .rte-content .ProseMirror pre { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--r-sm); padding: .75rem 1rem; overflow-x: auto; margin: .5rem 0 }
 .rte-content .ProseMirror pre code { background: transparent; border: none; padding: 0 }

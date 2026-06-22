@@ -4,6 +4,19 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 44 — 2026-06-22
+
+Corrections retours test bundles (D) :
+
+- **Parasites macOS ignorés** dans les `.zip` (`__MACOSX/`, `.DS_Store`, `._*`, `Thumbs.db`).
+- **Bundles Notion robustes** : l'upload de chaque entrée est isolé — l'échec d'un asset
+  n'annule plus tout le bundle (le média markdown est créé, assets en échec listés en
+  `warnings`). Message d'erreur clarifié si aucun `.md`.
+- **Images dans l'éditeur** : ajout de l'extension Tiptap `@tiptap/extension-image`
+  (les `<img>` des MD étaient supprimés à l'édition). CSS responsive (`max-width:100%`).
+
+---
+
 ## Build 43 — 2026-06-22
 
 Import de bundles depuis l'inbox + dossiers externes par workspace :

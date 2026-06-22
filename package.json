@@ -17,6 +17,7 @@
     "@hono/node-server": "^1.13.0",
     "@neondatabase/serverless": "^0.10.4",
     "@pogil/shared": "file:packages/shared",
+    "@tiptap/extension-image": "^3.26.1",
     "@tiptap/extension-link": "^3.25.0",
     "@tiptap/extension-mention": "^3.26.1",
     "@tiptap/extension-table": "^3.26.1",

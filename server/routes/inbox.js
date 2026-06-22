@@ -19,43 +19,62 @@ function mimeForName(name) {
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+// Fichiers parasites macOS / système à ignorer dans un zip
+function isJunkEntry(entryName) {
+  const rel = entryName.replace(/\\/g, '/')
+  const segs = rel.split('/').filter(Boolean)
+  if (segs.some(s => s === '__MACOSX')) return true
+  const base = segs[segs.length - 1] || ''
+  return base === '.DS_Store' || base === 'Thumbs.db' || base.startsWith('._')
+}
+
 // Décompresse un bundle .zip (MD + images) dans uploads/{wsId}/{uuid}/ en préservant
 // l'arborescence interne, puis crée un média markdown GÉRÉ (non externe) par fichier .md.
 // Les images relatives sont alors résolues via /medias/:id/relfile (dossier réel du MD).
+// Robuste : parasites macOS ignorés ; l'échec d'un asset n'annule pas le doc.
 async function importZipBundle({ wsId, inboxPath, file }) {
   const buffer = await downloadFile(inboxPath, file.filename)
   const { default: AdmZip } = await import('adm-zip')
   const zip = new AdmZip(buffer)
-  const entries = zip.getEntries().filter(e => !e.isDirectory)
+  const entries = zip.getEntries()
+    .filter(e => !e.isDirectory && !isJunkEntry(e.entryName))
   const mdEntries = entries.filter(e => /\.(md|markdown)$/i.test(e.entryName))
-  if (!mdEntries.length) throw new Error('archive .zip sans fichier .md')
+  if (!mdEntries.length) throw new Error('archive .zip sans fichier .md (après filtrage des parasites)')
 
   const bundleFolder = randomUUID()
   const destBase = `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}/${bundleFolder}`
 
+  const split = (rel) => {
+    const r = rel.replace(/\\/g, '/')
+    const slash = r.lastIndexOf('/')
+    return {
+      dir:  slash >= 0 ? `${destBase}/${r.slice(0, slash)}` : destBase,
+      name: slash >= 0 ? r.slice(slash + 1) : r,
+    }
+  }
+
   // Upload de toutes les entrées (structure interne conservée → images relatives intactes)
+  const failed = []
   for (const e of entries) {
-    const rel = e.entryName.replace(/\\/g, '/')
-    const slash = rel.lastIndexOf('/')
-    const dir  = slash >= 0 ? `${destBase}/${rel.slice(0, slash)}` : destBase
-    const name = slash >= 0 ? rel.slice(slash + 1) : rel
-    await uploadFile(dir, name, e.getData(), mimeForName(name))
+    const { dir, name } = split(e.entryName)
+    try {
+      await uploadFile(dir, name, e.getData(), mimeForName(name))
+    } catch (err) {
+      failed.push(`${e.entryName} (${err.message})`)
+    }
   }
 
   // Un média markdown par .md (chemin réel ⇒ images résolues relativement à son dossier)
   const out = []
   for (const md of mdEntries) {
-    const rel = md.entryName.replace(/\\/g, '/')
-    const slash = rel.lastIndexOf('/')
-    const dir  = slash >= 0 ? `${destBase}/${rel.slice(0, slash)}` : destBase
-    const name = slash >= 0 ? rel.slice(slash + 1) : rel
+    const { dir, name } = split(md.entryName)
     const fichier = `${dir}/${name}`
     const taille = md.getData().length
     const [media] = await sql`
       INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise, lie)
       VALUES (${wsId}, ${fichier}, ${name}, 'markdown', 'text/markdown', ${taille}, ${today()}, FALSE)
       RETURNING id`
-    out.push({ original: file.filename, media_id: media.id, destName: name })
+    out.push({ original: file.filename, media_id: media.id, destName: name, ...(failed.length ? { warnings: failed } : {}) })
   }
   await deleteFile(inboxPath, file.filename)
   return out

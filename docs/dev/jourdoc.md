@@ -149,7 +149,8 @@ scroll dans `.md-modal__body`). Dépendances : `marked`, `turndown`,
 
 `RichTextEditor` (partagé notes + docs) : Tiptap StarterKit (H1–H3), Underline, Link,
 **TableKit** (tableaux redimensionnables + add/del lignes/colonnes), **TaskList/TaskItem**
-(cases à cocher), **slash-menu** (`/`, extension `slashMenu.js` via `@tiptap/suggestion`),
+(cases à cocher), **Image** (`@tiptap/extension-image` — images des MD éditables, sinon
+supprimées à l'édition), **slash-menu** (`/`, extension `slashMenu.js` via `@tiptap/suggestion`),
 mode source paramétrable (`htmlToSource`/`sourceToHtml` → Markdown dans le modal).
 Barre d'outils **allégée sur mobile** (`<768px`) : les fonctions avancées
 (`.rte-btn--adv`) sont masquées et accessibles via le slash-menu (bouton `＋`).
