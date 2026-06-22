@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { mediaUrl, docCategorieBadgeStyle } from './hooks'
@@ -124,8 +125,10 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
         </div>
       )}
 
-      {/* Overlays (clics confinés : ne pas naviguer vers la note) */}
-      {(lbIdx >= 0 || mdOpen != null) && (
+      {/* Overlays — portés sur <body> pour échapper au containing-block de la carte
+          (un :hover transform sur .jd-note-card piégerait le position:fixed → cadre tronqué
+          + clignotement). Clics confinés (stopPropagation) : ne pas naviguer vers la note. */}
+      {(lbIdx >= 0 || mdOpen != null) && createPortal(
         <div onClick={e => e.stopPropagation()}>
           {lbIdx >= 0 && (
             <Lightbox
@@ -139,7 +142,8 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
           {mdOpen != null && (
             <MarkdownModal wsId={wsId} token={token} mediaId={mdOpen} onClose={() => setMdOpen(null)} />
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

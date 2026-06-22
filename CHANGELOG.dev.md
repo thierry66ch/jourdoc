@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 46 — 2026-06-22
+
+Fix overlay pièce jointe depuis la NoteCard : la lightbox / le MarkdownModal
+s'ouvraient dans un cadre tronqué recouvrant la liste, avec clignotement au survol.
+Cause : `.jd-note-card:hover { transform }` crée un *containing block* qui piège le
+`position: fixed` des overlays (rendus en enfants de la carte). Correctif : les overlays
+sont désormais **portés sur `document.body`** (`createPortal`) → `fixed` relatif au
+viewport. Clics toujours confinés (`stopPropagation`, les events React traversent le portal).
+
+---
+
 ## Build 45 — 2026-06-22
 
 Bundles Notion = zip imbriqué :
