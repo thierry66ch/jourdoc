@@ -7,9 +7,11 @@ import { TableKit } from '@tiptap/extension-table'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Image from '@tiptap/extension-image'
+import Highlight from '@tiptap/extension-highlight'
 import { SlashCommand } from './slashMenu'
 import { buildMention } from './mention'
 import { Callout } from './callout'
+import { MathInline, MathBlock } from './math'
 
 export default function RichTextEditor({
   initialContent, onChange, placeholder,
@@ -33,6 +35,9 @@ export default function RichTextEditor({
       TaskList,
       TaskItem.configure({ nested: true }),
       Image.configure({ inline: false, allowBase64: true }),
+      Highlight,
+      MathInline,
+      MathBlock,
       Callout,
       SlashCommand,
       buildMention(() => mentionRef.current),
@@ -86,6 +91,9 @@ export default function RichTextEditor({
         <button type="button" className={`rte-btn rte-strike rte-btn--adv${editor.isActive('strike') ? ' active' : ''}`}
           title="Barré" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleStrike().run() }}
           disabled={sourceMode} style={{ textDecoration: 'line-through' }}>S</button>
+        <button type="button" className={`rte-btn rte-highlight rte-btn--adv${editor.isActive('highlight') ? ' active' : ''}`}
+          title="Surligner" onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleHighlight().run() }}
+          disabled={sourceMode}>🖍</button>
 
         <span className="rte-sep rte-sep--adv" />
 

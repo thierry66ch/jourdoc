@@ -4,6 +4,24 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 47 — 2026-06-22
+
+Éditeur Markdown — formules, callouts, surlignage :
+
+- **Formules KaTeX préservées à l'édition** (corrige `$a=b+c^2$` → `a=b+c2a=b+c^2a=b+c2`).
+  Avant, le HTML KaTeX rendu entrait dans Tiptap qui l'aplatissait en texte. Désormais
+  les formules sont des **nœuds atomiques** (`math.js`, inline + bloc) : la source LaTeX
+  vit dans `data-latex`, KaTeX est rendu dans un NodeView, double-clic pour éditer. Round-trip
+  md↔html garanti (testé : indices, `\frac`, blocs `$$`, faux positifs `5$` ignorés).
+- **Callouts rendus** : les alertes GFM `> [!TIP]` du Markdown sont converties en
+  `div data-callout` (vue + éditeur), plus seulement à l'enregistrement.
+- **Surlignage** (`@tiptap/extension-highlight`) : bouton 🖍 dans la barre d'outils ;
+  round-trip Markdown `==texte==` ↔ `<mark>`.
+- Conversion md↔html centralisée dans `mdConvert.js` (vue = KaTeX rendu ; édition =
+  placeholders ; `htmlToMd` avec règles math/callout/highlight).
+
+---
+
 ## Build 46 — 2026-06-22
 
 Fix overlay pièce jointe depuis la NoteCard : la lightbox / le MarkdownModal

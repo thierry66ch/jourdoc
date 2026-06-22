@@ -1,16 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { marked } from 'marked'
-import markedKatex from 'marked-katex-extension'
-import 'katex/dist/katex.min.css'
-import TurndownService from 'turndown'
-import { gfm } from 'turndown-plugin-gfm'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
 import { buildToc } from './toc'
+import { mdToHtmlView, mdToHtmlEdit, htmlToMd } from './mdConvert'
 import RichTextEditor from './RichTextEditor'
 import RichTextView from './RichTextView'
-
-marked.use(markedKatex({ throwOnError: false, nonStandard: true })) // formules $…$ / $$…$$
 
 // Réécrit les images relatives d'un MD vers le proxy « relatif au média »
 // (marche que le doc soit lié/external ou importé/uploads).
@@ -47,20 +41,6 @@ function unresolveImages(html, wsId, mediaId) {
   return doc.body.innerHTML
 }
 
-const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-' })
-td.use(gfm) // tableaux, barré, listes de tâches → Markdown GFM
-// Encadrés → alertes GFM (> [!TIP]) pour préserver le contenu en Markdown
-const ALERT = { info: 'NOTE', tip: 'TIP', warning: 'WARNING', success: 'IMPORTANT' }
-td.addRule('callout', {
-  filter: node => node.nodeName === 'DIV' && node.hasAttribute?.('data-callout'),
-  replacement: (content, node) => {
-    const label = ALERT[node.getAttribute('data-variant')] || 'NOTE'
-    const body = content.trim().split('\n').map(l => `> ${l}`.trimEnd()).join('\n')
-    return `\n> [!${label}]\n${body}\n\n`
-  },
-})
-const mdToHtml = md => marked.parse(md || '', { breaks: true, gfm: true })
-
 /**
  * Modal plein écran pour visualiser / éditer un document Markdown (pièce jointe).
  * - mediaId fourni → charge le contenu, mode lecture par défaut.
@@ -72,7 +52,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const [currentId, setCurrentId] = useState(mediaId)
   const [mode, setMode]   = useState(isCreate ? 'edit' : 'view')
   const [name, setName]   = useState((initialName || 'Document').replace(/\.md$/i, ''))
-  const [html, setHtml]   = useState('')
+  const [md, setMd]       = useState('')         // source Markdown (unique source de vérité)
   const [externe, setExterne] = useState(false) // doc lié (fichier externe)
   const [loading, setLoading] = useState(!isCreate)
   const [saving, setSaving]   = useState(false)
@@ -81,11 +61,12 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const downTargetRef = useRef(null) // pour distinguer un vrai clic backdrop d'un drag de sélection
   const bodyRef = useRef(null)
 
-  // Vue lecture : images résolues (proxy relatif au média) + table des matières
+  // Vue lecture : KaTeX rendu + callouts, images résolues + table des matières
   const { html: viewHtml, items: toc } = useMemo(
-    () => buildToc(resolveImages(html, wsId, currentId, token)), [html, currentId, wsId, token])
-  // Édition : images résolues pour s'afficher dans le WYSIWYG (reconverties au save)
-  const editHtml = useMemo(() => resolveImages(html, wsId, currentId, token), [html, wsId, currentId, token])
+    () => buildToc(resolveImages(mdToHtmlView(md), wsId, currentId, token)), [md, currentId, wsId, token])
+  // Édition : formules en placeholders (nœuds Tiptap), images résolues (reconverties au save)
+  const editHtml = useMemo(
+    () => resolveImages(mdToHtmlEdit(md), wsId, currentId, token), [md, wsId, currentId, token])
   function gotoHeading(id) {
     const target = bodyRef.current?.querySelector(`#${CSS.escape(id)}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -102,8 +83,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
     fetch(API_ROUTES.JD_MEDIA_CONTENT(wsId, mediaId), { headers: authHeader(token) })
       .then(r => r.json())
       .then(d => {
-        const h = mdToHtml(d.content)
-        setHtml(h); editorHtmlRef.current = h
+        setMd(d.content || '')
         setExterne(!!d.externe)
         if (d.nom_original) setName(d.nom_original.replace(/\.md$/i, ''))
       })
@@ -120,7 +100,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   async function save() {
     setSaving(true)
     // Reconvertir les URLs proxy en chemins relatifs avant la sérialisation Markdown
-    const content = td.turndown(unresolveImages(editorHtmlRef.current || '', wsId, currentId))
+    const content = htmlToMd(unresolveImages(editorHtmlRef.current || '', wsId, currentId))
     try {
       if (currentId == null) {
         const res = await fetch(API_ROUTES.JD_MEDIA_MARKDOWN(wsId), {
@@ -138,7 +118,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
         })
         onSaved?.()
       }
-      setHtml(mdToHtml(content))
+      setMd(content)
       setDirty(false)
       setMode('view')
     } finally { setSaving(false) }
@@ -175,10 +155,10 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
           ) : mode === 'edit' ? (
             <RichTextEditor key={`md-${currentId ?? 'new'}`} initialContent={editHtml}
               onChange={h => { editorHtmlRef.current = h; setDirty(true) }}
-              htmlToSource={h => td.turndown(unresolveImages(h || '', wsId, currentId))}
-              sourceToHtml={s => resolveImages(mdToHtml(s), wsId, currentId, token)}
+              htmlToSource={h => htmlToMd(unresolveImages(h || '', wsId, currentId))}
+              sourceToHtml={s => resolveImages(mdToHtmlEdit(s), wsId, currentId, token)}
               placeholder="Rédigez votre document Markdown…" />
-          ) : html ? (
+          ) : md.trim() ? (
             <>
               {toc.length >= 2 && (
                 <details className="md-toc" open>

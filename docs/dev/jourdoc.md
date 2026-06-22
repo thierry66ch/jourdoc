@@ -137,22 +137,33 @@ externe via `PUT /medias/:id/content`, sans renommage) : au rendu **et en éditi
 (NoteCard : image/PDF → lightbox, markdown → MarkdownModal). Dépendances : `katex`,
 `marked-katex-extension`.
 
-**Documents Markdown** (`MarkdownModal.jsx`) — nouveau `type_media='markdown'`.
-Pièces jointes `.md` (import ou création « + Document » depuis une note). Modal
-plein écran : visualiseur (md→HTML via `marked` → `RichTextView`) et **éditeur
-WYSIWYG** (réutilise `RichTextEditor`/Tiptap ; sauvegarde HTML→md via `turndown`).
-Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`, `getTextFile`/
-`putTextFile`). Création depuis l'**éditeur** de note (NoteForm, bouton « + Document »),
-lecture/édition depuis NoteView et MediaGallery ; exclu des lightbox/vignettes photo.
-Fermeture protégée (confirmation si `dirty`, clic backdrop sécurisé). **Sommaire**
-repliable en vue lecture (`toc.js` : ids sur les titres h1–h3 + liste cliquable,
-scroll dans `.md-modal__body`). Dépendances : `marked`, `turndown`,
-`turndown-plugin-gfm` (tableaux GFM).
+**Documents Markdown** (`MarkdownModal.jsx`) — `type_media='markdown'`. Pièces jointes
+`.md` (importées ou liées). Modal plein écran : visualiseur et **éditeur WYSIWYG**
+(réutilise `RichTextEditor`/Tiptap). État unique = `md` (source) ; conversions centralisées
+dans **`mdConvert.js`** :
+- `mdToHtmlView(md)` — **vue** : KaTeX **rendu** (`marked-katex-extension`) + callouts ;
+- `mdToHtmlEdit(md)` — **édition** : formules en **placeholders** `data-math…` (nœuds
+  Tiptap, voir `math.js`) + callouts ;
+- `htmlToMd(html)` — `turndown` + règles math (`$…$`/`$$…$$`), callout (alertes GFM),
+  surlignage (`==…==`).
+
+**Formules KaTeX** (`math.js`) : nœuds atomiques `mathInline`/`mathBlock`. La source LaTeX
+est dans `data-latex`, le rendu KaTeX se fait dans un **NodeView** (jamais réinjecté dans
+le modèle Tiptap → la formule survit à l'édition ; double-clic pour éditer la source). Au
+save, `renderHTML` ressort `$…$`/`$$…$$` (texte source inclus pour ne pas être « blanc »
+côté turndown). **Callouts** : alertes GFM `> [!TIP]` ↔ `div data-callout` dans les deux sens.
+
+Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`). Lecture/édition depuis
+NoteView, MediaGallery et NoteCard ; exclu des lightbox/vignettes photo. Fermeture protégée
+(confirmation si `dirty`). **Sommaire** repliable en vue lecture (`toc.js`). Dépendances :
+`marked`, `marked-katex-extension`, `katex`, `turndown`, `turndown-plugin-gfm`.
 
 `RichTextEditor` (partagé notes + docs) : Tiptap StarterKit (H1–H3), Underline, Link,
 **TableKit** (tableaux redimensionnables + add/del lignes/colonnes), **TaskList/TaskItem**
 (cases à cocher), **Image** (`@tiptap/extension-image` — images des MD éditables, sinon
-supprimées à l'édition), **slash-menu** (`/`, extension `slashMenu.js` via `@tiptap/suggestion`),
+supprimées à l'édition), **Highlight** (`@tiptap/extension-highlight` — bouton 🖍, `==…==`
+en Markdown), **MathInline/MathBlock** (`math.js`, formules KaTeX), **slash-menu**
+(`/`, extension `slashMenu.js` via `@tiptap/suggestion`),
 mode source paramétrable (`htmlToSource`/`sourceToHtml` → Markdown dans le modal).
 Barre d'outils **allégée sur mobile** (`<768px`) : les fonctions avancées
 (`.rte-btn--adv`) sont masquées et accessibles via le slash-menu (bouton `＋`).
@@ -161,9 +172,9 @@ source fournie par la prop `mentionItems` (async, lue via une ref) ; l'`id` enco
 type (`objet:123`) ; clic sur une mention → navigation interne (géré dans NoteView).
 Branché dans NoteForm (contenu) ; popup affiché seulement s'il y a des résultats.
 **Callouts** (`callout.js`) : nœud bloc à variantes (info/tip/warning/success),
-inséré via le slash-menu, icône + couleur en CSS. En document Markdown, sérialisé
-en alertes GFM (`> [!TIP]`) par une règle `turndown` (le rendu callout est perdu au
-rechargement md, contenu préservé).
+inséré via le slash-menu, icône + couleur en CSS. Round-trip Markdown complet via
+`mdConvert.js` : alertes GFM `> [!TIP]` ↔ `div data-callout` (rendu **préservé** au
+rechargement, dans les deux sens).
 NB : les cases à cocher se sérialisent en GFM (`- [ ]`) ; côté documents Markdown,
 le rechargement md→html peut les rendre en listes simples (limite `marked`).
 

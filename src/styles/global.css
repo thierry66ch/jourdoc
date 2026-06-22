@@ -2938,6 +2938,12 @@ button, input, select, textarea { font: inherit; color: inherit }
 .rte-content .ProseMirror li > ul, .rte-content .ProseMirror li > ol { margin: .125rem 0 }
 .rte-content .ProseMirror img { max-width: 100%; height: auto; border-radius: var(--r-sm); margin: .375rem 0 }
 .rte-content .ProseMirror img.ProseMirror-selectednode { outline: 2px solid var(--accent) }
+/* Formules KaTeX (nœuds math) */
+.tiptap-math { cursor: pointer }
+.tiptap-math--block { display: block; text-align: center; margin: .5rem 0; overflow-x: auto }
+.tiptap-math.ProseMirror-selectednode { outline: 2px solid var(--accent); border-radius: 3px }
+/* Surlignage */
+.rte-content .ProseMirror mark, .rich-view mark { background: #fef08a; color: inherit; padding: 0 .1em; border-radius: 2px }
 .rte-content .ProseMirror code { font-family: var(--font-mono); font-size: .875em; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 3px; padding: .1em .3em }
 .rte-content .ProseMirror pre { background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--r-sm); padding: .75rem 1rem; overflow-x: auto; margin: .5rem 0 }
 .rte-content .ProseMirror pre code { background: transparent; border: none; padding: 0 }
