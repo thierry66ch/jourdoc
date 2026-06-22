@@ -4,6 +4,27 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 52 — 2026-06-22
+
+**Migration de l'éditeur des docs Markdown liés vers Milkdown (markdown-natif).**
+Fin des allers-retours `marked`↔`turndown` (source de friction : dialectes divergents,
+règles faites main par construction). Le modèle interne de Milkdown **EST** du markdown
+(remark) → ce qu'on enregistre = ce qu'on a tapé, sans conversion.
+
+- `MilkdownDocEditor.jsx` : composé `@milkdown/kit` (commonmark + gfm + history + listener)
+  + `@milkdown/plugin-math` (KaTeX). Chargé en **lazy chunk** (~500 KB) — uniquement à
+  l'ouverture d'un doc en édition.
+- **Images à token** : nodeView du nœud `image` réécrit le `src` affiché vers le proxy
+  `relfile` authentifié, **sans toucher** au chemin relatif stocké dans le `.md`.
+- `MarkdownModal` : édition = Milkdown, save = `getMarkdown()` (plus de turndown ni
+  `unresolveImages`). Vue lecture inchangée (marked+KaTeX). **Notes inchangées** (Tiptap).
+- PWA : `maximumFileSizeToCacheInBytes` relevé à 4 MiB (chunks Milkdown/KaTeX).
+
+Limites connues (suivi) : le surlignage `==…==` et les callouts `> [!TIP]` ne sont pas
+encore *stylés dans l'éditeur* Milkdown (préservés dans le fichier + rendus en vue lecture).
+
+---
+
 ## Build 51 — 2026-06-22
 
 Tableaux MD (suite) : le build 49 ne suffisait pas — la détection d'en-tête de

@@ -2911,6 +2911,46 @@ button, input, select, textarea { font: inherit; color: inherit }
 }
 .rte-btn:disabled { opacity: .4; cursor: default }
 /* Zone éditable redimensionnable verticalement (poignée en bas à droite) */
+/* ── Éditeur Milkdown (documents Markdown liés) ───────────────────────────── */
+.milkdown-wrap { width: 100% }
+.milkdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm) }
+.milkdown .ProseMirror {
+  outline: none;
+  padding: 1rem 1.25rem;
+  min-height: 50vh;
+  line-height: 1.6;
+  color: var(--text);
+  caret-color: var(--accent);
+}
+.milkdown .ProseMirror > :first-child { margin-top: 0 }
+.milkdown .ProseMirror h1 { font-size: 1.5rem; font-weight: 700; margin: 1rem 0 .5rem }
+.milkdown .ProseMirror h2 { font-size: 1.25rem; font-weight: 700; margin: .9rem 0 .4rem }
+.milkdown .ProseMirror h3 { font-size: 1.1rem; font-weight: 600; margin: .8rem 0 .3rem }
+.milkdown .ProseMirror p { margin: .4rem 0 }
+.milkdown .ProseMirror ul { padding-left: 1.5rem; list-style: disc; margin: .4rem 0 }
+.milkdown .ProseMirror ol { padding-left: 1.5rem; list-style: decimal; margin: .4rem 0 }
+.milkdown .ProseMirror li { margin: .15rem 0 }
+.milkdown .ProseMirror blockquote {
+  border-left: 3px solid var(--border); margin: .5rem 0; padding: .1rem 0 .1rem 1rem; color: var(--text-muted);
+}
+.milkdown .ProseMirror code {
+  font-family: var(--font-mono); font-size: .875em; background: var(--surface-alt);
+  border: 1px solid var(--border); border-radius: 3px; padding: .1em .3em;
+}
+.milkdown .ProseMirror pre {
+  background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: .75rem 1rem; overflow-x: auto; margin: .5rem 0;
+}
+.milkdown .ProseMirror pre code { background: none; border: none; padding: 0 }
+.milkdown .ProseMirror img.milkdown-img { max-width: 100%; height: auto; border-radius: var(--r-sm); margin: .375rem 0 }
+.milkdown .ProseMirror table { border-collapse: collapse; margin: .5rem 0; width: auto }
+.milkdown .ProseMirror th, .milkdown .ProseMirror td { border: 1px solid var(--border); padding: .35rem .6rem; text-align: left }
+.milkdown .ProseMirror th { background: var(--surface-alt); font-weight: 600 }
+.milkdown .ProseMirror hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0 }
+.milkdown .ProseMirror a { color: var(--accent); text-decoration: underline }
+.milkdown .ProseMirror .math-block, .milkdown .ProseMirror math-block { display: block; text-align: center; margin: .5rem 0; overflow-x: auto }
+.milkdown .ProseMirror blockquote p { margin: .2rem 0 }
+
 .rte-content {
   resize: vertical;
   overflow: auto;

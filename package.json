@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
+    "@milkdown/kit": "^7.21.2",
+    "@milkdown/plugin-math": "^7.5.9",
+    "@milkdown/react": "^7.21.2",
     "@neondatabase/serverless": "^0.10.4",
     "@pogil/shared": "file:packages/shared",
     "@tiptap/extension-highlight": "^3.26.1",

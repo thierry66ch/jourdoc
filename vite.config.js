@@ -21,6 +21,7 @@ export default defineConfig({
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'],
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // Milkdown/KaTeX : chunks > 2 MiB
       },
       manifest: {
         name: 'JourDoc',

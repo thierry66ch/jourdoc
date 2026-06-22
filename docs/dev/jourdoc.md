@@ -138,30 +138,33 @@ externe via `PUT /medias/:id/content`, sans renommage) : au rendu **et en éditi
 `marked-katex-extension`.
 
 **Documents Markdown** (`MarkdownModal.jsx`) — `type_media='markdown'`. Pièces jointes
-`.md` (importées ou liées). Modal plein écran : visualiseur et **éditeur WYSIWYG**
-(réutilise `RichTextEditor`/Tiptap). État unique = `md` (source) ; conversions centralisées
-dans **`mdConvert.js`** :
-- `mdToHtmlView(md)` — **vue** : KaTeX **rendu** (`marked-katex-extension`) + callouts ;
-- `mdToHtmlEdit(md)` — **édition** : formules en **placeholders** `data-math…` (nœuds
-  Tiptap, voir `math.js`) + callouts ;
-- `htmlToMd(html)` — `turndown` + règles math (`$…$`/`$$…$$`), callout (alertes GFM),
-  surlignage (`==…==`). **Tableaux** : sérialisés nous-mêmes (`extractTables`/`tableToGfm`),
-  pas via turndown-plugin-gfm dont la détection d'en-tête est trop fragile (gardait des
-  tableaux en HTML brut). Chaque `<table>` → jeton → GFM (1re ligne = en-tête, cellules via
-  turndown inline aplati sur une ligne) → tableaux éditables avec/sans en-tête.
+`.md` (importées ou liées). Modal plein écran : visualiseur + **éditeur WYSIWYG
+markdown-natif**. État unique = `md` (source).
 
-**Formules KaTeX** (`math.js`) : nœuds atomiques `mathInline`/`mathBlock`. La source LaTeX
-est dans `data-latex`, le rendu KaTeX se fait dans un **NodeView** (jamais réinjecté dans
-le modèle Tiptap → la formule survit à l'édition ; double-clic pour éditer la source). Au
-save, `renderHTML` ressort `$…$`/`$$…$$` (texte source inclus pour ne pas être « blanc »
-côté turndown). **Callouts** : alertes GFM `> [!TIP]` ↔ `div data-callout` dans les deux sens.
+- **Édition** = **Milkdown** (`MilkdownDocEditor.jsx`), pas Tiptap : son modèle interne
+  **est** du markdown (remark), donc **aucun aller-retour** `marked`↔`turndown` (qui causait
+  les divergences de dialecte). Composé `@milkdown/kit` (commonmark + gfm + history +
+  listener) + `@milkdown/plugin-math` (KaTeX). Save = `getMarkdown()` (lecture directe).
+  Chargé en **lazy chunk** (React.lazy) car lourd (~500 KB).
+- **Vue lecture** = `mdToHtmlView(md)` de `mdConvert.js` (marked + KaTeX rendu + callouts +
+  surlignage) → `RichTextView`. `mdConvert.js` ne sert plus QUE la vue (les fonctions
+  `mdToHtmlEdit`/`htmlToMd`/`math.js` ne sont plus dans le chemin d'édition des docs).
+- **Images à token** : le nœud `image` de Milkdown a un **nodeView** qui réécrit le `src`
+  affiché vers le proxy `relfile` authentifié (`resolveSrc`), **sans** modifier le chemin
+  relatif stocké dans le markdown → la source `.md` reste portable.
+
+⚠️ Le surlignage `==…==` et les callouts `> [!TIP]` ne sont pas encore stylés *dans
+l'éditeur* Milkdown (préservés dans le fichier, rendus en vue lecture) — suivi à faire via
+un remark plugin + mark schema.
 
 Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`). Lecture/édition depuis
 NoteView, MediaGallery et NoteCard ; exclu des lightbox/vignettes photo. Fermeture protégée
 (confirmation si `dirty`). **Sommaire** repliable en vue lecture (`toc.js`). Dépendances :
-`marked`, `marked-katex-extension`, `katex`, `turndown`, `turndown-plugin-gfm`.
+`@milkdown/kit`, `@milkdown/react`, `@milkdown/plugin-math`, `katex` ; vue : `marked`,
+`marked-katex-extension`, `turndown` (collage HTML, sens unique).
 
-`RichTextEditor` (partagé notes + docs) : Tiptap StarterKit (H1–H3), Underline, Link,
+`RichTextEditor` (éditeur des **notes** ; les docs `.md` utilisent Milkdown) : Tiptap
+StarterKit (H1–H3), Underline, Link,
 **TableKit** (tableaux redimensionnables + add/del lignes/colonnes), **TaskList/TaskItem**
 (cases à cocher), **Image** (`@tiptap/extension-image` — images des MD éditables, sinon
 supprimées à l'édition), **Highlight** (`@tiptap/extension-highlight` — bouton 🖍, `==…==`

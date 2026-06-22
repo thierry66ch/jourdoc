@@ -1,20 +1,20 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
 import { buildToc } from './toc'
-import { mdToHtmlView, mdToHtmlEdit, htmlToMd } from './mdConvert'
-import RichTextEditor from './RichTextEditor'
+import { mdToHtmlView } from './mdConvert'
 import RichTextView from './RichTextView'
 
-// Réécrit les images relatives d'un MD vers le proxy « relatif au média »
-// (marche que le doc soit lié/external ou importé/uploads).
+// Milkdown (+ ProseMirror) est lourd : chargé à la demande, en chunk séparé.
+const MilkdownDocEditor = lazy(() => import('./MilkdownDocEditor'))
+
+// Réécrit les images relatives d'un MD vers le proxy « relatif au média » (vue lecture).
 function resolveImages(html, wsId, mediaId, token) {
   if (typeof window === 'undefined' || !html || mediaId == null) return html
   const doc = new DOMParser().parseFromString(html, 'text/html')
   doc.querySelectorAll('img').forEach(img => {
     const raw = img.getAttribute('src') || ''
     if (/^(https?:|data:|blob:|\/)/i.test(raw)) return // absolu/externe : on laisse
-    // Le lien Markdown encode les espaces (%20…) : décoder avant de bâtir le chemin
     let rel = raw
     try { rel = decodeURIComponent(raw) } catch { /* garder tel quel */ }
     img.setAttribute('src', `${API_ROUTES.JD_MEDIA_RELFILE(wsId, mediaId)}?rel=${encodeURIComponent(rel)}&t=${token}`)
@@ -23,29 +23,12 @@ function resolveImages(html, wsId, mediaId, token) {
   return doc.body.innerHTML
 }
 
-// Inverse : proxy relatif → chemin relatif encodé (pour réenregistrer le .md)
-function unresolveImages(html, wsId, mediaId) {
-  if (typeof window === 'undefined' || !html || mediaId == null) return html
-  const prefix = API_ROUTES.JD_MEDIA_RELFILE(wsId, mediaId)
-  const doc = new DOMParser().parseFromString(html, 'text/html')
-  doc.querySelectorAll('img').forEach(img => {
-    const src = img.getAttribute('src') || ''
-    if (!src.startsWith(prefix)) return
-    try {
-      const qs = new URLSearchParams(src.slice(src.indexOf('?') + 1))
-      const rel = qs.get('rel') || '' // déjà décodé → "Test MD/image.png"
-      img.removeAttribute('loading')
-      img.setAttribute('src', rel.split('/').map(encodeURIComponent).join('/')) // → "Test%20MD/image.png"
-    } catch { /* laisser tel quel */ }
-  })
-  return doc.body.innerHTML
-}
-
 /**
  * Modal plein écran pour visualiser / éditer un document Markdown (pièce jointe).
  * - mediaId fourni → charge le contenu, mode lecture par défaut.
  * - mediaId null    → création (mode édition, vierge).
- * Édition WYSIWYG via Tiptap (RichTextEditor) ; conversion md↔html (marked/turndown).
+ * Édition WYSIWYG **markdown-natif** via Milkdown (le .md est le modèle, aucun
+ * aller-retour HTML↔md). Vue lecture rendue par marked+KaTeX (RichTextView).
  */
 export default function MarkdownModal({ wsId, token, mediaId = null, initialName = '', onClose, onCreated, onSaved }) {
   const isCreate = mediaId == null
@@ -57,16 +40,23 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const [loading, setLoading] = useState(!isCreate)
   const [saving, setSaving]   = useState(false)
   const [dirty, setDirty]     = useState(false)
-  const editorHtmlRef = useRef('')
+  const mdDraftRef = useRef('')      // markdown courant de l'éditeur (fallback)
+  const getMdRef = useRef(null)      // lecture synchrone du markdown depuis Milkdown
   const downTargetRef = useRef(null) // pour distinguer un vrai clic backdrop d'un drag de sélection
   const bodyRef = useRef(null)
 
   // Vue lecture : KaTeX rendu + callouts, images résolues + table des matières
   const { html: viewHtml, items: toc } = useMemo(
     () => buildToc(resolveImages(mdToHtmlView(md), wsId, currentId, token)), [md, currentId, wsId, token])
-  // Édition : formules en placeholders (nœuds Tiptap), images résolues (reconverties au save)
-  const editHtml = useMemo(
-    () => resolveImages(mdToHtmlEdit(md), wsId, currentId, token), [md, wsId, currentId, token])
+
+  // Affichage des images relatives dans l'éditeur Milkdown (la source markdown reste relative)
+  const resolveSrc = useCallback(raw => {
+    if (!raw || /^(https?:|data:|blob:|\/)/i.test(raw) || currentId == null) return raw
+    let rel = raw
+    try { rel = decodeURIComponent(raw) } catch { /* garder tel quel */ }
+    return `${API_ROUTES.JD_MEDIA_RELFILE(wsId, currentId)}?rel=${encodeURIComponent(rel)}&t=${token}`
+  }, [wsId, currentId, token])
+
   function gotoHeading(id) {
     const target = bodyRef.current?.querySelector(`#${CSS.escape(id)}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -99,8 +89,8 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
 
   async function save() {
     setSaving(true)
-    // Reconvertir les URLs proxy en chemins relatifs avant la sérialisation Markdown
-    const content = htmlToMd(unresolveImages(editorHtmlRef.current || '', wsId, currentId))
+    // Markdown natif lu directement depuis Milkdown (aucune conversion HTML→md)
+    const content = (getMdRef.current ? getMdRef.current() : mdDraftRef.current) || ''
     try {
       if (currentId == null) {
         const res = await fetch(API_ROUTES.JD_MEDIA_MARKDOWN(wsId), {
@@ -142,7 +132,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
             {externe && <span className="md-modal__ext" title="Document lié (fichier externe)">🔗 lié</span>}
             {mode === 'view' ? (
               <button type="button" className="btn btn-ghost"
-                onClick={() => { editorHtmlRef.current = editHtml; setMode('edit') }}>✏️ Éditer</button>
+                onClick={() => { mdDraftRef.current = md; setMode('edit') }}>✏️ Éditer</button>
             ) : (
               <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
                 {saving ? '…' : '💾 Enregistrer'}
@@ -155,11 +145,11 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
           {loading ? (
             <div className="jd-loading">Chargement…</div>
           ) : mode === 'edit' ? (
-            <RichTextEditor key={`md-${currentId ?? 'new'}`} initialContent={editHtml}
-              onChange={h => { editorHtmlRef.current = h; setDirty(true) }}
-              htmlToSource={h => htmlToMd(unresolveImages(h || '', wsId, currentId))}
-              sourceToHtml={s => resolveImages(mdToHtmlEdit(s), wsId, currentId, token)}
-              placeholder="Rédigez votre document Markdown…" />
+            <Suspense fallback={<div className="jd-loading">Chargement de l'éditeur…</div>}>
+              <MilkdownDocEditor key={`md-${currentId ?? 'new'}`} initialMarkdown={md}
+                onChange={m => { mdDraftRef.current = m; setDirty(true) }}
+                resolveSrc={resolveSrc} getMarkdownRef={getMdRef} />
+            </Suspense>
           ) : md.trim() ? (
             <>
               {toc.length >= 2 && (
