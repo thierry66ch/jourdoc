@@ -145,7 +145,9 @@ dans **`mdConvert.js`** :
 - `mdToHtmlEdit(md)` — **édition** : formules en **placeholders** `data-math…` (nœuds
   Tiptap, voir `math.js`) + callouts ;
 - `htmlToMd(html)` — `turndown` + règles math (`$…$`/`$$…$$`), callout (alertes GFM),
-  surlignage (`==…==`).
+  surlignage (`==…==`). **Tableaux** : `normalizeTablesForMd` aplatit les cellules (retrait
+  des `<p>` que Tiptap ajoute, sinon retours ligne cassant le tableau GFM) et promeut la
+  1re ligne en en-tête `<th>` si absente (GFM l'exige, sinon turndown garde du HTML brut).
 
 **Formules KaTeX** (`math.js`) : nœuds atomiques `mathInline`/`mathBlock`. La source LaTeX
 est dans `data-latex`, le rendu KaTeX se fait dans un **NodeView** (jamais réinjecté dans

@@ -108,4 +108,34 @@ td.addRule('highlight', {
   replacement: content => `==${content}==`,
 })
 
-export function htmlToMd(html) { return td.turndown(html || '') }
+// Prépare les tableaux pour une sérialisation GFM propre.
+// Tiptap emballe le contenu des cellules dans <p> (→ retours ligne qui CASSENT le
+// tableau GFM) et tolère les tableaux sans en-tête (→ turndown les garde en HTML brut,
+// donc non éditables dans le .md). On aplatit les cellules et on promeut la 1re ligne
+// en en-tête si aucune cellule <th> n'existe.
+function normalizeTablesForMd(html) {
+  if (typeof window === 'undefined' || !html || !html.includes('<table')) return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('table').forEach(table => {
+    // 1. aplatir le contenu des cellules (retirer les <p>, paragraphes multiples → espace)
+    table.querySelectorAll('th, td').forEach(cell => {
+      cell.innerHTML = cell.innerHTML
+        .replace(/<\/p>\s*<p[^>]*>/gi, ' ')
+        .replace(/<\/?p[^>]*>/gi, '')
+        .trim()
+    })
+    // 2. GFM exige une ligne d'en-tête : sans <th>, promouvoir la 1re ligne
+    if (!table.querySelector('th')) {
+      const firstRow = table.querySelector('tr')
+      firstRow?.querySelectorAll('td').forEach(tdCell => {
+        const th = doc.createElement('th')
+        for (const a of tdCell.attributes) th.setAttribute(a.name, a.value)
+        th.innerHTML = tdCell.innerHTML
+        tdCell.replaceWith(th)
+      })
+    }
+  })
+  return doc.body.innerHTML
+}
+
+export function htmlToMd(html) { return td.turndown(normalizeTablesForMd(html || '')) }

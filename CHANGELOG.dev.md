@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 49 — 2026-06-22
+
+Fix tableaux en document Markdown : ils étaient sérialisés en HTML (donc non éditables
+hors de l'app). Causes : Tiptap emballe le contenu des cellules dans `<p>` (retours ligne
+qui cassent le tableau GFM → turndown le gardait en HTML) et turndown-plugin-gfm laisse en
+HTML brut tout tableau **sans ligne d'en-tête**. Correctif `normalizeTablesForMd` (dans
+`htmlToMd`) : aplatit les cellules (retrait des `<p>`) et promeut la 1re ligne en en-tête
+`<th>` si aucune n'existe → tableaux GFM propres (`| … | … |`), formatage inline préservé.
+
+---
+
 ## Build 48 — 2026-06-22
 
 Swipe mobile — fin des navigations accidentelles :
