@@ -2913,7 +2913,15 @@ button, input, select, textarea { font: inherit; color: inherit }
 /* Zone éditable redimensionnable verticalement (poignée en bas à droite) */
 /* ── Éditeur Milkdown (documents Markdown liés) ───────────────────────────── */
 .milkdown-wrap { width: 100% }
-.milkdown { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-sm) }
+.milkdown-toolbar {
+  position: sticky; top: 0; z-index: 3;
+  background: var(--surface); border: 1px solid var(--border); border-bottom: none;
+  border-radius: var(--r-sm) var(--r-sm) 0 0; flex-wrap: wrap;
+}
+.milkdown { background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 var(--r-sm) var(--r-sm) }
+.milkdown .ProseMirror mark, .milkdown .ProseMirror .milkdown-highlight {
+  background: #fef08a; color: inherit; padding: 0 .1em; border-radius: 2px;
+}
 .milkdown .ProseMirror {
   outline: none;
   padding: 1rem 1.25rem;

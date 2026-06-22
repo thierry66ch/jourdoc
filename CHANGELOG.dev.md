@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 53 — 2026-06-22
+
+Habillage de l'éditeur Milkdown + recâblage surlignage/callouts (markdown-natif) :
+
+- **Toolbar** (`MilkdownToolbar.jsx`) : gras, italique, barré, surligné, code, H1–H3,
+  listes, citation, **encadré**, bloc de code, tableau, ligne — dispatch via `callCommand`.
+- **Surlignage `==texte==`** : mark Milkdown dédié (`milkdownExtras.js`) avec remark
+  parse/stringify (round-trip validé en Node) + input rule + commande. Rendu `<mark>`.
+- **Callouts `> [!TIP]`** : nœud Milkdown `callout` (variantes info/tip/warning/success)
+  avec remark parse/stringify ↔ alertes GFM, rendu `div.jd-callout` (CSS existant).
+- Tout reste **markdown-natif** : ces constructions round-trippent sans conversion HTML.
+
+Reste à faire (optionnel) : menu slash « / » pour insérer blocs/formats.
+
+---
+
 ## Build 52 — 2026-06-22
 
 **Migration de l'éditeur des docs Markdown liés vers Milkdown (markdown-natif).**

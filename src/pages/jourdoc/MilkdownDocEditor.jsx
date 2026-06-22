@@ -7,6 +7,8 @@ import { history } from '@milkdown/kit/plugin/history'
 import { math } from '@milkdown/plugin-math'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
+import { milkdownExtras } from './milkdownExtras'
+import MilkdownToolbar from './MilkdownToolbar'
 import 'katex/dist/katex.min.css'
 import '@milkdown/kit/prose/view/style/prosemirror.css'
 import '@milkdown/kit/prose/tables/style/tables.css'
@@ -56,6 +58,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
       .use(history)
       .use(listener)
       .use(math)
+      .use(milkdownExtras)
   )
 
   // Expose une lecture synchrone du markdown courant (pour l'enregistrement)
@@ -77,6 +80,7 @@ export default function MilkdownDocEditor({ initialMarkdown, onChange, resolveSr
   return (
     <div className="milkdown-wrap">
       <MilkdownProvider>
+        <MilkdownToolbar />
         <InnerEditor key={keyRef.current} initialMarkdown={initialMarkdown}
           onChange={onChange} resolveSrc={resolveSrc} getMarkdownRef={getMarkdownRef} />
       </MilkdownProvider>

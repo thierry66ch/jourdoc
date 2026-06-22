@@ -153,9 +153,14 @@ markdown-natif**. État unique = `md` (source).
   affiché vers le proxy `relfile` authentifié (`resolveSrc`), **sans** modifier le chemin
   relatif stocké dans le markdown → la source `.md` reste portable.
 
-⚠️ Le surlignage `==…==` et les callouts `> [!TIP]` ne sont pas encore stylés *dans
-l'éditeur* Milkdown (préservés dans le fichier, rendus en vue lecture) — suivi à faire via
-un remark plugin + mark schema.
+- **Toolbar** (`MilkdownToolbar.jsx`) : gras/italique/barré/surligné/code, H1–H3, listes,
+  citation, encadré, bloc de code, tableau, ligne — via `callCommand` (rendue dans le
+  `MilkdownProvider`, `useInstance`).
+- **Surlignage & callouts** (`milkdownExtras.js`) : `==texte==` (markSchema) et
+  `> [!TIP]` (nodeSchema, variantes info/tip/warning/success). Chacun branche un `$remark`
+  (parse via transform mdast + stringify via `toMarkdownExtensions`) ↔ markSchema/nodeSchema
+  Milkdown → **round-trip markdown natif** (pas de conversion HTML). Reste optionnel : menu
+  slash « / ».
 
 Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`). Lecture/édition depuis
 NoteView, MediaGallery et NoteCard ; exclu des lightbox/vignettes photo. Fermeture protégée
