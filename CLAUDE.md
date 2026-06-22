@@ -142,7 +142,14 @@ ex: `/pogil.ch/Apps_datas/JourDoc/uploads/2/uuid.jpg`.
 Le proxy dérive `dir` et `filename` par `lastIndexOf('/')`.
 
 **Sous-dossiers par workspace** : uploads à `WEBDAV_PATH_UPLOADS/{wsId}/`,
-inbox à `WEBDAV_PATH_INBOX/{wsId}/`.
+inbox à `WEBDAV_PATH_INBOX/{wsId}/`, fichiers liés à `WEBDAV_PATH_EXTDOCS/{wsId}/`.
+
+**Images relatives d'un MD** (lié ou importé) : servies par le proxy
+`GET /:wsId/medias/:id/relfile?rel=&t=`, relatif au **dossier réel** du média
+(`dirname(media.fichier)`) — unifie uploads et external.
+
+**Inbox `.zip`** : bundle MD + images décompressé dans `uploads/{wsId}/{uuid}/`
+(arborescence interne préservée), un média `markdown` géré par `.md` (`adm-zip`).
 
 **WEBDAV_URL** : utiliser `https://connect.drive.infomaniak.com` (URL générique).
 **Ne pas** utiliser l'URL user-spécifique `https://NNNN.connect.kdrive.infomaniak.com`
@@ -196,7 +203,7 @@ WEBDAV_PASSWORD=                                   # mot de passe d'application 
 
 WEBDAV_PATH_UPLOADS=/pogil.ch/Apps_datas/JourDoc/uploads
 WEBDAV_PATH_INBOX=/pogil.ch/Apps_datas/JourDoc/inbox
-WEBDAV_PATH_EXTDOCS=/pogil.ch/Apps_datas/JourDoc/external   # fichiers « liés » (référence externe)
+WEBDAV_PATH_EXTDOCS=/pogil.ch/Apps_datas/JourDoc/external   # fichiers « liés » (réf. externe), scopé par workspace : external/{wsId}/
 
 TODOIST_CLIENT_ID=
 TODOIST_CLIENT_SECRET=

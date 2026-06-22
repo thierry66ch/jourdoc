@@ -4,6 +4,24 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 43 — 2026-06-22
+
+Import de bundles depuis l'inbox + dossiers externes par workspace :
+
+- **EXTDOCS par workspace** : les fichiers liés sont désormais scopés sous
+  `external/{wsId}/` (tree / link / file). `extdocsRoot(wsId)` côté serveur.
+- **Proxy image relatif au média** `GET /medias/:id/relfile?rel=&t=` : sert un fichier
+  relatif au **dossier réel** du média (uploads OU external). Unifie la résolution des
+  images des MD, où qu'ils soient. `MarkdownModal` (resolve/unresolveImages) ne dépend
+  plus de `base`/`extdocs/file` mais de `mediaId` + relfile.
+- **Inbox — bundles .zip (MD + images)** : décompressés dans `uploads/{wsId}/{uuid}/`
+  (arborescence interne préservée → liens d'images intacts) ; un média markdown **géré**
+  (non externe, éditable in-app) créé par fichier `.md` du zip.
+- **Inbox — .md autonome** → déplacé dans `uploads/{wsId}/` comme média markdown géré.
+- Dépendance : `adm-zip`.
+
+---
+
 ## Build 42 — 2026-06-21
 
 Suite docs liés (retours terrain) :

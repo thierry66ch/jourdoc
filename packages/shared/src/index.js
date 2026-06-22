@@ -32,6 +32,7 @@ export const API_ROUTES = {
   JD_MEDIAS:       (wsId) => `/api/jourdoc/${wsId}/medias`,
   JD_MEDIA:        (wsId, id) => `/api/jourdoc/${wsId}/medias/${id}`,
   JD_MEDIA_CONTENT: (wsId, id) => `/api/jourdoc/${wsId}/medias/${id}/content`,
+  JD_MEDIA_RELFILE: (wsId, id) => `/api/jourdoc/${wsId}/medias/${id}/relfile`,
   JD_MEDIA_MARKDOWN: (wsId) => `/api/jourdoc/${wsId}/medias/markdown`,
   JD_MEDIA_LINK:    (wsId) => `/api/jourdoc/${wsId}/medias/link`,
   JD_EXTDOCS_TREE:  (wsId) => `/api/jourdoc/${wsId}/extdocs/tree`,

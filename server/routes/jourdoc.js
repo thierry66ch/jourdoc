@@ -1056,12 +1056,8 @@ jourdoc.get('/:wsId/medias/:id/content', async (c) => {
   if (!media) return c.json({ error: 'Not found' }, 404)
   try {
     const content = await getTextFile(media.fichier)
-    // Dossier de base (relatif à EXTDOCS) pour résoudre les images relatives d'un doc lié
-    const ext = EXTDOCS()
-    const base = media.externe && ext && media.fichier.startsWith(ext + '/')
-      ? media.fichier.slice(ext.length + 1).split('/').slice(0, -1).join('/')
-      : ''
-    return c.json({ content, nom_original: media.nom_original, base, externe: !!media.externe })
+    // Images relatives résolues côté front via le proxy /medias/:id/relfile (dossier réel du média)
+    return c.json({ content, nom_original: media.nom_original, externe: !!media.externe })
   } catch {
     return c.json({ error: 'Read failed' }, 500)
   }
@@ -1088,6 +1084,9 @@ jourdoc.put('/:wsId/medias/:id/content', async (c) => {
 // ── FICHIERS EXTERNES LIÉS (dossier WEBDAV_PATH_EXTDOCS) ──────
 
 const EXTDOCS = () => (process.env.WEBDAV_PATH_EXTDOCS || '').trim()
+// Racine des docs liés PAR WORKSPACE : external/{wsId}/. Les chemins relatifs des
+// routes EXTDOCS sont relatifs à cette racine.
+const extdocsRoot = (wsId) => `${EXTDOCS()}/${wsId}`
 // Nettoie un chemin relatif (interdit toute évasion hors EXTDOCS)
 function cleanRel(p) {
   return String(p || '').split('/').filter(s => s && s !== '.' && s !== '..').join('/')
@@ -1109,8 +1108,9 @@ function mimeForName(name) {
 // Arborescence du dossier externe (dossiers + fichiers)
 jourdoc.get('/:wsId/extdocs/tree', async (c) => {
   if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré', entries: [] }, 200)
+  const root = extdocsRoot(c.get('wsId'))
   const rel = cleanRel(c.req.query('path'))
-  const full = rel ? `${EXTDOCS()}/${rel}` : EXTDOCS()
+  const full = rel ? `${root}/${rel}` : root
   try {
     const items = await listDir(full)
     const entries = items
@@ -1129,7 +1129,7 @@ jourdoc.post('/:wsId/medias/link', async (c) => {
   if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré' }, 400)
   const rel = cleanRel((await c.req.json()).path)
   if (!rel) return c.json({ error: 'Chemin requis' }, 400)
-  const full = `${EXTDOCS()}/${rel}`
+  const full = `${extdocsRoot(wsId)}/${rel}`
   const name = rel.split('/').pop()
   const tm = extType(name)
   // Le listing/stat WebDAV (PROPFIND) est indisponible sur ce partage → on vérifie
@@ -1155,10 +1155,32 @@ jourdoc.get('/:wsId/extdocs/file', async (c) => {
   if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré' }, 404)
   const rel = cleanRel(c.req.query('path'))
   if (!rel) return c.json({ error: 'path requis' }, 400)
-  const full = `${EXTDOCS()}/${rel}`
+  const full = `${extdocsRoot(c.get('wsId'))}/${rel}`
   try {
     const lastSlash = full.lastIndexOf('/')
     const buf = await downloadFile(full.substring(0, lastSlash), full.substring(lastSlash + 1))
+    c.header('Content-Type', mimeForName(full))
+    c.header('Cache-Control', 'private, max-age=3600')
+    return c.body(buf)
+  } catch {
+    return c.json({ error: 'Download failed' }, 500)
+  }
+})
+
+// Proxy : fichier relatif au dossier d'un média (images d'un MD, lié OU uploadé).
+// Marche pour external ET uploads (résolution = dossier réel du média).
+jourdoc.get('/:wsId/medias/:id/relfile', async (c) => {
+  const wsId = c.get('wsId')
+  const id = Number(c.req.param('id'))
+  const rel = cleanRel(c.req.query('rel'))
+  if (!rel) return c.json({ error: 'rel requis' }, 400)
+  const [media] = await sql`SELECT fichier FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
+  if (!media) return c.json({ error: 'Not found' }, 404)
+  const dir = media.fichier.substring(0, media.fichier.lastIndexOf('/'))
+  const full = `${dir}/${rel}`
+  try {
+    const ls = full.lastIndexOf('/')
+    const buf = await downloadFile(full.substring(0, ls), full.substring(ls + 1))
     c.header('Content-Type', mimeForName(full))
     c.header('Cache-Control', 'private, max-age=3600')
     return c.body(buf)

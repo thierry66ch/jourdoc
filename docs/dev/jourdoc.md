@@ -108,19 +108,31 @@ Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamique
 `GET /:wsId/medias/:id/file` télécharge depuis WebDAV et sert le binaire.
 
 **Inbox** (`server/routes/inbox.js`) : `GET /:wsId/inbox` liste, `POST /:wsId/inbox/scan`
-importe les fichiers déposés (sous-dossier `WEBDAV_PATH_INBOX/{wsId}/`).
+importe les fichiers déposés (sous-dossier `WEBDAV_PATH_INBOX/{wsId}/`). Selon l'extension :
+- **image / PDF** → traitement (HEIC, resize, EXIF) puis `uploads/{wsId}/`, média `photo`/`pdf` ;
+- **`.zip`** (bundle MD + images, ex. export Notion) → **décompressé** dans
+  `uploads/{wsId}/{uuid}/` en **préservant l'arborescence interne** (les liens d'images
+  relatifs restent valides), un média `markdown` **géré** (non externe, éditable in-app)
+  créé par fichier `.md` (`adm-zip`) ;
+- **`.md`** autonome → déplacé dans `uploads/{wsId}/`, média `markdown` géré.
+
+**Images relatives d'un MD** (lié *ou* importé) : résolues à l'affichage **et** en édition
+vers le proxy `GET /:wsId/medias/:id/relfile?rel=&t=` qui sert un fichier **relatif au
+dossier réel du média** (`dirname(media.fichier)`), puis reconverties en chemins relatifs
+au save (`unresolveImages`). Ce proxy unifie uploads et external (remplace l'ancien
+`extdocs/file` + `base`).
 
 **Fichiers liés (externes)** — pièces jointes par *référence* (sans copie) à un fichier
-sous `WEBDAV_PATH_EXTDOCS`. `ExtDocsBrowser` = **saisie du chemin relatif** (le listing
-d'arborescence WebDAV est indisponible sur ce partage Infomaniak — PROPFIND renvoie 404,
-seul l'accès fichier direct marche) → `POST /medias/link` vérifie l'existence par GET et
-crée un média `externe=true` (MD, PDF, image…). L'original n'est jamais renommé/déplacé/
-supprimé (suppression = détachement de la référence). Les MD liés sont **éditables in-app**
-(écrits dans le fichier externe via `PUT /medias/:id/content`, sans renommage) : au rendu
-**et en édition**, les **images relatives** sont résolues vers le proxy `extdocs/file`
-(token frais) puis **reconverties en relatif au save** (`unresolveImages`) ; **formules**
-via KaTeX (`marked-katex-extension`). Ouverture directe d'une pièce jointe au clic sur sa
-vignette (NoteCard : image/PDF → lightbox, markdown → MarkdownModal). Dépendances : `katex`,
+sous `WEBDAV_PATH_EXTDOCS/{wsId}/` (**scopé par workspace**). `ExtDocsBrowser` parcourt
+l'arborescence (`GET /extdocs/tree`, racine = `extdocsRoot(wsId)`) ; clic sur un fichier →
+`POST /medias/link` vérifie l'existence par GET et crée un média `externe=true`
+(MD, PDF, image…). L'original n'est jamais renommé/déplacé/supprimé (suppression =
+détachement de la référence). Les MD liés sont **éditables in-app** (écrits dans le fichier
+externe via `PUT /medias/:id/content`, sans renommage) : au rendu **et en édition**, les
+**images relatives** sont résolues vers le proxy `medias/:id/relfile` (token frais) puis
+**reconverties en relatif au save** (`unresolveImages`) ; **formules** via KaTeX
+(`marked-katex-extension`). Ouverture directe d'une pièce jointe au clic sur sa vignette
+(NoteCard : image/PDF → lightbox, markdown → MarkdownModal). Dépendances : `katex`,
 `marked-katex-extension`.
 
 **Documents Markdown** (`MarkdownModal.jsx`) — nouveau `type_media='markdown'`.

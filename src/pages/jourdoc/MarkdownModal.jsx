@@ -12,37 +12,36 @@ import RichTextView from './RichTextView'
 
 marked.use(markedKatex({ throwOnError: false, nonStandard: true })) // formules $…$ / $$…$$
 
-// Réécrit les images relatives d'un doc lié vers le proxy EXTDOCS (avec token)
-function resolveImages(html, wsId, token, base) {
-  if (typeof window === 'undefined' || !html) return html
+// Réécrit les images relatives d'un MD vers le proxy « relatif au média »
+// (marche que le doc soit lié/external ou importé/uploads).
+function resolveImages(html, wsId, mediaId, token) {
+  if (typeof window === 'undefined' || !html || mediaId == null) return html
   const doc = new DOMParser().parseFromString(html, 'text/html')
   doc.querySelectorAll('img').forEach(img => {
     const raw = img.getAttribute('src') || ''
     if (/^(https?:|data:|blob:|\/)/i.test(raw)) return // absolu/externe : on laisse
     // Le lien Markdown encode les espaces (%20…) : décoder avant de bâtir le chemin
-    let src = raw
-    try { src = decodeURIComponent(raw) } catch { /* garder tel quel */ }
-    const rel = base ? `${base}/${src}` : src
-    img.setAttribute('src', `${API_ROUTES.JD_EXTDOCS_FILE(wsId)}?path=${encodeURIComponent(rel)}&t=${token}`)
+    let rel = raw
+    try { rel = decodeURIComponent(raw) } catch { /* garder tel quel */ }
+    img.setAttribute('src', `${API_ROUTES.JD_MEDIA_RELFILE(wsId, mediaId)}?rel=${encodeURIComponent(rel)}&t=${token}`)
     img.setAttribute('loading', 'lazy')
   })
   return doc.body.innerHTML
 }
 
-// Inverse de resolveImages : proxy EXTDOCS → chemin relatif encodé (pour réenregistrer le .md)
-function unresolveImages(html, wsId, base) {
-  if (typeof window === 'undefined' || !html) return html
-  const prefix = API_ROUTES.JD_EXTDOCS_FILE(wsId)
+// Inverse : proxy relatif → chemin relatif encodé (pour réenregistrer le .md)
+function unresolveImages(html, wsId, mediaId) {
+  if (typeof window === 'undefined' || !html || mediaId == null) return html
+  const prefix = API_ROUTES.JD_MEDIA_RELFILE(wsId, mediaId)
   const doc = new DOMParser().parseFromString(html, 'text/html')
   doc.querySelectorAll('img').forEach(img => {
     const src = img.getAttribute('src') || ''
     if (!src.startsWith(prefix)) return
     try {
       const qs = new URLSearchParams(src.slice(src.indexOf('?') + 1))
-      let p = qs.get('path') || '' // déjà décodé → "1/Test MD/image.png"
-      if (base && (p === base || p.startsWith(base + '/'))) p = p.slice(base.length + 1)
+      const rel = qs.get('rel') || '' // déjà décodé → "Test MD/image.png"
       img.removeAttribute('loading')
-      img.setAttribute('src', p.split('/').map(encodeURIComponent).join('/')) // → "Test%20MD/image.png"
+      img.setAttribute('src', rel.split('/').map(encodeURIComponent).join('/')) // → "Test%20MD/image.png"
     } catch { /* laisser tel quel */ }
   })
   return doc.body.innerHTML
@@ -74,7 +73,6 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const [mode, setMode]   = useState(isCreate ? 'edit' : 'view')
   const [name, setName]   = useState((initialName || 'Document').replace(/\.md$/i, ''))
   const [html, setHtml]   = useState('')
-  const [base, setBase]   = useState('')      // dossier (relatif EXTDOCS) pour résoudre les images
   const [externe, setExterne] = useState(false) // doc lié (fichier externe)
   const [loading, setLoading] = useState(!isCreate)
   const [saving, setSaving]   = useState(false)
@@ -83,11 +81,11 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const downTargetRef = useRef(null) // pour distinguer un vrai clic backdrop d'un drag de sélection
   const bodyRef = useRef(null)
 
-  // Vue lecture : images résolues (proxy EXTDOCS) + table des matières
+  // Vue lecture : images résolues (proxy relatif au média) + table des matières
   const { html: viewHtml, items: toc } = useMemo(
-    () => buildToc(resolveImages(html, wsId, token, base)), [html, base, wsId, token])
+    () => buildToc(resolveImages(html, wsId, currentId, token)), [html, currentId, wsId, token])
   // Édition : images résolues pour s'afficher dans le WYSIWYG (reconverties au save)
-  const editHtml = useMemo(() => resolveImages(html, wsId, token, base), [html, wsId, token, base])
+  const editHtml = useMemo(() => resolveImages(html, wsId, currentId, token), [html, wsId, currentId, token])
   function gotoHeading(id) {
     const target = bodyRef.current?.querySelector(`#${CSS.escape(id)}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -106,7 +104,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
       .then(d => {
         const h = mdToHtml(d.content)
         setHtml(h); editorHtmlRef.current = h
-        setBase(d.base || ''); setExterne(!!d.externe)
+        setExterne(!!d.externe)
         if (d.nom_original) setName(d.nom_original.replace(/\.md$/i, ''))
       })
       .finally(() => setLoading(false))
@@ -122,7 +120,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   async function save() {
     setSaving(true)
     // Reconvertir les URLs proxy en chemins relatifs avant la sérialisation Markdown
-    const content = td.turndown(unresolveImages(editorHtmlRef.current || '', wsId, base))
+    const content = td.turndown(unresolveImages(editorHtmlRef.current || '', wsId, currentId))
     try {
       if (currentId == null) {
         const res = await fetch(API_ROUTES.JD_MEDIA_MARKDOWN(wsId), {
@@ -177,8 +175,8 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
           ) : mode === 'edit' ? (
             <RichTextEditor key={`md-${currentId ?? 'new'}`} initialContent={editHtml}
               onChange={h => { editorHtmlRef.current = h; setDirty(true) }}
-              htmlToSource={h => td.turndown(unresolveImages(h || '', wsId, base))}
-              sourceToHtml={s => resolveImages(mdToHtml(s), wsId, token, base)}
+              htmlToSource={h => td.turndown(unresolveImages(h || '', wsId, currentId))}
+              sourceToHtml={s => resolveImages(mdToHtml(s), wsId, currentId, token)}
               placeholder="Rédigez votre document Markdown…" />
           ) : html ? (
             <>

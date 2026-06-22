@@ -6,6 +6,61 @@ import { listInbox, downloadFile, uploadFile, deleteFile, moveFromInbox } from '
 
 const inbox = new Hono()
 
+const MIME = {
+  md: 'text/markdown', markdown: 'text/markdown', pdf: 'application/pdf',
+  png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+  webp: 'image/webp', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif',
+  svg: 'image/svg+xml', txt: 'text/plain',
+}
+function mimeForName(name) {
+  const e = (name.split('.').pop() || '').toLowerCase()
+  return MIME[e] || 'application/octet-stream'
+}
+
+const today = () => new Date().toISOString().slice(0, 10)
+
+// Décompresse un bundle .zip (MD + images) dans uploads/{wsId}/{uuid}/ en préservant
+// l'arborescence interne, puis crée un média markdown GÉRÉ (non externe) par fichier .md.
+// Les images relatives sont alors résolues via /medias/:id/relfile (dossier réel du MD).
+async function importZipBundle({ wsId, inboxPath, file }) {
+  const buffer = await downloadFile(inboxPath, file.filename)
+  const { default: AdmZip } = await import('adm-zip')
+  const zip = new AdmZip(buffer)
+  const entries = zip.getEntries().filter(e => !e.isDirectory)
+  const mdEntries = entries.filter(e => /\.(md|markdown)$/i.test(e.entryName))
+  if (!mdEntries.length) throw new Error('archive .zip sans fichier .md')
+
+  const bundleFolder = randomUUID()
+  const destBase = `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}/${bundleFolder}`
+
+  // Upload de toutes les entrées (structure interne conservée → images relatives intactes)
+  for (const e of entries) {
+    const rel = e.entryName.replace(/\\/g, '/')
+    const slash = rel.lastIndexOf('/')
+    const dir  = slash >= 0 ? `${destBase}/${rel.slice(0, slash)}` : destBase
+    const name = slash >= 0 ? rel.slice(slash + 1) : rel
+    await uploadFile(dir, name, e.getData(), mimeForName(name))
+  }
+
+  // Un média markdown par .md (chemin réel ⇒ images résolues relativement à son dossier)
+  const out = []
+  for (const md of mdEntries) {
+    const rel = md.entryName.replace(/\\/g, '/')
+    const slash = rel.lastIndexOf('/')
+    const dir  = slash >= 0 ? `${destBase}/${rel.slice(0, slash)}` : destBase
+    const name = slash >= 0 ? rel.slice(slash + 1) : rel
+    const fichier = `${dir}/${name}`
+    const taille = md.getData().length
+    const [media] = await sql`
+      INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise, lie)
+      VALUES (${wsId}, ${fichier}, ${name}, 'markdown', 'text/markdown', ${taille}, ${today()}, FALSE)
+      RETURNING id`
+    out.push({ original: file.filename, media_id: media.id, destName: name })
+  }
+  await deleteFile(inboxPath, file.filename)
+  return out
+}
+
 inbox.use('/:wsId/*', authMiddleware)
 
 async function wsCheck(c, next) {
@@ -38,9 +93,30 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
 
   for (const file of files) {
     try {
+      const ext0 = file.filename.includes('.') ? file.filename.split('.').pop().toLowerCase() : ''
+
+      // ── Bundle ZIP (MD + images) → décompressé dans uploads, média markdown géré ──
+      if (ext0 === 'zip') {
+        integrated.push(...await importZipBundle({ wsId, inboxPath, file }))
+        continue
+      }
+
+      // ── Markdown autonome → uploads (média géré, éditable in-app) ──
+      if (ext0 === 'md' || ext0 === 'markdown') {
+        const destName = `${randomUUID()}.md`
+        const destPath = `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`
+        const fichier = await moveFromInbox(inboxPath, file.filename, destPath, destName)
+        const [media] = await sql`
+          INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise, lie)
+          VALUES (${wsId}, ${fichier}, ${file.filename}, 'markdown', 'text/markdown', ${file.size || 0}, ${today()}, FALSE)
+          RETURNING id`
+        integrated.push({ original: file.filename, media_id: media.id, destName })
+        continue
+      }
+
       let buffer = await downloadFile(inboxPath, file.filename)
       let mimetype = file.mime || 'application/octet-stream'
-      const origExt = file.filename.includes('.') ? file.filename.split('.').pop().toLowerCase() : 'bin'
+      const origExt = ext0 || 'bin'
       let outExt = origExt === 'heic' || origExt === 'heif' ? 'jpg' : origExt
       let typeMedia = mimetype.startsWith('image/') || ['jpg','jpeg','png','gif','webp','heic','heif','avif'].includes(origExt) ? 'photo' : 'pdf'
       let transformed = false
