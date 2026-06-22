@@ -77,6 +77,14 @@ export default function NoteView() {
     contentRef.current?.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  // ⚠️ Hook : doit être appelé AVANT tout return conditionnel (règles des hooks).
+  // Les callbacks capturent prevId/nextId/navTo (définis plus bas) — exécutés au swipe,
+  // après le rendu, donc valeurs bien initialisées.
+  const swipe = useSwipe({
+    onRight: () => { if (prevId) navTo(prevId) },
+    onLeft:  () => { if (nextId) navTo(nextId) },
+  })
+
   if (loading) return <div className="jd-loading">Chargement…</div>
   if (!note) return (
     <div className="empty-state">
@@ -99,11 +107,6 @@ export default function NoteView() {
   function navTo(id) {
     navigate(`/jourdoc/${wsId}/notes/${id}`, { state: location.state, replace: true })
   }
-
-  const swipe = useSwipe({
-    onRight: () => { if (prevId) navTo(prevId) },
-    onLeft:  () => { if (nextId) navTo(nextId) },
-  })
 
   return (
     <div className="note-view" {...swipe}>

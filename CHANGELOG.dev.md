@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 50 — 2026-06-22
+
+**Hotfix page blanche sur la vue d'une note.** Régression du build 48 : `useSwipe`
+(un hook) était appelé **après** les `return` conditionnels (`if (loading)…`, `if (!note)…`)
+de `NoteView`. Au chargement, le nombre de hooks variait entre deux rendus → React plantait
+(« Rendered more hooks than during the previous render ») → page blanche. Hook remonté
+**avant** tout return. (CalendarView/JourDocJournal/Lightbox n'étaient pas touchés : pas de
+return avant leur `useSwipe`.)
+
+---
+
 ## Build 49 — 2026-06-22
 
 Fix tableaux en document Markdown : ils étaient sérialisés en HTML (donc non éditables
