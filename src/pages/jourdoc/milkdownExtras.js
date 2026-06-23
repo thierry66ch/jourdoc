@@ -126,26 +126,62 @@ export const calloutSchema = $nodeSchema('callout', () => ({
 export const wrapInCalloutCommand = $command('WrapInCallout', ctx => (variant = 'info') => wrapIn(calloutSchema.type(ctx), { variant }))
 
 // ── Listes : convertir puces ↔ numéros, basculer en liste à cocher ───────────
-const listCmd = (targetName, otherName) => () => () => (state, dispatch) => {
-  const target = state.schema.nodes[targetName]
-  const found = findParentNode(n => n.type.name === targetName || n.type.name === otherName)(state.selection)
-  if (found) {
-    if (found.node.type.name === targetName) return liftListItem(state.schema.nodes.list_item)(state, dispatch) // déjà ce type → délister
-    if (dispatch) dispatch(state.tr.setNodeMarkup(found.pos, target)) // autre type → convertir
-    return true
+// Le marqueur (puce/numéro/case) est rendu par listItemBlockComponent à partir des
+// attrs DU list_item (label/listType/checked) — la conversion doit donc les mettre à jour.
+const isList = n => n.type.name === 'bullet_list' || n.type.name === 'ordered_list'
+const setListType = targetName => () => () => (state, dispatch) => {
+  const targetType = state.schema.nodes[targetName]
+  const isOrdered = targetName === 'ordered_list'
+  const inAny = findParentNode(isList)(state.selection)
+  if (inAny && inAny.node.type.name === targetName) {
+    return liftListItem(state.schema.nodes.list_item)(state, dispatch) // déjà ce type → délister
   }
-  return wrapInList(target)(state, dispatch)
+  if (!inAny) {
+    return wrapInList(targetType, isOrdered ? { order: 1 } : {})(state, dispatch) // hors liste → créer
+  }
+  // dans une liste de l'autre type (+ sous-listes de la sélection) → convertir
+  const { from, to } = state.selection
+  const tr = state.tr
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (!isList(node)) return
+    if (node.type.name !== targetName) {
+      tr.setNodeMarkup(pos, targetType, isOrdered ? { order: 1, spread: node.attrs.spread } : { spread: node.attrs.spread })
+    }
+    node.forEach((li, off) => {
+      if (li.type.name === 'list_item') {
+        tr.setNodeMarkup(pos + 1 + off, undefined, {
+          ...li.attrs, listType: isOrdered ? 'ordered' : 'bullet', label: isOrdered ? '1.' : '•', checked: null,
+        })
+      }
+    })
+  })
+  if (dispatch) dispatch(tr)
+  return true
 }
-export const toggleBulletListCommand = $command('JdBulletList', listCmd('bullet_list', 'ordered_list'))
-export const toggleOrderedListCommand = $command('JdOrderedList', listCmd('ordered_list', 'bullet_list'))
+export const toggleBulletListCommand = $command('JdBulletList', setListType('bullet_list'))
+export const toggleOrderedListCommand = $command('JdOrderedList', setListType('ordered_list'))
+
+// Liste à cocher : bascule l'attribut `checked` de tous les list_item de la sélection
 export const toggleTaskCommand = $command('JdTaskList', () => () => (state, dispatch) => {
-  const li = findParentNode(n => n.type.name === 'list_item')(state.selection)
-  if (li) {
-    const next = li.node.attrs.checked == null ? false : null // case à cocher ↔ puce normale
-    if (dispatch) dispatch(state.tr.setNodeMarkup(li.pos, undefined, { ...li.node.attrs, checked: next }))
-    return true
+  const { from, to } = state.selection
+  const items = []
+  state.doc.nodesBetween(from, to, (node, pos) => { if (node.type.name === 'list_item') items.push({ node, pos }) })
+  if (!items.length) {
+    // hors liste → envelopper en liste puis cocher le 1er item
+    return wrapInList(state.schema.nodes.bullet_list)(state, tr => {
+      let liPos = null
+      tr.doc.nodesBetween(Math.max(0, tr.selection.from - 2), tr.selection.to + 2, (n, p) => {
+        if (n.type.name === 'list_item' && liPos == null) liPos = p
+      })
+      if (liPos != null) tr.setNodeMarkup(liPos, undefined, { ...tr.doc.nodeAt(liPos).attrs, checked: false })
+      dispatch?.(tr)
+    })
   }
-  return wrapInList(state.schema.nodes.bullet_list)(state, dispatch)
+  const anyNotTask = items.some(it => it.node.attrs.checked == null)
+  const tr = state.tr
+  items.forEach(it => tr.setNodeMarkup(it.pos, undefined, { ...it.node.attrs, checked: anyNotTask ? false : null }))
+  if (dispatch) dispatch(tr)
+  return true
 })
 
 // ── Effacer la mise en forme (marks + bloc → paragraphe) ─────────────────────

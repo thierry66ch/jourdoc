@@ -1,4 +1,6 @@
 import { callCommand } from '@milkdown/kit/utils'
+import { editorViewCtx } from '@milkdown/kit/core'
+import { liftListItem } from '@milkdown/kit/prose/schema-list'
 import { useInstance } from '@milkdown/react'
 import {
   toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand,
@@ -26,6 +28,21 @@ export default function MilkdownToolbar() {
     const ed = getEditor()
     if (ed) ed.action(callCommand(cmd.key, payload))
   }
+  // Effacer la mise en forme : sortir des listes (plusieurs niveaux) puis marks + paragraphe
+  const clearAll = e => {
+    e.preventDefault()
+    if (loading) return
+    const ed = getEditor()
+    if (!ed) return
+    for (let i = 0; i < 8; i++) {
+      const lifted = ed.action(ctx => {
+        const v = ctx.get(editorViewCtx)
+        return liftListItem(v.state.schema.nodes.list_item)(v.state, v.dispatch)
+      })
+      if (!lifted) break
+    }
+    ed.action(callCommand(clearFormattingCommand.key))
+  }
   const Btn = (props) => <button type="button" className="rte-btn" {...props} />
 
   return (
@@ -41,14 +58,14 @@ export default function MilkdownToolbar() {
         </button>
       ))}
       <Btn title="Code" onMouseDown={run(toggleInlineCodeCommand)}>&lt;&gt;</Btn>
-      <Btn title="Effacer la mise en forme" onMouseDown={run(clearFormattingCommand)}>T<sub>x</sub></Btn>
+      <Btn title="Effacer la mise en forme (et sortir des listes)" onMouseDown={clearAll}>T<sub>x</sub></Btn>
 
       <span className="rte-sep" />
 
       <Btn title="Titre 1" onMouseDown={run(wrapInHeadingCommand, 1)}>H1</Btn>
       <Btn title="Titre 2" onMouseDown={run(wrapInHeadingCommand, 2)}>H2</Btn>
       <Btn title="Titre 3" onMouseDown={run(wrapInHeadingCommand, 3)}>H3</Btn>
-      <Btn title="Paragraphe (enlève le titre)" onMouseDown={run(clearFormattingCommand)}>¶</Btn>
+      <Btn title="Paragraphe (enlève titre / liste)" onMouseDown={clearAll}>¶</Btn>
 
       <span className="rte-sep" />
 

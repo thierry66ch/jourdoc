@@ -5,6 +5,7 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { history } from '@milkdown/kit/plugin/history'
 import { math } from '@milkdown/plugin-math'
+import { listItemBlockComponent } from '@milkdown/kit/component/list-item-block'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { milkdownExtras } from './milkdownExtras'
@@ -79,6 +80,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
       .use(history)
       .use(listener)
       .use(math)
+      .use(listItemBlockComponent)
       .use(milkdownExtras)
       .use(slash)
   )

@@ -2930,9 +2930,16 @@ button, input, select, textarea { font: inherit; color: inherit }
 /* Pastilles de couleur dans la toolbar */
 .rte-btn--swatch { padding: 3px 4px }
 .hl-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border) }
-/* Liste à cocher (GFM task list) */
-.milkdown .ProseMirror li[data-checked] { list-style: none; margin-left: -1.1rem }
-.milkdown .ProseMirror li[data-checked] > label { margin-right: .3rem }
+/* Listes rendues par listItemBlockComponent (marqueur = puce/numéro/case cliquable) */
+.milkdown .ProseMirror ul, .milkdown .ProseMirror ol { list-style: none; padding-left: .25rem; margin: .4rem 0 }
+.milkdown .ProseMirror .milkdown-list-item-block { width: 100% }
+.milkdown .ProseMirror .list-item { display: flex; align-items: flex-start; gap: .45rem }
+.milkdown .ProseMirror .list-item > .label,
+.milkdown .ProseMirror .list-item .milkdown-icon {
+  flex: 0 0 auto; min-width: 1.4em; text-align: right; user-select: none; cursor: pointer; color: var(--text-muted);
+}
+.milkdown .ProseMirror .list-item .content-dom { flex: 1 1 auto; min-width: 0 }
+.milkdown .ProseMirror .list-item .content-dom > :first-child { margin-top: 0 }
 /* Mode source markdown */
 .md-modal__source {
   width: 100%; min-height: 60vh; resize: vertical; box-sizing: border-box;

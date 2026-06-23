@@ -4,6 +4,26 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 56 — 2026-06-23
+
+Listes Milkdown (retours #2/#3) — cause racine : le marqueur (puce/numéro/**case**) est
+rendu par `listItemBlockComponent`, qui n'était **pas branché**, et dépend des attrs DU
+`list_item` (label/listType/checked), pas du type de liste parent.
+
+- **`listItemBlockComponent` branché** (`@milkdown/kit/component/list-item-block`, Vue
+  bundlé) → cases à cocher rendues (corrige #3 : ça mettait des puces) + marqueurs corrects.
+- **Conversion puces ↔ numéros** réécrite : met à jour le type de liste **et** les attrs de
+  chaque `list_item` (label/listType), sur toute la sélection y compris **sous-listes** ;
+  re-cliquer le même type délist. Plus besoin du double-clic enlever-puis-remettre (#2).
+- **Liste à cocher** : bascule `checked` sur **tous** les `list_item` de la sélection.
+- **Tₓ / ¶** sortent maintenant des listes (boucle `liftListItem`) puis marks + paragraphe
+  → « convertir en texte simple » fonctionne (#2).
+- CSS dédiée aux marqueurs du composant.
+
+Limite restante : listes « lâches » (lignes vides entre items, attr `spread`) — à surveiller.
+
+---
+
 ## Build 55 — 2026-06-23
 
 Retours éditeur Milkdown (6 points) :
