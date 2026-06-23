@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 59 — 2026-06-23
+
+Fix : transformer plusieurs lignes « normales » (hors liste) en cases à cocher ne cochait
+que la 1re (les suivantes restaient des puces). `toggleTaskCommand` marque désormais
+**tous** les `list_item` créés par l'enveloppement, pas seulement le premier.
+
+---
+
 ## Build 58 — 2026-06-23
 
 - **Délister les sous-listes** : nouvelle commande `flattenListCommand` qui **remplace la

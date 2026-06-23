@@ -168,13 +168,16 @@ export const toggleTaskCommand = $command('JdTaskList', () => () => (state, disp
   const items = []
   state.doc.nodesBetween(from, to, (node, pos) => { if (node.type.name === 'list_item') items.push({ node, pos }) })
   if (!items.length) {
-    // hors liste → envelopper en liste puis cocher le 1er item
+    // hors liste → envelopper en liste puis cocher TOUS les items créés
     return wrapInList(state.schema.nodes.bullet_list)(state, tr => {
-      let liPos = null
-      tr.doc.nodesBetween(Math.max(0, tr.selection.from - 2), tr.selection.to + 2, (n, p) => {
-        if (n.type.name === 'list_item' && liPos == null) liPos = p
+      const positions = []
+      tr.doc.nodesBetween(tr.selection.from, tr.selection.to, (n, p) => {
+        if (n.type.name === 'list_item') positions.push(p)
       })
-      if (liPos != null) tr.setNodeMarkup(liPos, undefined, { ...tr.doc.nodeAt(liPos).attrs, checked: false })
+      positions.forEach(p => { // setNodeMarkup préserve les positions
+        const n = tr.doc.nodeAt(p)
+        if (n) tr.setNodeMarkup(p, undefined, { ...n.attrs, checked: false })
+      })
       dispatch?.(tr)
     })
   }
