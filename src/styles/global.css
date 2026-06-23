@@ -2936,11 +2936,11 @@ button, input, select, textarea { font: inherit; color: inherit }
 .milkdown .ProseMirror li.jd-li { display: flex; align-items: flex-start; gap: .45rem }
 .milkdown .ProseMirror ol > li.jd-li { counter-increment: jdol }
 .milkdown .ProseMirror li.jd-li > .jd-li__marker {
-  flex: 0 0 auto; min-width: 1.5em; text-align: right; user-select: none; color: var(--text-muted);
+  flex: 0 0 auto; min-width: 1.6em; text-align: right; user-select: none; color: var(--text-muted); line-height: 1.5;
 }
 .milkdown .ProseMirror li.jd-li[data-list-type="bullet"]:not([data-checked]) > .jd-li__marker::before { content: '•' }
 .milkdown .ProseMirror li.jd-li[data-list-type="ordered"]:not([data-checked]) > .jd-li__marker::before { content: counter(jdol) '.' }
-.milkdown .ProseMirror li.jd-li > .jd-li__marker .jd-check { cursor: pointer; font-size: 1.05em }
+.milkdown .ProseMirror li.jd-li > .jd-li__marker .jd-check { cursor: pointer; font-size: 1.4em; line-height: 1 }
 .milkdown .ProseMirror li.jd-li[data-checked="true"] > .jd-li__content { text-decoration: line-through; opacity: .6 }
 .milkdown .ProseMirror li.jd-li > .jd-li__content { flex: 1 1 auto; min-width: 0 }
 .milkdown .ProseMirror li.jd-li > .jd-li__content > :first-child { margin-top: 0 }

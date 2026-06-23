@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 58 — 2026-06-23
+
+- **Délister les sous-listes** : nouvelle commande `flattenListCommand` qui **remplace la
+  liste la plus externe par tous ses blocs à plat** (récursif). Tₓ/¶ l'appellent en boucle
+  puis nettoient → les lignes indentées (niveaux > 0) repassent enfin en texte.
+- **Cases à cocher agrandies** (`.jd-check` 1.4em).
+
+---
+
 ## Build 57 — 2026-06-23
 
 Listes Milkdown (suite) :

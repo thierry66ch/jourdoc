@@ -3,6 +3,7 @@ import { markRule, findParentNode } from '@milkdown/kit/prose'
 import { toggleMark, wrapIn } from '@milkdown/kit/prose/commands'
 import { deleteRow, deleteColumn, deleteTable } from '@milkdown/kit/prose/tables'
 import { wrapInList, liftListItem } from '@milkdown/kit/prose/schema-list'
+import { Fragment } from '@milkdown/kit/prose/model'
 import { visit } from 'unist-util-visit'
 
 // Extensions Milkdown : surlignage couleur (==texte=={c}), callouts (> [!TIP]),
@@ -184,6 +185,31 @@ export const toggleTaskCommand = $command('JdTaskList', () => () => (state, disp
   return true
 })
 
+// ── Aplatir une liste (sous-listes incluses) en paragraphes ──────────────────
+// Remplace la liste la plus externe contenant le curseur par tous ses blocs de contenu
+// (paragraphes/titres), à plat — robuste sur les listes imbriquées.
+export const flattenListCommand = $command('JdFlattenList', () => () => (state, dispatch) => {
+  const $f = state.selection.$from
+  let depth = -1
+  for (let d = $f.depth; d > 0; d--) {
+    if (isList($f.node(d))) depth = d
+  }
+  if (depth < 0) return false
+  const listNode = $f.node(depth)
+  const start = $f.before(depth)
+  const end = $f.after(depth)
+  const blocks = []
+  const collect = n => n.forEach(child => {
+    const name = child.type.name
+    if (name === 'list_item' || isList(child)) collect(child)
+    else blocks.push(child)
+  })
+  collect(listNode)
+  if (!blocks.length) return false
+  if (dispatch) dispatch(state.tr.replaceWith(start, end, Fragment.fromArray(blocks)).scrollIntoView())
+  return true
+})
+
 // ── Effacer la mise en forme (marks + bloc → paragraphe) ─────────────────────
 export const clearFormattingCommand = $command('JdClearFormatting', () => () => (state, dispatch) => {
   const { from, to, empty } = state.selection
@@ -205,5 +231,5 @@ export const milkdownExtras = [
   highlightRemark, highlightSchema, highlightInputRule, toggleHighlightCommand, setHighlightColorCommand,
   calloutRemark, calloutSchema, wrapInCalloutCommand,
   toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand,
-  clearFormattingCommand, deleteRowCommand, deleteColumnCommand, deleteTableCommand,
+  flattenListCommand, clearFormattingCommand, deleteRowCommand, deleteColumnCommand, deleteTableCommand,
 ].flat(Infinity)

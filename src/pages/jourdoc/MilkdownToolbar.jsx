@@ -1,7 +1,4 @@
 import { callCommand } from '@milkdown/kit/utils'
-import { editorViewCtx } from '@milkdown/kit/core'
-import { liftListItem } from '@milkdown/kit/prose/schema-list'
-import { TextSelection } from '@milkdown/kit/prose/state'
 import { useInstance } from '@milkdown/react'
 import {
   toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand,
@@ -13,7 +10,7 @@ import {
 } from '@milkdown/kit/preset/gfm'
 import {
   toggleHighlightCommand, setHighlightColorCommand, wrapInCalloutCommand, clearFormattingCommand,
-  toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand,
+  toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand, flattenListCommand,
   deleteRowCommand, deleteColumnCommand, deleteTableCommand, HL_COLORS,
 } from './milkdownExtras'
 
@@ -29,38 +26,16 @@ export default function MilkdownToolbar() {
     const ed = getEditor()
     if (ed) ed.action(callCommand(cmd.key, payload))
   }
-  // Effacer la mise en forme : sortir des listes (tous niveaux, sous-listes incluses)
-  // puis marks + paragraphe.
+  // Effacer la mise en forme : aplatir la/les liste(s) en paragraphes (sous-listes
+  // incluses) puis retirer les marks + repasser en paragraphe.
   const clearAll = e => {
     e.preventDefault()
     if (loading) return
     const ed = getEditor()
     if (!ed) return
-    // 1. étendre la sélection à la liste la plus externe (pour englober les sous-listes)
-    ed.action(ctx => {
-      const v = ctx.get(editorViewCtx)
-      const { state } = v
-      const $f = state.selection.$from
-      let depth = -1
-      for (let d = $f.depth; d > 0; d--) {
-        const t = $f.node(d).type.name
-        if (t === 'bullet_list' || t === 'ordered_list') depth = d
-      }
-      if (depth > 0) {
-        const start = $f.before(depth) + 1
-        const end = Math.min($f.after(depth) - 1, state.doc.content.size)
-        v.dispatch(state.tr.setSelection(TextSelection.create(state.doc, start, end)))
-      }
-    })
-    // 2. délister à fond
-    for (let i = 0; i < 30; i++) {
-      const lifted = ed.action(ctx => {
-        const v = ctx.get(editorViewCtx)
-        return liftListItem(v.state.schema.nodes.list_item)(v.state, v.dispatch)
-      })
-      if (!lifted) break
+    for (let i = 0; i < 5; i++) {
+      if (!ed.action(callCommand(flattenListCommand.key))) break
     }
-    // 3. marks + paragraphe
     ed.action(callCommand(clearFormattingCommand.key))
   }
   const Btn = (props) => <button type="button" className="rte-btn" {...props} />
