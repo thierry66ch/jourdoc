@@ -2930,16 +2930,20 @@ button, input, select, textarea { font: inherit; color: inherit }
 /* Pastilles de couleur dans la toolbar */
 .rte-btn--swatch { padding: 3px 4px }
 .hl-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border) }
-/* Listes rendues par listItemBlockComponent (marqueur = puce/numéro/case cliquable) */
+/* Listes : marqueur rendu par notre nodeView list_item (puce / numéro / case) */
 .milkdown .ProseMirror ul, .milkdown .ProseMirror ol { list-style: none; padding-left: .25rem; margin: .4rem 0 }
-.milkdown .ProseMirror .milkdown-list-item-block { width: 100% }
-.milkdown .ProseMirror .list-item { display: flex; align-items: flex-start; gap: .45rem }
-.milkdown .ProseMirror .list-item > .label,
-.milkdown .ProseMirror .list-item .milkdown-icon {
-  flex: 0 0 auto; min-width: 1.4em; text-align: right; user-select: none; cursor: pointer; color: var(--text-muted);
+.milkdown .ProseMirror ol { counter-reset: jdol }
+.milkdown .ProseMirror li.jd-li { display: flex; align-items: flex-start; gap: .45rem }
+.milkdown .ProseMirror ol > li.jd-li { counter-increment: jdol }
+.milkdown .ProseMirror li.jd-li > .jd-li__marker {
+  flex: 0 0 auto; min-width: 1.5em; text-align: right; user-select: none; color: var(--text-muted);
 }
-.milkdown .ProseMirror .list-item .content-dom { flex: 1 1 auto; min-width: 0 }
-.milkdown .ProseMirror .list-item .content-dom > :first-child { margin-top: 0 }
+.milkdown .ProseMirror li.jd-li[data-list-type="bullet"]:not([data-checked]) > .jd-li__marker::before { content: '•' }
+.milkdown .ProseMirror li.jd-li[data-list-type="ordered"]:not([data-checked]) > .jd-li__marker::before { content: counter(jdol) '.' }
+.milkdown .ProseMirror li.jd-li > .jd-li__marker .jd-check { cursor: pointer; font-size: 1.05em }
+.milkdown .ProseMirror li.jd-li[data-checked="true"] > .jd-li__content { text-decoration: line-through; opacity: .6 }
+.milkdown .ProseMirror li.jd-li > .jd-li__content { flex: 1 1 auto; min-width: 0 }
+.milkdown .ProseMirror li.jd-li > .jd-li__content > :first-child { margin-top: 0 }
 /* Mode source markdown */
 .md-modal__source {
   width: 100%; min-height: 60vh; resize: vertical; box-sizing: border-box;

@@ -152,6 +152,11 @@ markdown-natif**. État unique = `md` (source).
 - **Images à token** : le nœud `image` de Milkdown a un **nodeView** qui réécrit le `src`
   affiché vers le proxy `relfile` authentifié (`resolveSrc`), **sans** modifier le chemin
   relatif stocké dans le markdown → la source `.md` reste portable.
+- **Listes** : nodeView `list_item` maison (le composant Vue officiel ne reflétait pas
+  `checked`) — marqueur puce / numéro (compteur CSS) / **case à cocher cliquable** selon
+  `listType`/`checked`. Conversion et bascule cocher = `toggle…ListCommand` qui mettent à
+  jour les attrs des `list_item`. « Repasser en texte » (Tₓ/¶) étend la sélection à la liste
+  externe puis boucle `liftListItem` (sous-listes incluses).
 
 - **Toolbar** (`MilkdownToolbar.jsx`) : gras/italique/barré/surligné/code, **effacer la
   mise en forme**, H1–H3 + **¶ (paragraphe)**, listes, citation, bloc de code, ligne,

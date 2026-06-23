@@ -4,6 +4,20 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 57 — 2026-06-23
+
+Listes Milkdown (suite) :
+
+- **Cases à cocher rendues** : le composant Vue officiel ne reflétait pas l'attribut
+  `checked` (case affichée en puce). Remplacé par un **nodeView `list_item` maison** :
+  marqueur puce (•), numéro (compteur CSS auto), ou **case à cocher cliquable** (☐/☑) selon
+  `checked`/`listType`. Vue retiré du bundle (chunk -120 KB). Item coché = barré.
+- **« Repasser en texte » sur les sous-listes** : Tₓ/¶ étendent d'abord la sélection à la
+  liste la plus externe puis délistent à fond (boucle `liftListItem`) → les lignes indentées
+  sont aussi traitées.
+
+---
+
 ## Build 56 — 2026-06-23
 
 Listes Milkdown (retours #2/#3) — cause racine : le marqueur (puce/numéro/**case**) est

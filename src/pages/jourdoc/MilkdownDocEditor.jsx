@@ -5,7 +5,6 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { history } from '@milkdown/kit/plugin/history'
 import { math } from '@milkdown/plugin-math'
-import { listItemBlockComponent } from '@milkdown/kit/component/list-item-block'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { milkdownExtras } from './milkdownExtras'
@@ -43,6 +42,49 @@ function imageNodeView(resolveSrc) {
   }
 }
 
+// NodeView du list_item : marqueur maîtrisé (puce / numéro via compteur CSS / case à cocher).
+// Le composant Vue officiel ne reflétait pas l'attribut `checked` → on rend nous-mêmes.
+function listItemNodeView() {
+  return (node, view, getPos) => {
+    const dom = document.createElement('li')
+    dom.className = 'jd-li'
+    const marker = document.createElement('span')
+    marker.className = 'jd-li__marker'
+    marker.setAttribute('contenteditable', 'false')
+    const content = document.createElement('div')
+    content.className = 'jd-li__content'
+    dom.append(marker, content)
+    const render = n => {
+      dom.dataset.listType = n.attrs.listType || 'bullet'
+      marker.textContent = ''
+      const { checked } = n.attrs
+      if (checked == null) {
+        dom.removeAttribute('data-checked') // marqueur puce/numéro via CSS
+        return
+      }
+      dom.dataset.checked = String(!!checked)
+      const box = document.createElement('span')
+      box.className = 'jd-check'
+      box.textContent = checked ? '☑' : '☐'
+      box.addEventListener('mousedown', e => {
+        e.preventDefault(); e.stopPropagation()
+        const pos = getPos()
+        if (typeof pos !== 'number') return
+        const cur = view.state.doc.nodeAt(pos)
+        if (cur) view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { ...cur.attrs, checked: !cur.attrs.checked }))
+      })
+      marker.appendChild(box)
+    }
+    render(node)
+    return {
+      dom,
+      contentDOM: content,
+      update: n => { if (n.type.name !== 'list_item') return false; render(n); return true },
+      ignoreMutation: m => m.target === marker || marker.contains(m.target),
+    }
+  }
+}
+
 // Double-clic sur une formule → édition de la source LaTeX (les nœuds math sont des atomes)
 function editMathOnDblClick(view, _pos, node, nodePos) {
   const name = node?.type?.name
@@ -69,7 +111,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
         ctx.set(defaultValueCtx, initialMarkdown || '')
         ctx.update(editorViewOptionsCtx, prev => ({
           ...prev,
-          nodeViews: { ...(prev?.nodeViews || {}), image: imageNodeView(resolveSrc) },
+          nodeViews: { ...(prev?.nodeViews || {}), image: imageNodeView(resolveSrc), list_item: listItemNodeView() },
           handleDoubleClickOn: editMathOnDblClick,
         }))
         ctx.get(listenerCtx).markdownUpdated((_, md) => onChange?.(md))
@@ -80,7 +122,6 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
       .use(history)
       .use(listener)
       .use(math)
-      .use(listItemBlockComponent)
       .use(milkdownExtras)
       .use(slash)
   )
