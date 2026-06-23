@@ -157,14 +157,19 @@ markdown-natif**. État unique = `md` (source).
   mise en forme**, H1–H3 + **¶ (paragraphe)**, listes, citation, bloc de code, ligne,
   **4 encadrés**, tableau (insérer + **ajouter/supprimer ligne·colonne**, supprimer table) —
   via `callCommand` (rendue dans le `MilkdownProvider`, `useInstance`).
-- **Menu slash « / »** (`milkdownSlash.js`) : `slashFactory` + `SlashProvider`, rendu/sélection
-  maison (filtrage accent-insensible, nav ↑/↓/Entrée/Échap). Insère titres, listes, citation,
-  code, tableau, ligne, 4 encadrés. Configuré via `configureSlash(ctx)` dans `.config()`.
-- **Surlignage & callouts** (`milkdownExtras.js`) : `==texte==` (markSchema) et
-  `> [!TIP]` (nodeSchema, variantes info/tip/warning/success). Chacun branche un `$remark`
-  (parse via transform mdast + stringify via `toMarkdownExtensions`) ↔ markSchema/nodeSchema
-  Milkdown → **round-trip markdown natif** (pas de conversion HTML). Commandes additionnelles :
-  `clearFormattingCommand`, `deleteRow/Column/TableCommand`.
+- **Menu slash « / »** (`milkdownSlash.js`) : `slashFactory` + `SlashProvider` (matchNode
+  élargi → s'ouvre aussi dans les titres), rendu/sélection maison (filtrage accent-insensible,
+  nav ↑/↓/Entrée/Échap). Insère titres, listes (puces/numéros/**cocher**), citation, code,
+  tableau, ligne, 4 encadrés. Configuré via `configureSlash(ctx)` dans `.config()`.
+- **Surlignage couleur & callouts** (`milkdownExtras.js`) : `==texte==` / `==texte=={pink}`
+  (markSchema, 5 teintes : jaune/rose/vert/bleu/orange) et `> [!TIP]` (nodeSchema, 4 variantes).
+  Chacun branche un `$remark` (parse via transform mdast + stringify via `toMarkdownExtensions`)
+  → **round-trip markdown natif**. Commandes : `toggleBullet/Ordered/TaskList`,
+  `setHighlightColor`, `clearFormatting`, `deleteRow/Column/Table`.
+- **Mode source markdown** (`MarkdownModal`, bouton `</> Source`) : édition du `.md` brut en
+  textarea (cas désespérés) ; retour visuel remonte Milkdown (`epoch`/`editBase`).
+- **Édition de formule** : double-clic → prompt LaTeX (`handleDoubleClickOn` dans
+  `MilkdownDocEditor` ; math inline = `textContent`, bloc = `attrs.value`).
 
 Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`). Lecture/édition depuis
 NoteView, MediaGallery et NoteCard ; exclu des lightbox/vignettes photo. Fermeture protégée

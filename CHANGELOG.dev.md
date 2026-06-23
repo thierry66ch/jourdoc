@@ -4,6 +4,28 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 55 — 2026-06-23
+
+Retours éditeur Milkdown (6 points) :
+
+1. **Slash dans les titres** : `getContent` reçoit un `matchNode` élargi (tout textblock
+   sauf bloc de code) → le menu « / » s'ouvre aussi dans un H1–H3.
+2. **Conversion de listes** : `toggleBulletList`/`toggleOrderedList` convertissent
+   puces ↔ numéros (setNodeMarkup) et basculent hors liste si déjà du même type.
+3. **Liste à cocher** (`toggleTaskCommand`) : bascule l'attribut `checked` du `list_item`
+   (GFM) ; bouton ☑ + entrée slash.
+4. **Surlignage couleur** : 5 teintes (jaune/rose/vert/bleu/orange). Syntaxe markdown
+   `==texte=={pink}` (round-trip validé en Node), pastilles dans la toolbar, classes CSS
+   en éditeur **et** vue lecture.
+5. **Mode source markdown** (bouton `</> Source`) : édite le `.md` brut dans un textarea
+   pour réparer les cas désespérés, puis retour visuel (remontage Milkdown).
+6. **Édition de formule** : double-clic sur une formule → prompt LaTeX
+   (`handleDoubleClickOn`, math inline = textContent / bloc = attr value).
+
+Plus : bouton **effacer la mise en forme** déjà présent, **¶ paragraphe**.
+
+---
+
 ## Build 54 — 2026-06-22
 
 Éditeur Milkdown — menu slash, callouts complets, effacer format, édition tableaux :

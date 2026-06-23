@@ -42,6 +42,24 @@ function imageNodeView(resolveSrc) {
   }
 }
 
+// Double-clic sur une formule → édition de la source LaTeX (les nœuds math sont des atomes)
+function editMathOnDblClick(view, _pos, node, nodePos) {
+  const name = node?.type?.name
+  if (name !== 'math_inline' && name !== 'math_block') return false
+  const current = name === 'math_block' ? (node.attrs.value || '') : (node.textContent || '')
+  const next = window.prompt('Formule LaTeX :', current)
+  if (next == null) return true
+  let tr = view.state.tr
+  if (name === 'math_block') {
+    tr = tr.setNodeMarkup(nodePos, undefined, { ...node.attrs, value: next })
+  } else {
+    const content = next ? view.state.schema.text(next) : null
+    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, node.type.create(node.attrs, content))
+  }
+  view.dispatch(tr)
+  return true
+}
+
 function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) {
   const { get } = useEditor(root =>
     Editor.make()
@@ -51,6 +69,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
         ctx.update(editorViewOptionsCtx, prev => ({
           ...prev,
           nodeViews: { ...(prev?.nodeViews || {}), image: imageNodeView(resolveSrc) },
+          handleDoubleClickOn: editMathOnDblClick,
         }))
         ctx.get(listenerCtx).markdownUpdated((_, md) => onChange?.(md))
         configureSlash(ctx)

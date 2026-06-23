@@ -16,15 +16,20 @@ function escAttr(s) {
     .replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
-// ── Surlignage : ==texte== → <mark> (inline) ──────────────────────────────────
+// ── Surlignage : ==texte== (jaune) / ==texte=={pink} (couleur) → <mark> ───────
+const HL_COLORS = 'yellow|pink|green|blue|orange'
+const HL_TOKEN_RE = new RegExp(`^==(?=\\S)([\\s\\S]+?)==(?:\\{(${HL_COLORS})\\})?`)
 const highlightExt = {
   name: 'highlight', level: 'inline',
   start(src) { const i = src.indexOf('=='); return i < 0 ? undefined : i },
   tokenizer(src) {
-    const m = /^==(?=\S)([\s\S]+?)==/.exec(src)
-    if (m) return { type: 'highlight', raw: m[0], text: m[1], tokens: this.lexer.inlineTokens(m[1]) }
+    const m = HL_TOKEN_RE.exec(src)
+    if (m) return { type: 'highlight', raw: m[0], text: m[1], color: m[2] || '', tokens: this.lexer.inlineTokens(m[1]) }
   },
-  renderer(token) { return `<mark>${this.parser.parseInline(token.tokens)}</mark>` },
+  renderer(token) {
+    const cls = token.color && token.color !== 'yellow' ? ` class="hl-${token.color}"` : ''
+    return `<mark${cls}>${this.parser.parseInline(token.tokens)}</mark>`
+  },
 }
 
 // ── Formules → placeholders (éditeur) ─────────────────────────────────────────

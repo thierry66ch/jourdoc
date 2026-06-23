@@ -44,6 +44,21 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
   const getMdRef = useRef(null)      // lecture synchrone du markdown depuis Milkdown
   const downTargetRef = useRef(null) // pour distinguer un vrai clic backdrop d'un drag de sélection
   const bodyRef = useRef(null)
+  const [sourceMode, setSourceMode] = useState(false) // édition du markdown brut
+  const [sourceText, setSourceText] = useState('')
+  const [editBase, setEditBase]     = useState('')    // markdown d'init de Milkdown
+  const [epoch, setEpoch]           = useState(0)      // force le remontage de Milkdown
+
+  function openEdit() {
+    mdDraftRef.current = md; setEditBase(md); setSourceMode(false); setMode('edit')
+  }
+  function toSource() {
+    setSourceText((getMdRef.current ? getMdRef.current() : mdDraftRef.current) || editBase || md)
+    setSourceMode(true)
+  }
+  function toWysiwyg() {
+    mdDraftRef.current = sourceText; setEditBase(sourceText); setEpoch(e => e + 1); setSourceMode(false)
+  }
 
   // Vue lecture : KaTeX rendu + callouts, images résolues + table des matières
   const { html: viewHtml, items: toc } = useMemo(
@@ -89,8 +104,8 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
 
   async function save() {
     setSaving(true)
-    // Markdown natif lu directement depuis Milkdown (aucune conversion HTML→md)
-    const content = (getMdRef.current ? getMdRef.current() : mdDraftRef.current) || ''
+    // Markdown natif lu directement (mode source = textarea, sinon Milkdown)
+    const content = (sourceMode ? sourceText : (getMdRef.current ? getMdRef.current() : mdDraftRef.current)) || ''
     try {
       if (currentId == null) {
         const res = await fetch(API_ROUTES.JD_MEDIA_MARKDOWN(wsId), {
@@ -130,9 +145,14 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
           )}
           <div className="md-modal__actions">
             {externe && <span className="md-modal__ext" title="Document lié (fichier externe)">🔗 lié</span>}
+            {mode === 'edit' && (
+              <button type="button" className="btn btn-ghost" title="Éditer le markdown brut"
+                onClick={() => (sourceMode ? toWysiwyg() : toSource())}>
+                {sourceMode ? '✦ Visuel' : '</> Source'}
+              </button>
+            )}
             {mode === 'view' ? (
-              <button type="button" className="btn btn-ghost"
-                onClick={() => { mdDraftRef.current = md; setMode('edit') }}>✏️ Éditer</button>
+              <button type="button" className="btn btn-ghost" onClick={openEdit}>✏️ Éditer</button>
             ) : (
               <button type="button" className="btn btn-primary" onClick={save} disabled={saving}>
                 {saving ? '…' : '💾 Enregistrer'}
@@ -145,11 +165,17 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
           {loading ? (
             <div className="jd-loading">Chargement…</div>
           ) : mode === 'edit' ? (
-            <Suspense fallback={<div className="jd-loading">Chargement de l'éditeur…</div>}>
-              <MilkdownDocEditor key={`md-${currentId ?? 'new'}`} initialMarkdown={md}
-                onChange={m => { mdDraftRef.current = m; setDirty(true) }}
-                resolveSrc={resolveSrc} getMarkdownRef={getMdRef} />
-            </Suspense>
+            sourceMode ? (
+              <textarea className="md-modal__source" value={sourceText} spellCheck={false}
+                onChange={e => { setSourceText(e.target.value); setDirty(true) }}
+                placeholder="# Markdown brut…" />
+            ) : (
+              <Suspense fallback={<div className="jd-loading">Chargement de l'éditeur…</div>}>
+                <MilkdownDocEditor key={`md-${currentId ?? 'new'}-${epoch}`} initialMarkdown={editBase}
+                  onChange={m => { mdDraftRef.current = m; setDirty(true) }}
+                  resolveSrc={resolveSrc} getMarkdownRef={getMdRef} />
+              </Suspense>
+            )
           ) : md.trim() ? (
             <>
               {toc.length >= 2 && (

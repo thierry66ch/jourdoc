@@ -1,11 +1,12 @@
 import { slashFactory, SlashProvider } from '@milkdown/kit/plugin/slash'
 import { callCommand } from '@milkdown/kit/utils'
 import {
-  wrapInHeadingCommand, wrapInBulletListCommand, wrapInOrderedListCommand,
-  wrapInBlockquoteCommand, createCodeBlockCommand, insertHrCommand,
+  wrapInHeadingCommand, wrapInBlockquoteCommand, createCodeBlockCommand, insertHrCommand,
 } from '@milkdown/kit/preset/commonmark'
 import { insertTableCommand } from '@milkdown/kit/preset/gfm'
-import { wrapInCalloutCommand } from './milkdownExtras'
+import {
+  wrapInCalloutCommand, toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand,
+} from './milkdownExtras'
 
 // Menu « / » : insertion de blocs/formats. slashFactory fournit la mécanique
 // (déclencheur, positionnement floating-ui) ; on gère le rendu + la sélection.
@@ -15,8 +16,9 @@ const ITEMS = [
   { title: 'Titre 1', icon: 'H1', cmd: wrapInHeadingCommand, payload: 1, kw: 'titre heading h1' },
   { title: 'Titre 2', icon: 'H2', cmd: wrapInHeadingCommand, payload: 2, kw: 'titre heading h2 sous' },
   { title: 'Titre 3', icon: 'H3', cmd: wrapInHeadingCommand, payload: 3, kw: 'titre heading h3 sous' },
-  { title: 'Liste à puces', icon: '•', cmd: wrapInBulletListCommand, kw: 'liste puce bullet ul' },
-  { title: 'Liste numérotée', icon: '1.', cmd: wrapInOrderedListCommand, kw: 'liste numero ordered ol' },
+  { title: 'Liste à puces', icon: '•', cmd: toggleBulletListCommand, kw: 'liste puce bullet ul' },
+  { title: 'Liste numérotée', icon: '1.', cmd: toggleOrderedListCommand, kw: 'liste numero ordered ol' },
+  { title: 'Liste à cocher', icon: '☑', cmd: toggleTaskCommand, kw: 'liste cocher case checkbox task todo tache' },
   { title: 'Citation', icon: '❝', cmd: wrapInBlockquoteCommand, kw: 'citation quote blockquote' },
   { title: 'Bloc de code', icon: '{ }', cmd: createCodeBlockCommand, kw: 'code bloc pre' },
   { title: 'Tableau', icon: '▦', cmd: insertTableCommand, kw: 'tableau table grille' },
@@ -77,7 +79,8 @@ export function configureSlash(ctx) {
     trigger: '/',
     debounce: 0,
     shouldShow(v) {
-      const text = provider.getContent(v) || ''
+      // matchNode élargi : autorise le « / » dans les paragraphes ET les titres (pas les blocs de code)
+      const text = provider.getContent(v, n => n.isTextblock && n.type.name !== 'code_block') || ''
       const m = /(?:^|\s)\/([\p{L}\p{N}]*)$/u.exec(text)
       if (!m) return false
       query = m[1]

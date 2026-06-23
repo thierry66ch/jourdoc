@@ -1,21 +1,24 @@
 import { $markSchema, $nodeSchema, $command, $inputRule, $remark } from '@milkdown/kit/utils'
-import { markRule } from '@milkdown/kit/prose'
+import { markRule, findParentNode } from '@milkdown/kit/prose'
 import { toggleMark, wrapIn } from '@milkdown/kit/prose/commands'
 import { deleteRow, deleteColumn, deleteTable } from '@milkdown/kit/prose/tables'
+import { wrapInList, liftListItem } from '@milkdown/kit/prose/schema-list'
 import { visit } from 'unist-util-visit'
 
-// Extensions Milkdown : surlignage (==texte==) et encadrés/callouts (> [!TIP]).
+// Extensions Milkdown : surlignage couleur (==texte=={c}), callouts (> [!TIP]),
+// conversions de listes, listes à cocher, effacer-format, édition de tableaux.
 // Côté markdown (remark) : parse + stringify (round-trip validé en Node).
-// Côté éditeur : markSchema / nodeSchema (rendu + commandes).
 
-// ── Surlignage : ==texte== ↔ <mark> ──────────────────────────────────────────
-const HL_RE = /==(?=\S)([\s\S]+?)==/g
+export const HL_COLORS = ['yellow', 'pink', 'green', 'blue', 'orange']
+
+// ── Surlignage : ==texte== (jaune) / ==texte=={pink} (couleur) ↔ <mark> ──────
+const HL_RE = new RegExp(`==(?=\\S)([\\s\\S]+?)==(?:\\{(${HL_COLORS.join('|')})\\})?`, 'g')
 function splitHighlightText(node, index, parent) {
   if (!parent || index == null || !node.value.includes('==')) return
   const parts = []; let last = 0; HL_RE.lastIndex = 0; let m
   while ((m = HL_RE.exec(node.value))) {
     if (m.index > last) parts.push({ type: 'text', value: node.value.slice(last, m.index) })
-    parts.push({ type: 'highlight', children: [{ type: 'text', value: m[1] }] })
+    parts.push({ type: 'highlight', color: m[2] || '', children: [{ type: 'text', value: m[1] }] })
     last = HL_RE.lastIndex
   }
   if (!parts.length) return
@@ -32,6 +35,7 @@ function highlightAttacher() {
         let value = tracker.move('==')
         value += state.containerPhrasing(node, { ...tracker.current(), before: '=', after: '=' })
         value += tracker.move('==')
+        if (node.color && node.color !== 'yellow') value += tracker.move(`{${node.color}}`)
         return value
       },
     },
@@ -40,18 +44,30 @@ function highlightAttacher() {
 }
 export const highlightRemark = $remark('jdHighlight', () => highlightAttacher)
 export const highlightSchema = $markSchema('highlight', () => ({
-  parseDOM: [{ tag: 'mark' }],
-  toDOM: () => ['mark', { class: 'milkdown-highlight' }],
+  attrs: { color: { default: '' } },
+  parseDOM: [{ tag: 'mark', getAttrs: dom => ({ color: dom.getAttribute('data-color') || '' }) }],
+  toDOM: mark => {
+    const color = mark.attrs.color
+    return ['mark', { class: `milkdown-highlight${color && color !== 'yellow' ? ` hl-${color}` : ''}`, 'data-color': color || '' }]
+  },
   parseMarkdown: {
     match: node => node.type === 'highlight',
-    runner: (state, node, markType) => { state.openMark(markType); state.next(node.children); state.closeMark(markType) },
+    runner: (state, node, markType) => { state.openMark(markType, { color: node.color || '' }); state.next(node.children); state.closeMark(markType) },
   },
   toMarkdown: {
     match: mark => mark.type.name === 'highlight',
-    runner: (state, mark) => { state.withMark(mark, 'highlight') },
+    runner: (state, mark) => { state.withMark(mark, 'highlight', undefined, { color: mark.attrs.color || undefined }) },
   },
 }))
 export const toggleHighlightCommand = $command('ToggleHighlight', ctx => () => toggleMark(highlightSchema.type(ctx)))
+export const setHighlightColorCommand = $command('SetHighlightColor', ctx => (color = '') => (state, dispatch) => {
+  const type = highlightSchema.type(ctx)
+  const { from, to, empty } = state.selection
+  const mark = type.create({ color })
+  if (empty) { if (dispatch) dispatch(state.tr.addStoredMark(mark)); return true }
+  if (dispatch) dispatch(state.tr.removeMark(from, to, type).addMark(from, to, mark))
+  return true
+})
 export const highlightInputRule = $inputRule(ctx => markRule(/(?:==)([^=]+)(?:==)$/, highlightSchema.type(ctx)))
 
 // ── Callouts : > [!TIP] ↔ <div data-callout> ─────────────────────────────────
@@ -109,25 +125,49 @@ export const calloutSchema = $nodeSchema('callout', () => ({
 }))
 export const wrapInCalloutCommand = $command('WrapInCallout', ctx => (variant = 'info') => wrapIn(calloutSchema.type(ctx), { variant }))
 
+// ── Listes : convertir puces ↔ numéros, basculer en liste à cocher ───────────
+const listCmd = (targetName, otherName) => () => () => (state, dispatch) => {
+  const target = state.schema.nodes[targetName]
+  const found = findParentNode(n => n.type.name === targetName || n.type.name === otherName)(state.selection)
+  if (found) {
+    if (found.node.type.name === targetName) return liftListItem(state.schema.nodes.list_item)(state, dispatch) // déjà ce type → délister
+    if (dispatch) dispatch(state.tr.setNodeMarkup(found.pos, target)) // autre type → convertir
+    return true
+  }
+  return wrapInList(target)(state, dispatch)
+}
+export const toggleBulletListCommand = $command('JdBulletList', listCmd('bullet_list', 'ordered_list'))
+export const toggleOrderedListCommand = $command('JdOrderedList', listCmd('ordered_list', 'bullet_list'))
+export const toggleTaskCommand = $command('JdTaskList', () => () => (state, dispatch) => {
+  const li = findParentNode(n => n.type.name === 'list_item')(state.selection)
+  if (li) {
+    const next = li.node.attrs.checked == null ? false : null // case à cocher ↔ puce normale
+    if (dispatch) dispatch(state.tr.setNodeMarkup(li.pos, undefined, { ...li.node.attrs, checked: next }))
+    return true
+  }
+  return wrapInList(state.schema.nodes.bullet_list)(state, dispatch)
+})
+
 // ── Effacer la mise en forme (marks + bloc → paragraphe) ─────────────────────
 export const clearFormattingCommand = $command('JdClearFormatting', () => () => (state, dispatch) => {
   const { from, to, empty } = state.selection
   const tr = state.tr
-  if (!empty) tr.removeMark(from, to)          // retire toutes les marks de la sélection
+  if (!empty) tr.removeMark(from, to)
   const para = state.schema.nodes.paragraph
-  if (para) tr.setBlockType(from, to, para)    // titre/bloc → paragraphe
+  if (para) tr.setBlockType(from, to, para)
   if (dispatch) dispatch(tr.scrollIntoView())
   return true
 })
 
-// ── Tableau : suppression ligne/colonne/tableau (prosemirror-tables) ─────────
+// ── Tableau : suppression ligne/colonne/tableau ──────────────────────────────
 export const deleteRowCommand = $command('JdDeleteRow', () => () => deleteRow)
 export const deleteColumnCommand = $command('JdDeleteColumn', () => () => deleteColumn)
 export const deleteTableCommand = $command('JdDeleteTable', () => () => deleteTable)
 
 // Tous les plugins à brancher (les $… sont soit un plugin, soit un tuple → flat profond)
 export const milkdownExtras = [
-  highlightRemark, highlightSchema, highlightInputRule, toggleHighlightCommand,
+  highlightRemark, highlightSchema, highlightInputRule, toggleHighlightCommand, setHighlightColorCommand,
   calloutRemark, calloutSchema, wrapInCalloutCommand,
+  toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand,
   clearFormattingCommand, deleteRowCommand, deleteColumnCommand, deleteTableCommand,
 ].flat(Infinity)

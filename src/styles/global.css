@@ -2919,8 +2919,25 @@ button, input, select, textarea { font: inherit; color: inherit }
   border-radius: var(--r-sm) var(--r-sm) 0 0; flex-wrap: wrap;
 }
 .milkdown { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 0 0 var(--r-sm) var(--r-sm) }
-.milkdown .ProseMirror mark, .milkdown .ProseMirror .milkdown-highlight {
+.milkdown .ProseMirror mark, .milkdown .ProseMirror .milkdown-highlight, .rich-view mark {
   background: #fef08a; color: inherit; padding: 0 .1em; border-radius: 2px;
+}
+/* Surlignage couleur (éditeur + vue lecture) */
+.milkdown .ProseMirror mark.hl-pink,   .rich-view mark.hl-pink   { background: #fbcfe8 }
+.milkdown .ProseMirror mark.hl-green,  .rich-view mark.hl-green  { background: #bbf7d0 }
+.milkdown .ProseMirror mark.hl-blue,   .rich-view mark.hl-blue   { background: #bfdbfe }
+.milkdown .ProseMirror mark.hl-orange, .rich-view mark.hl-orange { background: #fed7aa }
+/* Pastilles de couleur dans la toolbar */
+.rte-btn--swatch { padding: 3px 4px }
+.hl-swatch { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--border) }
+/* Liste à cocher (GFM task list) */
+.milkdown .ProseMirror li[data-checked] { list-style: none; margin-left: -1.1rem }
+.milkdown .ProseMirror li[data-checked] > label { margin-right: .3rem }
+/* Mode source markdown */
+.md-modal__source {
+  width: 100%; min-height: 60vh; resize: vertical; box-sizing: border-box;
+  font-family: var(--font-mono); font-size: .9rem; line-height: 1.6; padding: 1rem;
+  border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text);
 }
 /* Menu slash « / » */
 .milkdown-slash {

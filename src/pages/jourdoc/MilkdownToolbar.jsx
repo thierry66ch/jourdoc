@@ -2,17 +2,19 @@ import { callCommand } from '@milkdown/kit/utils'
 import { useInstance } from '@milkdown/react'
 import {
   toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand,
-  wrapInHeadingCommand, wrapInBulletListCommand, wrapInOrderedListCommand,
-  wrapInBlockquoteCommand, createCodeBlockCommand, insertHrCommand,
+  wrapInHeadingCommand, wrapInBlockquoteCommand, createCodeBlockCommand, insertHrCommand,
 } from '@milkdown/kit/preset/commonmark'
 import {
   toggleStrikethroughCommand, insertTableCommand,
   addRowAfterCommand, addColAfterCommand,
 } from '@milkdown/kit/preset/gfm'
 import {
-  toggleHighlightCommand, wrapInCalloutCommand, clearFormattingCommand,
-  deleteRowCommand, deleteColumnCommand, deleteTableCommand,
+  toggleHighlightCommand, setHighlightColorCommand, wrapInCalloutCommand, clearFormattingCommand,
+  toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand,
+  deleteRowCommand, deleteColumnCommand, deleteTableCommand, HL_COLORS,
 } from './milkdownExtras'
+
+const HL_HEX = { yellow: '#fef08a', pink: '#fbcfe8', green: '#bbf7d0', blue: '#bfdbfe', orange: '#fed7aa' }
 
 // Barre d'outils de l'éditeur Milkdown — dispatch des commandes via callCommand.
 // Doit être rendue à l'intérieur du <MilkdownProvider> (useInstance).
@@ -31,7 +33,13 @@ export default function MilkdownToolbar() {
       <Btn title="Gras" onMouseDown={run(toggleStrongCommand)}><b>G</b></Btn>
       <Btn title="Italique" onMouseDown={run(toggleEmphasisCommand)}><i>I</i></Btn>
       <Btn title="Barré" style={{ textDecoration: 'line-through' }} onMouseDown={run(toggleStrikethroughCommand)}>S</Btn>
-      <Btn title="Surligner" onMouseDown={run(toggleHighlightCommand)}>🖍</Btn>
+      <Btn title="Surligner (jaune) / retirer" onMouseDown={run(toggleHighlightCommand)}>🖍</Btn>
+      {HL_COLORS.map(c => (
+        <button key={c} type="button" className="rte-btn rte-btn--swatch" title={`Surligner ${c}`}
+          onMouseDown={run(setHighlightColorCommand, c)}>
+          <span className="hl-swatch" style={{ background: HL_HEX[c] }} />
+        </button>
+      ))}
       <Btn title="Code" onMouseDown={run(toggleInlineCodeCommand)}>&lt;&gt;</Btn>
       <Btn title="Effacer la mise en forme" onMouseDown={run(clearFormattingCommand)}>T<sub>x</sub></Btn>
 
@@ -44,8 +52,9 @@ export default function MilkdownToolbar() {
 
       <span className="rte-sep" />
 
-      <Btn title="Liste à puces" onMouseDown={run(wrapInBulletListCommand)}>•</Btn>
-      <Btn title="Liste numérotée" onMouseDown={run(wrapInOrderedListCommand)}>1.</Btn>
+      <Btn title="Liste à puces (bascule)" onMouseDown={run(toggleBulletListCommand)}>•</Btn>
+      <Btn title="Liste numérotée (bascule)" onMouseDown={run(toggleOrderedListCommand)}>1.</Btn>
+      <Btn title="Liste à cocher" onMouseDown={run(toggleTaskCommand)}>☑</Btn>
       <Btn title="Citation" onMouseDown={run(wrapInBlockquoteCommand)}>❝</Btn>
       <Btn title="Bloc de code" onMouseDown={run(createCodeBlockCommand)}>{'{ }'}</Btn>
       <Btn title="Ligne horizontale" onMouseDown={run(insertHrCommand)}>―</Btn>
