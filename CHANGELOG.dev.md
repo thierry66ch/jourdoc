@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 64 — 2026-06-24
+
+Fix `\` visibles des retours forcés : CommonMark sérialise les hardbreaks en `\` en fin de
+ligne, et un `\` **isolé** (hardbreak seul dans un paragraphe) s'affiche littéralement dans
+le visualiseur (marked) et les éditeurs externes. `cleanMd` convertit désormais ces `\` en
+**deux espaces** (saut dur invisible et standard, rendu pareil partout), hors blocs de code.
+
+---
+
 ## Build 63 — 2026-06-24
 
 Bouton **« Ligne vide »** (toolbar ⏎ + slash) : insère un retour forcé (hardbreak) suivi

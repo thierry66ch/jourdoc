@@ -128,10 +128,20 @@ const commonmarkClean = commonmark.filter(
   p => p !== remarkPreserveEmptyLinePlugin.plugin && p !== remarkPreserveEmptyLinePlugin.options,
 )
 
-// Filet de sécurité : retire d'éventuels `<br />` hérités d'anciens docs + compacte les
-// lignes vides multiples.
+// Nettoyage du markdown exporté :
+// - retire les `<br />` hérités d'anciens docs, compacte les lignes vides multiples ;
+// - convertit les sauts durs « \ » en fin de ligne (sérialisation CommonMark des hardbreaks)
+//   en DEUX ESPACES — invisibles dans les éditeurs externes ET dans le visualiseur, alors
+//   qu'un « \ » seul (hardbreak isolé) s'affiche littéralement. Hors blocs de code.
 function cleanMd(md) {
-  return (md || '').replace(/^[ \t>]*<br\s*\/?>[ \t]*$/gm, '').replace(/\n{3,}/g, '\n\n')
+  let out = (md || '')
+    .replace(/^[ \t>]*<br\s*\/?>[ \t]*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+  out = out
+    .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/)
+    .map((seg, i) => (i % 2 ? seg : seg.replace(/(?<!\\)\\$/gm, '  ')))
+    .join('')
+  return out
 }
 
 function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, uploadImage }) {
