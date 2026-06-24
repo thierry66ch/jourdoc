@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Editor, rootCtx, defaultValueCtx, editorViewOptionsCtx } from '@milkdown/kit/core'
-import { commonmark } from '@milkdown/kit/preset/commonmark'
+import { commonmark, remarkPreserveEmptyLinePlugin } from '@milkdown/kit/preset/commonmark'
 import { gfm } from '@milkdown/kit/preset/gfm'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { history } from '@milkdown/kit/plugin/history'
@@ -121,10 +121,17 @@ function makeUploader(uploadImage) {
   }
 }
 
-// Milkdown sérialise les lignes vides (paragraphes vides) en `<br />` (plugin
-// preserve-empty-line) — on les retire du markdown exporté pour garder un .md propre.
+// CommonMark sans le plugin « preserve-empty-line » (qui sérialise les paragraphes vides
+// en `<br />`, polluant le .md). Sans lui → markdown standard, les lignes vides multiples
+// se comportent comme des séparations de paragraphes normales (portable Obsidian/Typora).
+const commonmarkClean = commonmark.filter(
+  p => p !== remarkPreserveEmptyLinePlugin.plugin && p !== remarkPreserveEmptyLinePlugin.options,
+)
+
+// Filet de sécurité : retire d'éventuels `<br />` hérités d'anciens docs + compacte les
+// lignes vides multiples.
 function cleanMd(md) {
-  return (md || '').replace(/^[ \t]*<br\s*\/?>[ \t]*$/gm, '').replace(/\n{3,}/g, '\n\n')
+  return (md || '').replace(/^[ \t>]*<br\s*\/?>[ \t]*$/gm, '').replace(/\n{3,}/g, '\n\n')
 }
 
 function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, uploadImage }) {
@@ -142,7 +149,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, up
         ctx.get(listenerCtx).markdownUpdated((_, md) => onChange?.(cleanMd(md)))
         configureSlash(ctx)
       })
-      .use(commonmark)
+      .use(commonmarkClean)
       .use(gfm)
       .use(history)
       .use(listener)

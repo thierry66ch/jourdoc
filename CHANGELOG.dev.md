@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 62 — 2026-06-24
+
+**Fin des `<br />` dans le `.md`** (correctif à la source) : on retire le plugin
+`remark-preserve-empty-line` du preset commonmark de Milkdown — c'est lui qui sérialisait
+chaque paragraphe vide en `<br />`. Sans lui, l'éditeur produit du **markdown standard** :
+les lignes vides multiples se comportent comme des séparations de paragraphes (portable
+Obsidian/Typora). `cleanMd` reste en filet (retire les `<br />` hérités, compacte les
+lignes vides). Le retour dur (Shift+Entrée) reste un saut CommonMark (`\`), volontaire.
+
+---
+
 ## Build 61 — 2026-06-24
 
 - **Nom du dossier d'assets assaini** : les caractères spéciaux (`#^[]|*\<>:?/` + espace)
