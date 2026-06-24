@@ -1223,7 +1223,10 @@ jourdoc.post('/:wsId/medias/:id/asset', async (c) => {
   if (!media) return c.json({ error: 'Not found' }, 404)
   const slash = media.fichier.lastIndexOf('/')
   const dir = media.fichier.substring(0, slash)
-  const base = media.fichier.substring(slash + 1).replace(/\.(md|markdown)$/i, '')
+  // Nom du dossier d'assets : caractères spéciaux (#^[]|*\<>:?/ espace) → « _ »
+  const base = media.fichier.substring(slash + 1)
+    .replace(/\.(md|markdown)$/i, '')
+    .replace(/[#^[\]|*\\<>:?\/\s]/g, '_')
   const origName = c.req.query('name') || 'image.png'
   let ext = (origName.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png'
   if (ext === 'jpeg') ext = 'jpg'

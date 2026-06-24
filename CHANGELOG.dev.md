@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 61 — 2026-06-24
+
+- **Nom du dossier d'assets assaini** : les caractères spéciaux (`#^[]|*\<>:?/` + espace)
+  du nom de document sont remplacés par `_` (`_Mon_Doc.assets/`).
+- **Plus de `<br />` dans le `.md`** : Milkdown sérialisait les lignes vides (paragraphes
+  vides) en `<br />` (plugin preserve-empty-line) ; on les retire du markdown exporté
+  (`cleanMd` sur onChange + getMarkdown) → fichier propre, lisible dans un éditeur externe.
+
+---
+
 ## Build 60 — 2026-06-24
 
 Retours docs/éditeur (5 points) :

@@ -121,6 +121,12 @@ function makeUploader(uploadImage) {
   }
 }
 
+// Milkdown sérialise les lignes vides (paragraphes vides) en `<br />` (plugin
+// preserve-empty-line) — on les retire du markdown exporté pour garder un .md propre.
+function cleanMd(md) {
+  return (md || '').replace(/^[ \t]*<br\s*\/?>[ \t]*$/gm, '').replace(/\n{3,}/g, '\n\n')
+}
+
 function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, uploadImage }) {
   const { get } = useEditor(root =>
     Editor.make()
@@ -133,7 +139,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, up
           handleDoubleClickOn: editMathOnDblClick,
         }))
         ctx.update(uploadConfig.key, prev => ({ ...prev, uploader: makeUploader(uploadImage), enableHtmlFileUploader: false }))
-        ctx.get(listenerCtx).markdownUpdated((_, md) => onChange?.(md))
+        ctx.get(listenerCtx).markdownUpdated((_, md) => onChange?.(cleanMd(md)))
         configureSlash(ctx)
       })
       .use(commonmark)
@@ -151,7 +157,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, up
     if (!getMarkdownRef) return
     getMarkdownRef.current = () => {
       const ed = get()
-      return ed ? ed.action(getMarkdown()) : (initialMarkdown || '')
+      return ed ? cleanMd(ed.action(getMarkdown())) : (initialMarkdown || '')
     }
     return () => { if (getMarkdownRef) getMarkdownRef.current = null }
   }, [get, getMarkdownRef, initialMarkdown])
