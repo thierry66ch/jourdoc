@@ -161,23 +161,34 @@ markdown-natif**. État unique = `md` (source).
   jour les attrs des `list_item`. « Repasser en texte » (Tₓ/¶) étend la sélection à la liste
   externe puis boucle `liftListItem` (sous-listes incluses).
 
-- **Toolbar** (`MilkdownToolbar.jsx`) : gras/italique/barré/surligné/code, **effacer la
-  mise en forme**, H1–H3 + **¶ (paragraphe)**, listes, citation, bloc de code, ligne,
-  **4 encadrés**, tableau (insérer + **ajouter/supprimer ligne·colonne**, supprimer table) —
-  via `callCommand` (rendue dans le `MilkdownProvider`, `useInstance`).
+- **Toolbar** (`MilkdownToolbar.jsx`) : gras/italique/barré/surligné (+ pastilles couleur)/code,
+  **effacer la mise en forme**, H1–H3 + **¶ (paragraphe)**, listes (puces/numéros/cocher),
+  citation, bloc de code, ligne, **ligne vide ⏎**, **5 encadrés GitHub**, tableau (insérer +
+  **ajouter/supprimer ligne·colonne**, supprimer table) — via `callCommand` (rendue dans le
+  `MilkdownProvider`, `useInstance`).
 - **Menu slash « / »** (`milkdownSlash.js`) : `slashFactory` + `SlashProvider` (matchNode
   élargi → s'ouvre aussi dans les titres), rendu/sélection maison (filtrage accent-insensible,
   nav ↑/↓/Entrée/Échap). Insère titres, listes (puces/numéros/**cocher**), citation, code,
-  tableau, ligne, 4 encadrés. Configuré via `configureSlash(ctx)` dans `.config()`.
+  tableau, ligne, ligne vide, 5 encadrés. Configuré via `configureSlash(ctx)` dans `.config()`.
 - **Surlignage couleur & callouts** (`milkdownExtras.js`) : `==texte==` / `==texte=={pink}`
-  (markSchema, 5 teintes : jaune/rose/vert/bleu/orange) et `> [!TIP]` (nodeSchema, 4 variantes).
-  Chacun branche un `$remark` (parse via transform mdast + stringify via `toMarkdownExtensions`)
-  → **round-trip markdown natif**. Commandes : `toggleBullet/Ordered/TaskList`,
-  `setHighlightColor`, `clearFormatting`, `deleteRow/Column/Table`.
+  (markSchema, 5 teintes : jaune/rose/vert/bleu/orange) et `> [!NOTE|TIP|IMPORTANT|WARNING|
+  CAUTION]` (nodeSchema, **5 alertes GitHub**, couleurs/icônes calquées). Chacun branche un
+  `$remark` (parse via transform mdast + stringify via `toMarkdownExtensions`) → **round-trip
+  markdown natif**. Commandes : `toggleBullet/Ordered/TaskList`, `setHighlightColor`,
+  `clearFormatting`, `deleteRow/Column/Table`, `insertBlankLine`.
 - **Mode source markdown** (`MarkdownModal`, bouton `</> Source`) : édition du `.md` brut en
   textarea (cas désespérés) ; retour visuel remonte Milkdown (`epoch`/`editBase`).
 - **Édition de formule** : double-clic → prompt LaTeX (`handleDoubleClickOn` dans
   `MilkdownDocEditor` ; math inline = `textContent`, bloc = `attrs.value`).
+- **Sauts de ligne & espacement** (le plus subtil — voir CLAUDE.md pièges 18-21) :
+  `MilkdownDocEditor.cleanMd` retire les `<br />` du plugin `preserve-empty-line` (filtré du
+  preset) et convertit les hardbreaks `\` en **deux espaces** ; le bouton **« Ligne vide »
+  (⏎)** insère un paragraphe contenant un **vrai U+00A0** (pas d'HTML) via `replaceSelectionWith`
+  (comme le séparateur) ; côté vue, `mdConvert.isolateNbsp` isole les lignes nbsp-seul en
+  paragraphe autonome pour que marked les rende en espace visible.
+- **Collage d'images → assets externes** : plugin `upload` Milkdown ; `uploadImage` envoie
+  l'image dans `_<nomDoc>.assets/` (`POST /medias/:id/asset`, nom de dossier assaini) et
+  insère un lien relatif ; repli base64 si doc non encore enregistré.
 
 Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`). Lecture/édition depuis
 NoteView, MediaGallery et NoteCard ; exclu des lightbox/vignettes photo. Fermeture protégée

@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Doc — 2026-06-24
+
+Documentation à jour après le gros chantier éditeur Markdown : ajout de **10 pièges
+Milkdown** dans CLAUDE.md (16-25 : round-trip remark, Crepe/Vue, preserve-empty-line,
+hardbreaks `\`, U+00A0 vs `&nbsp;`, `replaceSelectionWith`, marqueurs de liste, math atomes,
+lazy chunk, API composée), MAJ `docs/dev/jourdoc.md` (callouts GitHub, sauts de ligne/
+espacement, collage assets) et de l'état de production.
+
+---
+
 ## Build 67 — 2026-06-24
 
 Bouton « Ligne vide » : insertion alignée sur le séparateur via `replaceSelectionWith`

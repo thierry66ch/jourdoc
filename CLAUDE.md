@@ -272,6 +272,44 @@ import('./db/db.js').then(async ({ default: sql }) => {
     espaces (`%20`). Décoder le `src` (`decodeURIComponent`) avant de bâtir le chemin du
     proxy `extdocs/file`, sinon double-encodage → 404.
 
+## Pièges éditeur Markdown / Milkdown (session 2026-06-23/24)
+
+L'éditeur des docs `.md` liés est **Milkdown** (markdown-natif), voie *composée*
+(`@milkdown/kit` + `@milkdown/react`), PAS Crepe. Les notes restent sur **Tiptap**.
+Voir `MilkdownDocEditor.jsx`, `milkdownExtras.js`, `milkdownSlash.js`, `MilkdownToolbar.jsx`.
+
+16. **« Éditeur markdown clé en main » est un mythe** → afficher du markdown éditable et
+    *écrire un .md propre/portable* sont deux problèmes distincts. Chaque construction
+    (callout, surlignage, math…) exige un pont **dans les deux sens** : un `$remark`
+    (parse mdast + stringify via `toMarkdownExtensions`) **et** un markSchema/nodeSchema
+    Milkdown. Round-trips validables en **Node** (remark sans DOM) avant câblage.
+17. **Crepe tire Vue + CodeMirror en peers obligatoires** → inadapté à React. Utiliser la
+    voie composée `@milkdown/kit` (commonmark + gfm + listener + history) + `@milkdown/react`.
+18. **`remark-preserve-empty-line`** (dans le preset commonmark) sérialise chaque paragraphe
+    vide en `<br />` → pollue le `.md`. Le **filtrer du preset** (`commonmark.filter(...)`).
+19. **Hardbreaks → `\` visible** → CommonMark sérialise un saut dur par `\` en fin de ligne ;
+    un `\` **isolé** (hardbreak seul dans un paragraphe) s'affiche littéralement (marked +
+    éditeurs externes). `cleanMd` convertit ces `\` en **deux espaces** (hors blocs de code).
+20. **Espace insécable = U+00A0, JAMAIS `&nbsp;`** → l'espacement « ligne vide » insère le
+    vrai caractère (`schema.text(' ')`), pas l'entité HTML. Mais marked colle un nbsp
+    en fin de ligne au paragraphe précédent et l'efface → le **visualiseur** doit isoler les
+    lignes nbsp-seul en paragraphe autonome (`isolateNbsp` dans `mdToHtmlView`).
+21. **Insérer un bloc au curseur** (séparateur, ligne vide) → `tr.replaceSelectionWith(node)`
+    coupe le bloc au bon endroit (avant en début de ligne, split entre deux mots). Ne pas
+    utiliser `$from.after()` (insère toujours après).
+22. **Marqueur de liste (puce/numéro/case)** rendu d'après les attrs **du `list_item`**
+    (`listType`/`label`/`checked`), pas le type de liste parent. Le composant Vue officiel
+    `listItemBlockComponent` ne reflétait pas `checked` → on rend via un **nodeView maison**
+    (numéro = compteur CSS, case cliquable). Convertir une liste = mettre à jour les attrs
+    des `list_item`, pas seulement le nœud liste.
+23. **Nœuds math = atomes** sans édition intégrée → `handleDoubleClickOn` (prompt LaTeX).
+    Math inline = `textContent`, math bloc = `attrs.value`.
+24. **Bundle Milkdown lourd (~500 KB+)** → charger `MilkdownDocEditor` en **lazy chunk** et
+    relever `injectManifest.maximumFileSizeToCacheInBytes` (PWA, défaut 2 MiB).
+25. **API composée** : `callCommand(cmd.key, payload)` (le `.key` est requis) ; `.use()`
+    accepte un tableau ; `useEditor(factory)` appelle `.create()` en interne ; images à
+    token via un **nodeView** du nœud `image` (réécrit le `src` affiché, garde le relatif).
+
 ## État de production (2026-06-16)
 
 Fonctionnalités opérationnelles :
@@ -284,6 +322,10 @@ Fonctionnalités opérationnelles :
 - HEIC → JPEG via heic-convert + resize via sharp
 - Todoist (création tâche, liaison, page tâches, consignation)
 - Migration SQLite→Neon + fichiers→KDrive (scripts dans db/)
+- Documents Markdown liés/importés : éditeur **Milkdown** markdown-natif (toolbar, slash,
+  callouts GitHub, surlignage couleur, math KaTeX éditable, tableaux, listes à cocher,
+  images collées → assets externes, mode source). Navigateur de fichiers externes (créer/
+  lier). Import de bundles Notion (zip imbriqués). Voir `docs/dev/jourdoc.md` §Médias.
 
 Workspaces existants :
 
