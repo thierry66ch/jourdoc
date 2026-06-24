@@ -5,6 +5,7 @@ import { gfm } from '@milkdown/kit/preset/gfm'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { history } from '@milkdown/kit/plugin/history'
 import { math } from '@milkdown/plugin-math'
+import { upload, uploadConfig } from '@milkdown/kit/plugin/upload'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { milkdownExtras } from './milkdownExtras'
@@ -103,7 +104,24 @@ function editMathOnDblClick(view, _pos, node, nodePos) {
   return true
 }
 
-function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) {
+// Uploader Milkdown : images collées/déposées → uploadImage (assets externes), insérées
+// avec leur chemin relatif (l'affichage passe par le nodeView image → proxy).
+function makeUploader(uploadImage) {
+  return async (files, schema) => {
+    const nodes = []
+    for (const file of Array.from(files)) {
+      if (!file.type?.startsWith('image/')) continue
+      let src = null
+      try { src = uploadImage ? await uploadImage(file) : null } catch { src = null }
+      if (!src) continue
+      const node = schema.nodes.image.createAndFill({ src, alt: (file.name || '').replace(/\.[^.]+$/, '') })
+      if (node) nodes.push(node)
+    }
+    return nodes
+  }
+}
+
+function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, uploadImage }) {
   const { get } = useEditor(root =>
     Editor.make()
       .config(ctx => {
@@ -114,6 +132,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
           nodeViews: { ...(prev?.nodeViews || {}), image: imageNodeView(resolveSrc), list_item: listItemNodeView() },
           handleDoubleClickOn: editMathOnDblClick,
         }))
+        ctx.update(uploadConfig.key, prev => ({ ...prev, uploader: makeUploader(uploadImage), enableHtmlFileUploader: false }))
         ctx.get(listenerCtx).markdownUpdated((_, md) => onChange?.(md))
         configureSlash(ctx)
       })
@@ -122,6 +141,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
       .use(history)
       .use(listener)
       .use(math)
+      .use(upload)
       .use(milkdownExtras)
       .use(slash)
   )
@@ -139,7 +159,7 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) 
   return <Milkdown />
 }
 
-export default function MilkdownDocEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef }) {
+export default function MilkdownDocEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, uploadImage }) {
   // clé stable : Milkdown ne re-parse pas defaultValueCtx après le montage
   const keyRef = useRef(0)
   return (
@@ -147,7 +167,7 @@ export default function MilkdownDocEditor({ initialMarkdown, onChange, resolveSr
       <MilkdownProvider>
         <MilkdownToolbar />
         <InnerEditor key={keyRef.current} initialMarkdown={initialMarkdown}
-          onChange={onChange} resolveSrc={resolveSrc} getMarkdownRef={getMarkdownRef} />
+          onChange={onChange} resolveSrc={resolveSrc} getMarkdownRef={getMarkdownRef} uploadImage={uploadImage} />
       </MilkdownProvider>
     </div>
   )

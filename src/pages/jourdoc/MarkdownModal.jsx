@@ -72,6 +72,26 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
     return `${API_ROUTES.JD_MEDIA_RELFILE(wsId, currentId)}?rel=${encodeURIComponent(rel)}&t=${token}`
   }, [wsId, currentId, token])
 
+  // Image collée/déposée → dossier d'assets externe (_<nom>.assets/), retourne le chemin
+  // relatif à stocker dans le markdown. Doc non encore enregistré → repli en base64.
+  const uploadImage = useCallback(async file => {
+    if (currentId == null) {
+      return await new Promise(res => {
+        const r = new FileReader()
+        r.onload = () => res(r.result); r.onerror = () => res(null)
+        r.readAsDataURL(file)
+      })
+    }
+    try {
+      const res = await fetch(`${API_ROUTES.JD_MEDIA_ASSET(wsId, currentId)}?name=${encodeURIComponent(file.name || 'image.png')}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: file,
+      })
+      if (!res.ok) return null
+      const d = await res.json()
+      return d.rel || null
+    } catch { return null }
+  }, [wsId, currentId, token])
+
   function gotoHeading(id) {
     const target = bodyRef.current?.querySelector(`#${CSS.escape(id)}`)
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -173,7 +193,7 @@ export default function MarkdownModal({ wsId, token, mediaId = null, initialName
               <Suspense fallback={<div className="jd-loading">Chargement de l'éditeur…</div>}>
                 <MilkdownDocEditor key={`md-${currentId ?? 'new'}-${epoch}`} initialMarkdown={editBase}
                   onChange={m => { mdDraftRef.current = m; setDirty(true) }}
-                  resolveSrc={resolveSrc} getMarkdownRef={getMdRef} />
+                  resolveSrc={resolveSrc} getMarkdownRef={getMdRef} uploadImage={uploadImage} />
               </Suspense>
             )
           ) : md.trim() ? (

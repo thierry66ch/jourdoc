@@ -23,10 +23,11 @@ const ITEMS = [
   { title: 'Bloc de code', icon: '{ }', cmd: createCodeBlockCommand, kw: 'code bloc pre' },
   { title: 'Tableau', icon: '▦', cmd: insertTableCommand, kw: 'tableau table grille' },
   { title: 'Ligne horizontale', icon: '―', cmd: insertHrCommand, kw: 'ligne hr separateur divider' },
-  { title: 'Encadré info', icon: 'ℹ️', cmd: wrapInCalloutCommand, payload: 'info', kw: 'encadre callout info note' },
-  { title: 'Encadré astuce', icon: '💡', cmd: wrapInCalloutCommand, payload: 'tip', kw: 'encadre callout astuce tip conseil' },
-  { title: 'Encadré attention', icon: '⚠️', cmd: wrapInCalloutCommand, payload: 'warning', kw: 'encadre callout attention warning danger' },
-  { title: 'Encadré succès', icon: '✅', cmd: wrapInCalloutCommand, payload: 'success', kw: 'encadre callout succes success important' },
+  { title: 'Encadré Note', icon: 'ℹ️', cmd: wrapInCalloutCommand, payload: 'note', kw: 'encadre callout note info' },
+  { title: 'Encadré Tip', icon: '💡', cmd: wrapInCalloutCommand, payload: 'tip', kw: 'encadre callout astuce tip conseil' },
+  { title: 'Encadré Important', icon: '💬', cmd: wrapInCalloutCommand, payload: 'important', kw: 'encadre callout important' },
+  { title: 'Encadré Warning', icon: '⚠️', cmd: wrapInCalloutCommand, payload: 'warning', kw: 'encadre callout attention warning' },
+  { title: 'Encadré Caution', icon: '🛑', cmd: wrapInCalloutCommand, payload: 'caution', kw: 'encadre callout danger caution' },
 ]
 
 const norm = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')

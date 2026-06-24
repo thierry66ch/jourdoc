@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 60 — 2026-06-24
+
+Retours docs/éditeur (5 points) :
+
+- **Navigateur externe** : masque les fichiers/dossiers cachés (`.`) ; bouton
+  **＋ Nouveau document** (prompt nom → `POST /extdocs/create` crée le `.md` dans le dossier
+  courant + le lie).
+- **Callouts harmonisés GitHub** : 5 standards **NOTE / TIP / IMPORTANT / WARNING / CAUTION**
+  (mêmes noms + couleurs bleu/vert/violet/jaune/rouge). Variantes renommées partout
+  (schema, toolbar, slash, vue lecture, CSS).
+- **Gestionnaire média** : filtre de type → ajout de **Markdown**.
+- **Collage d'images → assets externes** : plugin `upload` Milkdown ; image collée/déposée
+  envoyée dans `_<nomDoc>.assets/` à côté du `.md` (`POST /medias/:id/asset`), insérée en
+  **lien relatif** (affichage via proxy `relfile`). Repli base64 si doc non encore enregistré.
+
+---
+
 ## Build 59 — 2026-06-23
 
 Fix : transformer plusieurs lignes « normales » (hors liste) en cases à cocher ne cochait

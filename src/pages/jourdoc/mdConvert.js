@@ -63,8 +63,8 @@ markedEdit.use({ extensions: [mathBlockExt, mathInlineExt, highlightExt] })
 
 // ── Alertes GFM (> [!TIP]) → callouts (div data-callout) ──────────────────────
 const LABEL_TO_VARIANT = {
-  NOTE: 'info', INFO: 'info', TIP: 'tip', HINT: 'tip',
-  WARNING: 'warning', CAUTION: 'warning', IMPORTANT: 'success', SUCCESS: 'success',
+  NOTE: 'note', INFO: 'note', TIP: 'tip', HINT: 'tip',
+  IMPORTANT: 'important', WARNING: 'warning', CAUTION: 'caution',
 }
 function alertsToCallouts(html) {
   if (typeof window === 'undefined' || !html) return html

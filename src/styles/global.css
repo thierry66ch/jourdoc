@@ -3102,14 +3102,22 @@ button, input, select, textarea { font: inherit; color: inherit }
 }
 .jd-callout > :last-child { margin-bottom: 0 }
 .jd-callout > :first-child { margin-top: 0 }
-.jd-callout--info    { background: rgba(14,165,233,.10); border-color: #0ea5e9 }
-.jd-callout--info::before    { content: 'ℹ️' }
-.jd-callout--tip     { background: rgba(245,158,11,.10); border-color: #f59e0b }
-.jd-callout--tip::before     { content: '💡' }
-.jd-callout--warning { background: rgba(239,68,68,.10);  border-color: #ef4444 }
-.jd-callout--warning::before { content: '⚠️' }
-.jd-callout--success { background: rgba(16,185,129,.10); border-color: #10b981 }
-.jd-callout--success::before { content: '✅' }
+/* 5 alertes GitHub : NOTE (bleu) TIP (vert) IMPORTANT (violet) WARNING (jaune) CAUTION (rouge) */
+.jd-callout--note      { background: rgba(9,105,218,.08);  border-color: #0969da }
+.jd-callout--note::before      { content: 'ℹ️' }
+.jd-callout--tip       { background: rgba(26,127,55,.08);  border-color: #1a7f37 }
+.jd-callout--tip::before       { content: '💡' }
+.jd-callout--important { background: rgba(130,80,223,.08); border-color: #8250df }
+.jd-callout--important::before { content: '💬' }
+.jd-callout--warning   { background: rgba(154,103,0,.08);  border-color: #9a6700 }
+.jd-callout--warning::before   { content: '⚠️' }
+.jd-callout--caution   { background: rgba(207,34,46,.08);  border-color: #cf222e }
+.jd-callout--caution::before   { content: '🛑' }
+/* compat ancien contenu */
+.jd-callout--info { background: rgba(9,105,218,.08); border-color: #0969da }
+.jd-callout--info::before { content: 'ℹ️' }
+.jd-callout--success { background: rgba(26,127,55,.08); border-color: #1a7f37 }
+.jd-callout--success::before { content: '💡' }
 
 /* Mentions « @ » (objets / thèmes / notes) */
 .jd-mention {
@@ -3778,10 +3786,12 @@ button, input, select, textarea { font: inherit; color: inherit }
 /* Navigateur de fichiers externes (ExtDocsBrowser) */
 .md-modal__panel.extdocs { height: 80vh; max-height: 80vh; width: min(560px, 100%) }
 .extdocs__path {
-  padding: .4rem .75rem; font-size: .8125rem; font-family: var(--font-mono);
+  display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+  padding: .35rem .5rem .35rem .75rem; font-size: .8125rem; font-family: var(--font-mono);
   color: var(--text-muted); background: var(--surface-alt); border-bottom: 1px solid var(--border);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.extdocs__path > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.btn-sm { padding: .2rem .5rem; font-size: .8rem; flex: 0 0 auto; white-space: nowrap }
 .extdocs__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .15rem }
 .extdocs__row {
   display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;

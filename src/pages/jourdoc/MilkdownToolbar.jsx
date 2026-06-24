@@ -73,11 +73,12 @@ export default function MilkdownToolbar() {
 
       <span className="rte-sep" />
 
-      {/* Encadrés (callouts) — 4 variantes */}
-      <Btn title="Encadré info" onMouseDown={run(wrapInCalloutCommand, 'info')}>ℹ️</Btn>
-      <Btn title="Encadré astuce" onMouseDown={run(wrapInCalloutCommand, 'tip')}>💡</Btn>
-      <Btn title="Encadré attention" onMouseDown={run(wrapInCalloutCommand, 'warning')}>⚠️</Btn>
-      <Btn title="Encadré succès" onMouseDown={run(wrapInCalloutCommand, 'success')}>✅</Btn>
+      {/* Encadrés (callouts) — 5 standards GitHub */}
+      <Btn title="Note" onMouseDown={run(wrapInCalloutCommand, 'note')}>ℹ️</Btn>
+      <Btn title="Tip (astuce)" onMouseDown={run(wrapInCalloutCommand, 'tip')}>💡</Btn>
+      <Btn title="Important" onMouseDown={run(wrapInCalloutCommand, 'important')}>💬</Btn>
+      <Btn title="Warning (attention)" onMouseDown={run(wrapInCalloutCommand, 'warning')}>⚠️</Btn>
+      <Btn title="Caution (danger)" onMouseDown={run(wrapInCalloutCommand, 'caution')}>🛑</Btn>
 
       <span className="rte-sep" />
 

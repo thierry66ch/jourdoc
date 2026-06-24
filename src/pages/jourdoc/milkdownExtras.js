@@ -72,11 +72,12 @@ export const setHighlightColorCommand = $command('SetHighlightColor', ctx => (co
 export const highlightInputRule = $inputRule(ctx => markRule(/(?:==)([^=]+)(?:==)$/, highlightSchema.type(ctx)))
 
 // ── Callouts : > [!TIP] ↔ <div data-callout> ─────────────────────────────────
+// 5 alertes standard GitHub : NOTE / TIP / IMPORTANT / WARNING / CAUTION
 const ALERT_VARIANT = {
-  NOTE: 'info', INFO: 'info', TIP: 'tip', HINT: 'tip',
-  WARNING: 'warning', CAUTION: 'warning', IMPORTANT: 'success', SUCCESS: 'success',
+  NOTE: 'note', INFO: 'note', TIP: 'tip', HINT: 'tip',
+  IMPORTANT: 'important', WARNING: 'warning', CAUTION: 'caution',
 }
-const VARIANT_LABEL = { info: 'NOTE', tip: 'TIP', warning: 'WARNING', success: 'IMPORTANT' }
+const VARIANT_LABEL = { note: 'NOTE', tip: 'TIP', important: 'IMPORTANT', warning: 'WARNING', caution: 'CAUTION' }
 function calloutTransform(tree) {
   visit(tree, 'blockquote', node => {
     const first = node.children?.[0]
@@ -112,19 +113,19 @@ export const calloutSchema = $nodeSchema('callout', () => ({
   content: 'block+',
   group: 'block',
   defining: true,
-  attrs: { variant: { default: 'info' } },
-  parseDOM: [{ tag: 'div[data-callout]', getAttrs: dom => ({ variant: dom.getAttribute('data-variant') || 'info' }) }],
+  attrs: { variant: { default: 'note' } },
+  parseDOM: [{ tag: 'div[data-callout]', getAttrs: dom => ({ variant: dom.getAttribute('data-variant') || 'note' }) }],
   toDOM: node => ['div', { 'data-callout': '', 'data-variant': node.attrs.variant, class: `jd-callout jd-callout--${node.attrs.variant}` }, 0],
   parseMarkdown: {
     match: node => node.type === 'callout',
-    runner: (state, node, type) => { state.openNode(type, { variant: node.data?.variant || 'info' }); state.next(node.children); state.closeNode() },
+    runner: (state, node, type) => { state.openNode(type, { variant: node.data?.variant || 'note' }); state.next(node.children); state.closeNode() },
   },
   toMarkdown: {
     match: node => node.type.name === 'callout',
     runner: (state, node) => { state.openNode('callout', undefined, { data: { variant: node.attrs.variant } }); state.next(node.content); state.closeNode() },
   },
 }))
-export const wrapInCalloutCommand = $command('WrapInCallout', ctx => (variant = 'info') => wrapIn(calloutSchema.type(ctx), { variant }))
+export const wrapInCalloutCommand = $command('WrapInCallout', ctx => (variant = 'note') => wrapIn(calloutSchema.type(ctx), { variant }))
 
 // ── Listes : convertir puces ↔ numéros, basculer en liste à cocher ───────────
 // Le marqueur (puce/numéro/case) est rendu par listItemBlockComponent à partir des

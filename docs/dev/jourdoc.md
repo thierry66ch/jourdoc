@@ -126,8 +126,11 @@ au save (`unresolveImages`). Ce proxy unifie uploads et external (remplace l'anc
 
 **Fichiers liés (externes)** — pièces jointes par *référence* (sans copie) à un fichier
 sous `WEBDAV_PATH_EXTDOCS/{wsId}/` (**scopé par workspace**). `ExtDocsBrowser` parcourt
-l'arborescence (`GET /extdocs/tree`, racine = `extdocsRoot(wsId)`) ; clic sur un fichier →
-`POST /medias/link` vérifie l'existence par GET et crée un média `externe=true`
+l'arborescence (`GET /extdocs/tree`, racine = `extdocsRoot(wsId)` ; fichiers cachés `.`
+masqués) ; clic sur un fichier → `POST /medias/link` ; bouton **＋ Nouveau document** →
+`POST /extdocs/create` (crée un `.md` dans le dossier courant et le lie). **Images collées**
+dans un MD → `POST /medias/:id/asset` qui les place dans `_<nomDoc>.assets/` à côté du `.md`
+(plugin Milkdown `upload`), insérées en lien relatif vérifie l'existence par GET et crée un média `externe=true`
 (MD, PDF, image…). L'original n'est jamais renommé/déplacé/supprimé (suppression =
 détachement de la référence). Les MD liés sont **éditables in-app** (écrits dans le fichier
 externe via `PUT /medias/:id/content`, sans renommage) : au rendu **et en édition**, les

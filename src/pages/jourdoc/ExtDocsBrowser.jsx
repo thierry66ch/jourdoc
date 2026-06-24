@@ -47,9 +47,28 @@ export default function ExtDocsBrowser({ wsId, token, onPick, onClose }) {
     } finally { setBusy(false) }
   }
 
+  async function createDoc() {
+    if (busy) return
+    const input = window.prompt('Nom du nouveau document Markdown :', 'Document.md')
+    if (input == null) return
+    const name = input.trim()
+    if (!name) return
+    setBusy(true); setError('')
+    try {
+      const res = await fetch(API_ROUTES.JD_EXTDOCS_CREATE(wsId), {
+        method: 'POST', headers: authHeader(token), body: JSON.stringify({ path, name }),
+      })
+      const d = await res.json()
+      if (!res.ok || d.error) { setError(d.error || 'Création impossible'); return }
+      onPick?.(d)
+    } finally { setBusy(false) }
+  }
+
   const parent = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : ''
-  const folders = entries.filter(e => e.dir)
-  const files = entries.filter(e => !e.dir)
+  // Masquer les fichiers/dossiers cachés (commençant par « . »)
+  const visible = entries.filter(e => !e.name.startsWith('.'))
+  const folders = visible.filter(e => e.dir)
+  const files = visible.filter(e => !e.dir)
 
   return (
     <div className="md-modal"
@@ -60,7 +79,11 @@ export default function ExtDocsBrowser({ wsId, token, onPick, onClose }) {
           <span className="md-modal__title">🔗 Lier un fichier externe</span>
           <button type="button" className="btn btn-ghost md-modal__close" onClick={onClose} title="Fermer">✕</button>
         </div>
-        <div className="extdocs__path">📁 external/{path}</div>
+        <div className="extdocs__path">
+          <span>📁 external/{path}</span>
+          <button type="button" className="btn btn-ghost btn-sm" disabled={busy}
+            onClick={createDoc} title="Créer un document Markdown dans ce dossier">＋ Nouveau document</button>
+        </div>
         <div className="md-modal__body">
           {error && <p className="msg msg-error">{error}</p>}
           <ul className="extdocs__list">
@@ -80,7 +103,7 @@ export default function ExtDocsBrowser({ wsId, token, onPick, onClose }) {
               </li>
             ))}
             {loading && <li className="extdocs__empty">Chargement…</li>}
-            {!loading && entries.length === 0 && <li className="extdocs__empty">Dossier vide.</li>}
+            {!loading && visible.length === 0 && <li className="extdocs__empty">Dossier vide.</li>}
           </ul>
         </div>
       </div>

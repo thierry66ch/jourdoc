@@ -272,6 +272,7 @@ export default function MediaGallery() {
           <option value="">Tous types</option>
           <option value="photo">Photos</option>
           <option value="pdf">PDF</option>
+          <option value="markdown">Markdown</option>
         </select>
         <div className="period-nav__pills" style={{ gap: '.25rem' }}>
           {[['', 'Tous'], ['0', 'Non liés'], ['1', 'Liés']].map(([val, label]) => (

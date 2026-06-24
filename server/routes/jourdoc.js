@@ -1189,6 +1189,56 @@ jourdoc.get('/:wsId/medias/:id/relfile', async (c) => {
   }
 })
 
+// Créer un nouveau document .md dans un dossier externe et le lier
+jourdoc.post('/:wsId/extdocs/create', async (c) => {
+  const wsId = c.get('wsId')
+  if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré' }, 400)
+  const body = await c.req.json()
+  const folder = cleanRel(body.path)
+  let name = String(body.name || '').trim().replace(/[\\/:*?"<>|]/g, '').slice(0, 120)
+  if (!name) return c.json({ error: 'Nom requis' }, 400)
+  if (!/\.(md|markdown)$/i.test(name)) name += '.md'
+  const rel = folder ? `${folder}/${name}` : name
+  const full = `${extdocsRoot(wsId)}/${rel}`
+  const [existing] = await sql`SELECT id FROM jd_medias WHERE workspace_id=${wsId} AND fichier=${full}`
+  if (existing) return c.json({ error: 'Un document de ce nom existe déjà ici' }, 409)
+  try {
+    await putTextFile(full, `# ${name.replace(/\.(md|markdown)$/i, '')}\n\n`)
+  } catch {
+    return c.json({ error: 'Création impossible' }, 500)
+  }
+  const [r] = await sql`
+    INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, externe, date_prise)
+    VALUES (${wsId}, ${full}, ${name}, 'markdown', 'text/markdown', TRUE, ${new Date().toISOString().slice(0, 10)})
+    RETURNING id`
+  return c.json({ id: r.id, fichier: full, nom_original: name, type_media: 'markdown', externe: true }, 201)
+})
+
+// Upload d'une image collée → dossier d'assets du document (_<nom>.assets/), à côté du .md.
+// Retourne le chemin RELATIF (à insérer dans le markdown) ; l'affichage passe par relfile.
+jourdoc.post('/:wsId/medias/:id/asset', async (c) => {
+  const wsId = c.get('wsId')
+  const id = Number(c.req.param('id'))
+  const [media] = await sql`SELECT fichier FROM jd_medias WHERE id=${id} AND workspace_id=${wsId}`
+  if (!media) return c.json({ error: 'Not found' }, 404)
+  const slash = media.fichier.lastIndexOf('/')
+  const dir = media.fichier.substring(0, slash)
+  const base = media.fichier.substring(slash + 1).replace(/\.(md|markdown)$/i, '')
+  const origName = c.req.query('name') || 'image.png'
+  let ext = (origName.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png'
+  if (ext === 'jpeg') ext = 'jpg'
+  const buf = Buffer.from(await c.req.arrayBuffer())
+  if (!buf.length) return c.json({ error: 'Vide' }, 400)
+  const assetDir = `${dir}/_${base}.assets`
+  const filename = `${randomUUID()}.${ext}`
+  try {
+    await uploadFile(assetDir, filename, buf, mimeForName(filename))
+  } catch {
+    return c.json({ error: 'Upload échoué' }, 500)
+  }
+  return c.json({ rel: `_${base}.assets/${filename}` }, 201)
+})
+
 jourdoc.get('/:wsId/medias', async (c) => {
   const wsId = c.get('wsId')
   const { date_from, date_to, type_media, lie } = c.req.query()
