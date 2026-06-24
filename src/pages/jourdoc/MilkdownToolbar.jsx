@@ -11,7 +11,7 @@ import {
 import {
   toggleHighlightCommand, setHighlightColorCommand, wrapInCalloutCommand, clearFormattingCommand,
   toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand, flattenListCommand,
-  deleteRowCommand, deleteColumnCommand, deleteTableCommand, HL_COLORS,
+  insertBlankLineCommand, deleteRowCommand, deleteColumnCommand, deleteTableCommand, HL_COLORS,
 } from './milkdownExtras'
 
 const HL_HEX = { yellow: '#fef08a', pink: '#fbcfe8', green: '#bbf7d0', blue: '#bfdbfe', orange: '#fed7aa' }
@@ -70,6 +70,7 @@ export default function MilkdownToolbar() {
       <Btn title="Citation" onMouseDown={run(wrapInBlockquoteCommand)}>❝</Btn>
       <Btn title="Bloc de code" onMouseDown={run(createCodeBlockCommand)}>{'{ }'}</Btn>
       <Btn title="Ligne horizontale" onMouseDown={run(insertHrCommand)}>―</Btn>
+      <Btn title="Insérer une ligne vide (espacement)" onMouseDown={run(insertBlankLineCommand)}>⏎</Btn>
 
       <span className="rte-sep" />
 

@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 63 — 2026-06-24
+
+Bouton **« Ligne vide »** (toolbar ⏎ + slash) : insère un retour forcé (hardbreak) suivi
+d'un **espace insécable** (= Shift+Entrée puis Option+Espace) → espacement vertical propre
+et portable, sans `<br>` ni `\` visible. `insertBlankLineCommand`.
+
+---
+
 ## Build 62 — 2026-06-24
 
 **Fin des `<br />` dans le `.md`** (correctif à la source) : on retire le plugin

@@ -214,6 +214,20 @@ export const flattenListCommand = $command('JdFlattenList', () => () => (state, 
   return true
 })
 
+// ── Ligne vide : retour forcé (hardbreak) + espace insécable ─────────────────
+// Reproduit Shift+Entrée puis Option+Espace : un espacement supplémentaire propre
+// (pas de <br> ni de \ visible en fin de ligne), portable Obsidian/Typora.
+export const insertBlankLineCommand = $command('JdBlankLine', () => () => (state, dispatch) => {
+  const hb = state.schema.nodes.hardbreak
+  if (!hb) return false
+  const frag = Fragment.fromArray([hb.create(), state.schema.text(' ')])
+  if (dispatch) {
+    const { from, to } = state.selection
+    dispatch(state.tr.replaceWith(from, to, frag).scrollIntoView())
+  }
+  return true
+})
+
 // ── Effacer la mise en forme (marks + bloc → paragraphe) ─────────────────────
 export const clearFormattingCommand = $command('JdClearFormatting', () => () => (state, dispatch) => {
   const { from, to, empty } = state.selection
@@ -235,5 +249,6 @@ export const milkdownExtras = [
   highlightRemark, highlightSchema, highlightInputRule, toggleHighlightCommand, setHighlightColorCommand,
   calloutRemark, calloutSchema, wrapInCalloutCommand,
   toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand,
-  flattenListCommand, clearFormattingCommand, deleteRowCommand, deleteColumnCommand, deleteTableCommand,
+  flattenListCommand, insertBlankLineCommand, clearFormattingCommand,
+  deleteRowCommand, deleteColumnCommand, deleteTableCommand,
 ].flat(Infinity)

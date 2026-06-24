@@ -6,6 +6,7 @@ import {
 import { insertTableCommand } from '@milkdown/kit/preset/gfm'
 import {
   wrapInCalloutCommand, toggleBulletListCommand, toggleOrderedListCommand, toggleTaskCommand,
+  insertBlankLineCommand,
 } from './milkdownExtras'
 
 // Menu « / » : insertion de blocs/formats. slashFactory fournit la mécanique
@@ -23,6 +24,7 @@ const ITEMS = [
   { title: 'Bloc de code', icon: '{ }', cmd: createCodeBlockCommand, kw: 'code bloc pre' },
   { title: 'Tableau', icon: '▦', cmd: insertTableCommand, kw: 'tableau table grille' },
   { title: 'Ligne horizontale', icon: '―', cmd: insertHrCommand, kw: 'ligne hr separateur divider' },
+  { title: 'Ligne vide (espacement)', icon: '⏎', cmd: insertBlankLineCommand, kw: 'ligne vide espace espacement saut interligne blank' },
   { title: 'Encadré Note', icon: 'ℹ️', cmd: wrapInCalloutCommand, payload: 'note', kw: 'encadre callout note info' },
   { title: 'Encadré Tip', icon: '💡', cmd: wrapInCalloutCommand, payload: 'tip', kw: 'encadre callout astuce tip conseil' },
   { title: 'Encadré Important', icon: '💬', cmd: wrapInCalloutCommand, payload: 'important', kw: 'encadre callout important' },
