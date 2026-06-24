@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 65 — 2026-06-24
+
+Fix interligne « ligne vide » absent dans le **visualiseur** : marked colle le nbsp du
+spacer au paragraphe précédent (via le saut dur) et le réduit à du blanc. `mdToHtmlView`
+isole désormais les lignes ne contenant qu'un espace insécable en **paragraphe autonome**
+→ marked rend `<p>&nbsp;</p>` (espace vertical visible, comme dans l'éditeur et Obsidian).
+Marche pour les spacers manuels, du bouton, et hérités. Le `.md` n'est pas modifié.
+
+---
+
 ## Build 64 — 2026-06-24
 
 Fix `\` visibles des retours forcés : CommonMark sérialise les hardbreaks en `\` en fin de

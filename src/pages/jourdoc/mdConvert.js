@@ -84,7 +84,15 @@ function alertsToCallouts(html) {
   return doc.body.innerHTML
 }
 
-export function mdToHtmlView(md) { return alertsToCallouts(markedView.parse(md || '')) }
+// Les lignes ne contenant qu'un espace insécable (espacement « ligne vide ») sont isolées
+// en paragraphe autonome : sinon marked, collant le nbsp au paragraphe précédent via le
+// saut dur, le réduit à du blanc → aucun interligne visible. En paragraphe seul, marked le
+// rend `<p>&nbsp;</p>` (espace vertical visible, comme dans l'éditeur et Obsidian).
+function isolateNbsp(md) {
+  return (md || '').replace(/^[ \t]*( [ \t ]*)$/gm, '\n$1\n')
+}
+
+export function mdToHtmlView(md) { return alertsToCallouts(markedView.parse(isolateNbsp(md))) }
 export function mdToHtmlEdit(md) { return alertsToCallouts(markedEdit.parse(md || '')) }
 
 // ── HTML (éditeur) → Markdown ─────────────────────────────────────────────────
