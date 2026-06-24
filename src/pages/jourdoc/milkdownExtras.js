@@ -4,6 +4,7 @@ import { toggleMark, wrapIn } from '@milkdown/kit/prose/commands'
 import { deleteRow, deleteColumn, deleteTable } from '@milkdown/kit/prose/tables'
 import { wrapInList, liftListItem } from '@milkdown/kit/prose/schema-list'
 import { Fragment } from '@milkdown/kit/prose/model'
+import { TextSelection } from '@milkdown/kit/prose/state'
 import { visit } from 'unist-util-visit'
 
 // Extensions Milkdown : surlignage couleur (==texte=={c}), callouts (> [!TIP]),
@@ -214,16 +215,22 @@ export const flattenListCommand = $command('JdFlattenList', () => () => (state, 
   return true
 })
 
-// ── Ligne vide : retour forcé (hardbreak) + espace insécable ─────────────────
-// Reproduit Shift+Entrée puis Option+Espace : un espacement supplémentaire propre
-// (pas de <br> ni de \ visible en fin de ligne), portable Obsidian/Typora.
+// ── Ligne vide : paragraphe autonome contenant un espace insécable (U+00A0) ──
+// Équivaut à [Entrée + Option+Espace + Entrée] : insère un nouveau bloc contenant le
+// VRAI caractère espace insécable (pas d'entité HTML). S'insère depuis n'importe où dans
+// la ligne (comme le séparateur) ; compatible Obsidian/Typora.
 export const insertBlankLineCommand = $command('JdBlankLine', () => () => (state, dispatch) => {
-  const hb = state.schema.nodes.hardbreak
-  if (!hb) return false
-  const frag = Fragment.fromArray([hb.create(), state.schema.text(' ')])
+  const para = state.schema.nodes.paragraph
+  if (!para) return false
+  const $from = state.selection.$from
+  if ($from.depth < 1) return false
+  const spacer = para.create(null, state.schema.text('\u00A0')) // espace insécable réel
+  const empty = para.create()
   if (dispatch) {
-    const { from, to } = state.selection
-    dispatch(state.tr.replaceWith(from, to, frag).scrollIntoView())
+    const pos = $from.after(1) // après le bloc de niveau supérieur courant
+    const tr = state.tr.insert(pos, Fragment.fromArray([spacer, empty]))
+    tr.setSelection(TextSelection.create(tr.doc, pos + spacer.nodeSize + 1)) // curseur sous le spacer
+    dispatch(tr.scrollIntoView())
   }
   return true
 })

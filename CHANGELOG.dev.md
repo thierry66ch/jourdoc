@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 66 — 2026-06-24
+
+Bouton « Ligne vide » revu : insère désormais un **paragraphe autonome** contenant le vrai
+caractère espace insécable (U+00A0, pas d'entité HTML) — équivaut à [Entrée + Option+Espace
++ Entrée]. S'insère depuis n'importe où dans la ligne (comme le séparateur), curseur placé
+sous le spacer, et **compatibilité étendue** (Typora reconnaît cette forme, pas le
+hardbreak+nbsp). `insertBlankLineCommand`.
+
+---
+
 ## Build 65 — 2026-06-24
 
 Fix interligne « ligne vide » absent dans le **visualiseur** : marked colle le nbsp du
