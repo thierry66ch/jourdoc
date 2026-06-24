@@ -4,7 +4,7 @@ import { toggleMark, wrapIn } from '@milkdown/kit/prose/commands'
 import { deleteRow, deleteColumn, deleteTable } from '@milkdown/kit/prose/tables'
 import { wrapInList, liftListItem } from '@milkdown/kit/prose/schema-list'
 import { Fragment } from '@milkdown/kit/prose/model'
-import { TextSelection } from '@milkdown/kit/prose/state'
+import { Selection } from '@milkdown/kit/prose/state'
 import { visit } from 'unist-util-visit'
 
 // Extensions Milkdown : surlignage couleur (==texte=={c}), callouts (> [!TIP]),
@@ -216,22 +216,22 @@ export const flattenListCommand = $command('JdFlattenList', () => () => (state, 
 })
 
 // ── Ligne vide : paragraphe autonome contenant un espace insécable (U+00A0) ──
-// Équivaut à [Entrée + Option+Espace + Entrée] : insère un nouveau bloc contenant le
-// VRAI caractère espace insécable (pas d'entité HTML). S'insère depuis n'importe où dans
-// la ligne (comme le séparateur) ; compatible Obsidian/Typora.
+// Insère un nouveau bloc contenant le VRAI caractère espace insécable (pas d'entité HTML).
+// Même mécanique que le séparateur (insertHrCommand) : `replaceSelectionWith` coupe le
+// bloc au curseur — début de ligne → spacer AVANT, entre deux mots → coupe la ligne,
+// fin de ligne → après. Compatible Obsidian/Typora.
 export const insertBlankLineCommand = $command('JdBlankLine', () => () => (state, dispatch) => {
+  if (!dispatch) return true
   const para = state.schema.nodes.paragraph
   if (!para) return false
-  const $from = state.selection.$from
-  if ($from.depth < 1) return false
   const spacer = para.create(null, state.schema.text('\u00A0')) // espace insécable réel
-  const empty = para.create()
-  if (dispatch) {
-    const pos = $from.after(1) // après le bloc de niveau supérieur courant
-    const tr = state.tr.insert(pos, Fragment.fromArray([spacer, empty]))
-    tr.setSelection(TextSelection.create(tr.doc, pos + spacer.nodeSize + 1)) // curseur sous le spacer
-    dispatch(tr.scrollIntoView())
-  }
+  const from = state.selection.from
+  const tr = state.tr.replaceSelectionWith(spacer)
+  // curseur juste après le spacer (bloc suivant, ou créé par la coupure)
+  const after = Math.min(from + spacer.nodeSize, tr.doc.content.size)
+  const sel = Selection.findFrom(tr.doc.resolve(after), 1, true) || Selection.findFrom(tr.doc.resolve(after), -1, true)
+  if (sel) tr.setSelection(sel)
+  dispatch(tr.scrollIntoView())
   return true
 })
 

@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 67 — 2026-06-24
+
+Bouton « Ligne vide » : insertion alignée sur le séparateur via `replaceSelectionWith`
+(au lieu de toujours insérer après le bloc). Début de ligne → spacer **avant** ; entre deux
+mots → **coupe la ligne** ; fin de ligne → après. Le spacer reste un paragraphe contenant
+le vrai caractère U+00A0.
+
+---
+
 ## Build 66 — 2026-06-24
 
 Bouton « Ligne vide » revu : insère désormais un **paragraphe autonome** contenant le vrai
