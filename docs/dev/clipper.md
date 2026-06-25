@@ -93,7 +93,20 @@ Contenu Markdown (Turndown + plugin GFM)…
 ![alt](./_slug.assets/img-001.jpg)
 ```
 
-### 5. Endpoint `/api/clip`
+### 5. Endpoints `/api/clip/*`
+
+Tout ce que l'overlay appelle depuis une page tierce vit sous `/api/clip/*` pour
+bénéficier du CORS réflexif (cf. § Auth) :
+
+| Méthode | Route | Auth | Rôle |
+|---|---|---|---|
+| `POST` | `/api/clip/login` | publique | mini-login (identifiant+mdp → JWT), même logique que `/api/auth/login` |
+| `GET` | `/api/clip/workspaces` | JWT | workspaces JourDoc de l'utilisateur |
+| `GET` | `/api/clip/ws/:wsId/taxonomy` | JWT | `{ objets, themes, docCategories }` du workspace |
+| `POST` | `/api/clip` | JWT | capture (extrait → .md → note) |
+
+> `/api/clip/login` doit être déclaré **avant** `clip.use('*', authMiddleware)` pour
+> rester public.
 
 - Router dédié `server/routes/clipper.js`, monté `app.route('/api/clip', …)`.
 - **CORS propre** : `origin: '*'`, **sans** `credentials` (le token transite en
@@ -148,12 +161,16 @@ vite.clipper.config.js              ← build dédié → public/clipper.js (hor
 # Source du bundle clipper
 src/clipper/main.jsx                ← point d'entrée (monte l'overlay en shadow DOM)
 src/clipper/bridge.js               ← getTokenViaPopup (postMessage avec clipper-auth.html)
-src/clipper/ClipperOverlay.jsx      ← stepper 3 étapes
-src/clipper/ClipperAuth.jsx         ← mini-login si JWT absent
+src/clipper/ui.jsx                   ← styles partagés + Btn + MultiPicker (hiérarchique)
+src/clipper/ClipperOverlay.jsx      ← orchestrateur du stepper (état + appels API)
+src/clipper/ClipperAuth.jsx         ← auth : connexion rapide (popup) OU mini-login identifiants
 src/clipper/ClipperWorkspace.jsx    ← étape 1 : sélection workspace
 src/clipper/ClipperMeta.jsx         ← étape 2 : titre + objet/thème/catégorie (minimal)
-src/clipper/ClipperPreview.jsx      ← étape 3 : aperçu + enregistrer
+src/clipper/ClipperPreview.jsx      ← étape 3 : récapitulatif + enregistrer
 ```
+
+⚠️ `ui.jsx` contient du JSX → extension `.jsx` obligatoire (sinon Vite/rollup échoue
+en analyse d'import).
 
 ## Auth — popup first-party (PAS d'iframe)
 

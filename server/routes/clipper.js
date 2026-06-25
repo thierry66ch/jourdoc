@@ -9,6 +9,8 @@
 //   type_media='markdown', note type='documentation'. Cf. docs/dev/clipper.md.
 
 import { Hono } from 'hono'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import { putTextFile } from '../../packages/storage/index.js'
@@ -39,6 +41,27 @@ function buildMarkdown({ title, url, article, markdown }) {
   return `${fm.join('\n')}\n# ${title}\n\n${body}\n`
 }
 
+// ── PUBLIC : mini-login intégré ──────────────────────────────
+// Doit rester AVANT le authMiddleware. Même logique que /api/auth/login, mais sous
+// /api/clip/* pour bénéficier du CORS tiers (l'overlay tourne sur des pages tierces).
+clip.post('/login', async (c) => {
+  const { identifier, password } = await c.req.json().catch(() => ({}))
+  if (!identifier || !password) return c.json({ error: 'Identifiants requis' }, 400)
+  const [user] = await sql`
+    SELECT * FROM users WHERE (email = ${identifier} OR username = ${identifier}) AND is_active = TRUE
+  `
+  if (!user) return c.json({ error: 'Identifiants invalides' }, 401)
+  const valid = await bcrypt.compare(password, user.password_hash)
+  if (!valid) return c.json({ error: 'Identifiants invalides' }, 401)
+  const token = jwt.sign(
+    { sub: user.id, username: user.username },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRES_IN ?? '7d' },
+  )
+  return c.json({ token })
+})
+
+// ── PROTÉGÉ ──────────────────────────────────────────────────
 clip.use('*', authMiddleware)
 
 // Liste des workspaces JourDoc accessibles (pour l'étape 1 de l'overlay).
@@ -53,6 +76,21 @@ clip.get('/workspaces', async (c) => {
     ORDER BY w.name
   `
   return c.json({ workspaces })
+})
+
+// Taxonomie d'un workspace pour la classification (objets, thèmes, doc-catégories).
+clip.get('/ws/:wsId/taxonomy', async (c) => {
+  const userId = c.get('userId')
+  const wsId = Number(c.req.param('wsId'))
+  const [ok] = await sql`SELECT 1 FROM user_workspace_access WHERE user_id = ${userId} AND workspace_id = ${wsId}`
+  if (!ok) return c.json({ error: 'Forbidden' }, 403)
+
+  const [objets, themes, docCategories] = await Promise.all([
+    sql`SELECT id, nom, nom_court, parent_id FROM jd_objets WHERE workspace_id = ${wsId} ORDER BY nom`,
+    sql`SELECT id, nom, nom_court, parent_id FROM jd_themes WHERE workspace_id = ${wsId} ORDER BY nom`,
+    sql`SELECT id, nom, icon, couleur FROM jd_doc_categorie WHERE workspace_id = ${wsId} ORDER BY ordre, nom`,
+  ])
+  return c.json({ objets, themes, docCategories })
 })
 
 // Capture : extrait → markdown → upload EXTDOCS → note documentation + liaison.

@@ -4,6 +4,27 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 75 — 2026-06-25 — Clipper Phase 3 (stepper + classification + mini-login)
+
+UI complète en stepper 3 étapes et classification métier.
+
+Backend (`clipper.js`) :
+- `POST /api/clip/login` (public, avant authMiddleware) : mini-login identifiants → JWT,
+  sous /api/clip pour le CORS tiers.
+- `GET /api/clip/ws/:wsId/taxonomy` : `{ objets, themes, docCategories }` du workspace.
+
+Frontend (`src/clipper/`) :
+- `ui.jsx` : styles partagés + `Btn` + `MultiPicker` (sélecteur multiple hiérarchique
+  avec filtre et indentation par profondeur via `parent_id`).
+- `ClipperAuth.jsx` : connexion rapide (popup first-party) **ou** mini-login par
+  identifiants (`/api/clip/login`) — plus besoin d'aller se connecter sur JourDoc.
+- `ClipperWorkspace/Meta/Preview.jsx` : étapes 1 (workspace) → 2 (titre + catégorie +
+  objets/thèmes multi) → 3 (récap + enregistrer + lien note).
+- `ClipperOverlay.jsx` : orchestrateur (état, appels API, 401 → retour auth).
+- `ui.jsx` doit avoir l'extension `.jsx` (JSX) sinon le build rollup échoue.
+
+---
+
 ## Build 74 — 2026-06-25 — Clipper : gestion session expirée (401)
 
 Sur mobile, token présent mais 401 au chargement des workspaces (JWT expiré, durée
