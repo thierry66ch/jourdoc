@@ -8,7 +8,8 @@
   },
   "scripts": {
     "dev": "concurrently \"vite\" \"node server/dev.js\"",
-    "build": "vite build",
+    "build": "vite build --config vite.clipper.config.js && vite build",
+    "build:clipper": "vite build --config vite.clipper.config.js",
     "start": "node server/dev.js",
     "db:init": "node -e \"import('./db/db.js').then(m => m.initSchema())\"",
     "db:migrate": "node db/migrate.js"

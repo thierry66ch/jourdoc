@@ -4,3 +4,6 @@ dist/
 .env.*.local
 .DS_Store
 *.log
+
+# Bundle clipper buildé par build:clipper (régénéré au build prod)
+public/clipper.js

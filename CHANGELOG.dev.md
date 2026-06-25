@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 68 — 2026-06-25 — Clipper Phase 1 (infra & auth)
+
+Démarrage du **web-clipper** JourDoc (capture de pages web → note documentation +
+`.md` joint). Doc de référence : `docs/dev/clipper.md` (conventions recalées sur le
+code réel : JS pas TS, stockage EXTDOCS `clipper/{domaine}/`, note `type=documentation`,
+clé token `token`, pas de migration DB — `source_url` existe déjà).
+
+Phase 1 livrée :
+- `public/auth-bridge.html` — pont JWT cross-origin (clé localStorage `token`).
+- `src/clipper/{main.jsx,bridge.js,ClipperOverlay.jsx}` — bundle React autonome,
+  injecté en shadow DOM, récupère le JWT via l'iframe bridge (origine déduite du
+  `src` du script). Overlay minimal : affiche le statut d'auth.
+- `vite.clipper.config.js` + script `build:clipper` → `public/clipper.js` (IIFE
+  standalone, 148 KB / 47 KB gzip), **exclu du précache PWA** (`globIgnores`).
+
+---
+
 ## Doc — 2026-06-24
 
 Documentation à jour après le gros chantier éditeur Markdown : ajout de **10 pièges

@@ -21,6 +21,9 @@ export default defineConfig({
       includeAssets: ['favicon.png', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'],
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Le bundle clipper (buildé à part) et son pont sont autonomes et chargés
+        // hors PWA : ne pas les précacher dans le service worker.
+        globIgnores: ['**/clipper.js', '**/auth-bridge.html'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // Milkdown/KaTeX : chunks > 2 MiB
       },
       manifest: {
