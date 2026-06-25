@@ -23,14 +23,9 @@ const app = new Hono()
 
 app.use('*', logger())
 app.use('*', cors({
-  // Le clipper est appelé depuis des domaines tiers arbitraires (bookmarklet) :
-  // on réfléchit l'origine pour /api/clip/*. Les autres routes restent verrouillées
-  // sur l'origine JourDoc. Sécurité réelle = validation JWT côté serveur.
-  origin: (origin, c) => {
-    const p = c.req.path
-    if (p === '/api/clip' || p.startsWith('/api/clip/')) return origin || '*'
-    return process.env.VITE_API_URL || '*'
-  },
+  // Le clipper appelle l'API en same-origin (fenêtre servie par JourDoc), donc pas
+  // besoin d'ouvrir le CORS aux domaines tiers : on reste verrouillé sur l'origine.
+  origin: process.env.VITE_API_URL || '*',
   credentials: true,
 }))
 

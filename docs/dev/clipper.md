@@ -11,17 +11,24 @@ son contenu converti en Markdown attaché en pièce jointe.
 
 ## Flux d'ensemble
 
+⚠️ **Architecture en fenêtre popup (CSP-proof).** Le script injecté ne fait AUCUN
+appel réseau (la `connect-src`/`frame-src` du site hôte les bloquerait — cf. § CSP).
+Il ouvre une fenêtre servie par JourDoc qui fait tout en **same-origin**.
+
 ```
 [Page web tierce]
-  → clic sur le bookmarklet
-  → injection de clipper.js (bundle React autonome)
-  → iframe auth-bridge.html (lit le JWT dans localStorage de jourdoc.pogil.ch)
-  → overlay : workspace → classification minimale → aperçu
-  → POST /api/clip { url, html, title, workspaceId, objet_ids, theme_ids, doc_categorie_id }
-  → serveur : Readability → Turndown → download images
+  → clic sur le bookmarklet → injection de clipper.js (lanceur JS pur, ~3 Ko)
+  → petit bouton in-page « Clipper cette page »
+  → clic (geste) : nettoie le HTML, window.open(clipper-app.html) sur JourDoc,
+    postMessage { url, title, html } à la fenêtre
+  ───────────────  (fenêtre JourDoc, first-party, same-origin)  ───────────────
+  → clipper-app : token lu dans localStorage (ou mini-login) → workspace →
+    classification → aperçu
+  → POST /api/clip { url, html, title, titre_alt, workspaceId, objet_ids, theme_ids, doc_categorie_id }
+  → serveur : Readability (linkedom) → Turndown → download images
   → upload .md + assets sur KDrive (EXTDOCS)
   → INSERT jd_medias (markdown, externe) + jd_notes (documentation) + jd_note_media
-  → overlay : succès + lien vers la note dans JourDoc
+  → fenêtre : succès + lien vers la note
 ```
 
 ## Décisions d'architecture
@@ -154,17 +161,19 @@ server/lib/clipper/turndown.js      ← HTML → Markdown (turndown + turndown-p
 server/lib/clipper/images.js        ← download + upload KDrive + réécriture chemins
 server/lib/clipper/slug.js          ← slug/domaine/translittération
 
-# Frontend clipper (bundle autonome servi depuis /public)
-public/clipper-auth.html            ← popup JWT first-party (clé localStorage = "token")
-public/clipper.js                   ← bundle React injecté par le bookmarklet (buildé)
+# Frontend — lanceur injecté (servi depuis /public)
+public/clipper.js                   ← lanceur JS PUR (~3 Ko), injecté par le bookmarklet
 vite.clipper.config.js              ← build dédié → public/clipper.js (hors PWA/SW)
+src/clipper/launcher.js             ← source du lanceur (bouton + window.open + postMessage)
 
-# Source du bundle clipper
-src/clipper/main.jsx                ← point d'entrée (monte l'overlay en shadow DOM)
-src/clipper/bridge.js               ← getTokenViaPopup (postMessage avec clipper-auth.html)
-src/clipper/ui.jsx                   ← styles partagés + Btn + MultiPicker (hiérarchique)
-src/clipper/ClipperOverlay.jsx      ← orchestrateur du stepper (état + appels API)
-src/clipper/ClipperAuth.jsx         ← auth : connexion rapide (popup) OU mini-login identifiants
+# Frontend — fenêtre clipper (servie first-party par JourDoc)
+public/clipper-app.html             ← page de la fenêtre (charge /clipper-app.js)
+public/clipper-app.js               ← bundle React du stepper (~164 Ko, hors PWA/SW)
+vite.clipper-app.config.js          ← build dédié → public/clipper-app.js
+src/clipper/app.jsx                 ← point d'entrée (monte <ClipperApp/>)
+src/clipper/ClipperApp.jsx          ← orchestrateur (reçoit la page, état, appels API same-origin)
+src/clipper/ClipperAuth.jsx         ← mini-login same-origin (si pas de token en localStorage)
+src/clipper/ui.jsx                  ← styles partagés + Btn + MultiPicker + buildTitreAlt
 src/clipper/ClipperWorkspace.jsx    ← étape 1 : sélection workspace
 src/clipper/ClipperMeta.jsx         ← étape 2 : titre + objet/thème/catégorie (minimal)
 src/clipper/ClipperPreview.jsx      ← étape 3 : récapitulatif + enregistrer
@@ -173,32 +182,39 @@ src/clipper/ClipperPreview.jsx      ← étape 3 : récapitulatif + enregistrer
 ⚠️ `ui.jsx` contient du JSX → extension `.jsx` obligatoire (sinon Vite/rollup échoue
 en analyse d'import).
 
-## Auth — popup first-party (PAS d'iframe)
+## CSP — pourquoi une fenêtre popup (et pas un panneau injecté)
 
-- JWT stocké dans `localStorage` sous la clé **`token`** (cf. `AuthContext.jsx`) —
-  **pas** `jourdoc_token`.
-- ⚠️ **Pourquoi pas une iframe** (contrairement au briefing) : depuis le
-  **partitionnement du stockage tiers** (Chrome 115+, Safari ITP, Firefox ETP), le
-  `localStorage` d'une iframe embarquée sur un site tiers est isolé *par site de
-  premier niveau*. Une iframe `auth-bridge` ne voit donc **jamais** le token
-  first-party de JourDoc → renvoie toujours `null`. Architecture abandonnée.
-- ✅ **Solution retenue : popup**. `public/clipper-auth.html`, ouvert via
-  `window.open()` vers l'origine JourDoc, est un contexte **top-level first-party** :
-  il lit le vrai `localStorage`, renvoie le token à `window.opener` par `postMessage`
-  (vérif `e.origin === origin`), puis se referme.
-- Contrainte : `window.open` doit partir d'un **geste utilisateur** → l'overlay
-  expose un bouton « Connexion à JourDoc » (pas de récupération silencieuse au boot).
-- Le bundle clipper envoie ensuite le token en `Authorization: Bearer` (ou `?t=`
-  pour les médias). Sécurité finale assurée par la validation JWT côté serveur.
+Le script du bookmarklet s'exécute dans le **contexte de la page hôte** et subit donc
+sa **Content-Security-Policy**. Sur les sites stricts (ex. `connect-src 'self' …` sans
+JourDoc, et `frame-src` restreint), **tout `fetch()` vers l'API JourDoc est bloqué**
+(« Failed to fetch ») et une **iframe** vers JourDoc l'est aussi. Une approche « panneau
+injecté qui appelle l'API » est donc structurellement condamnée sur ces sites.
 
-## Bundle & bookmarklet
+✅ **Solution : déporter tout le réseau dans une fenêtre `window.open` sur JourDoc.**
+`window.open` (navigation) n'est pas couvert par les directives `fetch`/`frame` de la
+CSP → toujours autorisé. La fenêtre est **first-party JourDoc** : ses requêtes sont
+en **same-origin** (pas de CORS, pas de CSP tierce), et elle lit le **token** dans son
+propre `localStorage`. Le script injecté ne fait que : nettoyer le HTML, `window.open`,
+`postMessage({url,title,html})`.
 
-- `clipper.js` est buildé **séparément** du front principal (`vite.clipper.config.js`),
-  en IIFE autonome, déposé dans `/public`. **Exclu de la PWA / du service worker**
-  pour ne pas polluer le précache (le SW principal utilise `injectManifest`).
-- Le bundle n'importe **pas** le router ni le store global de JourDoc ; il peut
-  réutiliser des composants UI isolés mais aucun layout.
-- Bookmarklet (affiché dans les réglages JourDoc en phase 5) :
+> Tentatives abandonnées (historique) : iframe `auth-bridge` (localStorage tiers
+> **partitionné** depuis Chrome 115/Safari/Firefox → token invisible) ; puis panneau
+> injecté + `fetch` cross-origin avec CORS réflexif (bloqué par `connect-src`).
+
+## Auth (dans la fenêtre)
+
+- JWT en `localStorage` sous la clé **`token`** (cf. `AuthContext.jsx`) — **pas**
+  `jourdoc_token`. La fenêtre étant first-party, `ClipperApp` le lit directement.
+- Si absent/expiré (401) : **mini-login** (`ClipperAuth` → `POST /api/clip/login`,
+  même origine). Le token obtenu est réécrit en `localStorage` (réutilisable ensuite).
+- Token envoyé en `Authorization: Bearer`. Validation JWT côté serveur.
+
+## Bundles & bookmarklet
+
+- Deux IIFE autonomes, buildés à part du front (`build:clipper` lance les deux) et
+  **exclus de la PWA/SW** (`globIgnores`) : `clipper.js` (lanceur, ~3 Ko) et
+  `clipper-app.js` (stepper React, ~164 Ko, chargé dans la fenêtre).
+- **Bookmarklet inchangé** (charge toujours `clipper.js`) :
 
 ```javascript
 javascript:(function(){
@@ -208,10 +224,6 @@ javascript:(function(){
   document.body.appendChild(s);
 })();
 ```
-
-- Overlay : `position:fixed; top:20px; right:20px; z-index:2147483647`, 340 px
-  desktop, plein écran sous 480 px, cibles tactiles ≥ 48 px, `all: initial` sur la
-  racine pour s'isoler des styles de la page hôte.
 
 ## Dépendances
 
@@ -239,10 +251,11 @@ javascript:(function(){
 
 | Sujet | Détail |
 |---|---|
-| CORS `/api/clip` | appelé depuis domaines tiers ; CORS dédié `*`, ne pas laisser le CORS global l'écraser ; gérer `OPTIONS`. |
-| Taille HTML | l'overlay **nettoie** le HTML avant envoi (retire script/style/svg/iframe/médias/gros data: URIs) → réduit fortement le payload. Serveur : rejet > 4 Mo (413), sous la limite Vercel ~4,5 Mo. |
-| Pages SPA | le HTML envoyé est le DOM **rendu** (le bookmarklet tourne dans le navigateur) → Readability OK. |
-| Timeout Vercel | images en parallèle (`Promise.allSettled`). |
-| `linkedom` | **server-only**, ne jamais l'importer dans le bundle clipper. PAS jsdom (incompat. Vercel CJS/ESM). |
+| CSP du site hôte | gérée par la fenêtre popup (same-origin) → le script injecté ne fait aucun réseau. CORS global reste **verrouillé** sur `VITE_API_URL`. |
+| Taille HTML | le **lanceur** nettoie le HTML avant `postMessage` (retire script/style/svg/iframe/médias/gros data: URIs). Serveur : rejet > 4 Mo (413), sous la limite Vercel ~4,5 Mo. |
+| Pages SPA | le HTML transmis est le DOM **rendu** (le lanceur tourne dans le navigateur) → Readability OK. |
+| Timeout Vercel | images en parallèle (`Promise.allSettled`) ; `maxDuration: 30` dans `vercel.json`. |
+| `linkedom` | **server-only**, ne jamais l'importer dans un bundle clipper. PAS jsdom (incompat. Vercel CJS/ESM). |
+| Popup bloquée | `window.open` part d'un **geste** (clic sur le bouton in-page) → rarement bloqué ; sinon le lanceur affiche un message. |
 | Adaptateur Vercel | `/api/clip` passe par `api/index.js` (reconstruction `Request`) comme le reste. |
 ```

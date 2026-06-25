@@ -21,8 +21,8 @@ export default defineConfig({
     emptyOutDir: false,         // ne pas effacer auth-bridge.html & co
     cssCodeSplit: false,
     lib: {
-      entry: 'src/clipper/main.jsx',
-      name: 'JourDocClipper',
+      entry: 'src/clipper/launcher.js',
+      name: 'JourDocClipperLauncher',
       formats: ['iife'],
       fileName: () => 'clipper.js',
     },

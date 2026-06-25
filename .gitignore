@@ -5,5 +5,6 @@ dist/
 .DS_Store
 *.log
 
-# Bundle clipper buildé par build:clipper (régénéré au build prod)
+# Bundles clipper buildés par build:clipper (régénérés au build prod)
 public/clipper.js
+public/clipper-app.js

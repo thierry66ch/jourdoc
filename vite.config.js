@@ -23,7 +23,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         // Le bundle clipper (buildé à part) et son pont sont autonomes et chargés
         // hors PWA : ne pas les précacher dans le service worker.
-        globIgnores: ['**/clipper.js', '**/clipper-auth.html'],
+        globIgnores: ['**/clipper.js', '**/clipper-app.js', '**/clipper-app.html'],
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024, // Milkdown/KaTeX : chunks > 2 MiB
       },
       manifest: {

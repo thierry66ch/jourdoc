@@ -4,6 +4,29 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 79 — 2026-06-25 — Clipper : refonte en fenêtre popup (CSP-proof)
+
+Sur les sites à CSP stricte (ex. lamaisondusureau.com : `connect-src` sans JourDoc,
+`frame-src` restreint), le panneau injecté ne pouvait pas appeler l'API (« Failed to
+fetch »), et une iframe-proxy était bloquée aussi. Refonte de l'architecture front :
+
+- **`clipper.js` devient un lanceur JS PUR (~3 Ko)** (`src/clipper/launcher.js`) :
+  bouton in-page → nettoie le HTML → `window.open(clipper-app.html)` sur JourDoc →
+  `postMessage({url,title,html})`. Aucun appel réseau (donc insensible à la CSP du site).
+- **Nouvelle fenêtre `clipper-app`** servie first-party par JourDoc
+  (`public/clipper-app.html` + `src/clipper/app.jsx` + `ClipperApp.jsx`) : reçoit la
+  page, lit le token dans `localStorage` (ou mini-login), déroule le stepper, appels
+  **same-origin** (pas de CORS, pas de CSP tierce).
+- `ClipperAuth` simplifié en mini-login same-origin. Supprimés : `ClipperOverlay.jsx`,
+  `bridge.js`, `main.jsx`, `public/clipper-auth.html`.
+- 2e config de build `vite.clipper-app.config.js` ; `build:clipper` build les deux ;
+  `globIgnores` PWA mis à jour ; bundles gitignorés.
+- **CORS global re-verrouillé** sur `VITE_API_URL` (le contournement réflexif tiers
+  n'est plus nécessaire → surface d'attaque refermée).
+- Bookmarklet **inchangé**.
+
+---
+
 ## Build 78 — 2026-06-25 — Clipper Phase 4 (rapatriement des images sur KDrive)
 
 Les images du `.md` ne sont plus en URLs externes : téléchargées et stockées sur
