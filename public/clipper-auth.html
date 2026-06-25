@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JourDoc — connexion clipper</title>
+  <style>
+    body { font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           margin: 0; padding: 28px 22px; color: #1a1a2e; background: #f5f5fb; }
+    h1 { font-size: 17px; margin: 0 0 12px; color: #6366f1; }
+    a.btn { display: inline-block; margin-top: 14px; padding: 10px 16px; background: #6366f1;
+            color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; }
+    .muted { color: #666; font-size: 13px; }
+  </style>
+</head>
+<body>
+<h1>JourDoc Clipper</h1>
+<p id="msg">Connexion…</p>
+<div id="extra"></div>
+<script>
+  // Popup d'authentification du Clipper.
+  // Contrairement à une iframe (dont le localStorage est PARTITIONNÉ par site tiers
+  // depuis Chrome 115 / Safari / Firefox), cette popup est un contexte top-level
+  // FIRST-PARTY sur l'origine JourDoc : elle voit le vrai localStorage 'token'.
+  // Elle renvoie le token à window.opener par postMessage, puis se referme.
+  var KEY = 'token';
+  var msg = document.getElementById('msg');
+  var extra = document.getElementById('extra');
+
+  function readToken() {
+    try { return localStorage.getItem(KEY); } catch (_) { return null; }
+  }
+
+  var token = readToken();
+
+  if (window.opener) {
+    window.opener.postMessage({ type: 'JD_CLIP_TOKEN', token: token }, '*');
+  }
+
+  if (token) {
+    msg.textContent = 'Connecté ✓ — fenêtre refermée automatiquement.';
+    setTimeout(function () { window.close(); }, 250);
+  } else {
+    msg.textContent = 'Tu n’es pas connecté à JourDoc dans ce navigateur.';
+    var a = document.createElement('a');
+    a.className = 'btn';
+    a.href = '/login';
+    a.textContent = 'Se connecter';
+    extra.appendChild(a);
+    var p = document.createElement('p');
+    p.className = 'muted';
+    p.textContent = 'Connecte-toi, puis relance le clipper sur ta page.';
+    extra.appendChild(p);
+  }
+</script>
+</body>
+</html>

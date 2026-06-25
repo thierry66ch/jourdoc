@@ -1,10 +1,10 @@
 // src/clipper/ClipperOverlay.jsx — overlay du clipper.
 //
-// Phase 1 (infra & auth) : récupère le JWT via le bridge et affiche le statut.
-// Les étapes workspace / classification / aperçu arriveront en phases 2-3.
+// Phase 1 (infra & auth) : récupère le JWT via une popup first-party et affiche le
+// statut. Les étapes workspace / classification / aperçu arriveront en phases 2-3.
 
-import React, { useEffect, useState } from 'react'
-import { getTokenViaBridge } from './bridge.js'
+import React, { useState } from 'react'
+import { getTokenViaPopup } from './bridge.js'
 
 const PANEL = {
   position: 'fixed', top: '20px', right: '20px', zIndex: 2147483647,
@@ -23,7 +23,11 @@ const CLOSE = {
   cursor: 'pointer', background: 'transparent', border: 0, color: '#fff',
   fontSize: '20px', lineHeight: 1, width: '32px', height: '32px',
 }
-const ROW = { display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }
+const BTN = {
+  display: 'block', width: '100%', minHeight: '48px', marginTop: '12px',
+  cursor: 'pointer', border: 0, borderRadius: '8px',
+  background: '#6366f1', color: '#fff', fontWeight: 600, fontSize: '15px',
+}
 const CODE = {
   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '12px',
   background: '#0f0f1a', padding: '8px', borderRadius: '6px', wordBreak: 'break-all',
@@ -36,20 +40,18 @@ function mask(token) {
 }
 
 export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) {
-  const [status, setStatus] = useState('loading') // loading | authed | anon
+  const [status, setStatus] = useState('idle') // idle | connecting | authed | anon | blocked
   const [token, setToken] = useState(null)
 
-  useEffect(() => {
-    let alive = true
-    // Laisse le temps à l'iframe bridge de charger avant d'interroger.
-    const id = setTimeout(async () => {
-      const t = await getTokenViaBridge()
-      if (!alive) return
-      setToken(t)
-      setStatus(t ? 'authed' : 'anon')
-    }, 400)
-    return () => { alive = false; clearTimeout(id) }
-  }, [])
+  async function connect() {
+    setStatus('connecting')
+    const { token: t, blocked } = await getTokenViaPopup(origin)
+    if (blocked) { setStatus('blocked'); return }
+    setToken(t)
+    setStatus(t ? 'authed' : 'anon')
+  }
+
+  const host = origin.replace(/^https?:\/\//, '')
 
   return (
     <div style={PANEL}>
@@ -58,7 +60,16 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
         <button style={CLOSE} onClick={onClose} aria-label="Fermer">×</button>
       </div>
       <div style={BODY}>
-        {status === 'loading' && <p style={{ margin: 0 }}>Connexion à JourDoc…</p>}
+        {status === 'idle' && (
+          <>
+            <p style={{ margin: 0 }}>Connecte le clipper à ton compte JourDoc.</p>
+            <button style={BTN} onClick={connect}>Connexion à JourDoc</button>
+          </>
+        )}
+
+        {status === 'connecting' && (
+          <p style={{ margin: 0 }}>Ouverture de la fenêtre de connexion…</p>
+        )}
 
         {status === 'authed' && (
           <>
@@ -68,11 +79,23 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
         )}
 
         {status === 'anon' && (
-          <p style={{ margin: 0 }}>
-            ⚠️ Aucun JWT trouvé.<br />
-            Connecte-toi sur <strong>{origin.replace(/^https?:\/\//, '')}</strong>,
-            puis relance le clipper. (Mini-login intégré en phase 3.)
-          </p>
+          <>
+            <p style={{ margin: 0 }}>
+              ⚠️ Pas connecté à JourDoc (ou fenêtre fermée).<br />
+              Connecte-toi sur <strong>{host}</strong> puis réessaie.
+            </p>
+            <button style={BTN} onClick={connect}>Réessayer</button>
+          </>
+        )}
+
+        {status === 'blocked' && (
+          <>
+            <p style={{ margin: 0 }}>
+              🚫 La popup a été bloquée par le navigateur.<br />
+              Autorise les fenêtres pop-up pour ce site, puis réessaie.
+            </p>
+            <button style={BTN} onClick={connect}>Réessayer</button>
+          </>
         )}
 
         <div style={{ ...CODE, marginTop: '12px' }}>
@@ -80,7 +103,7 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
           <div><strong>url</strong> : {pageUrl}</div>
         </div>
 
-        <div style={ROW}>
+        <div style={{ marginTop: '8px' }}>
           <small style={{ opacity: .6 }}>Phase 1 — infra & auth</small>
         </div>
       </div>

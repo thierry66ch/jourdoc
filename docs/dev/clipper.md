@@ -141,13 +141,13 @@ server/lib/clipper/images.js        ← download + upload KDrive + réécriture 
 server/lib/clipper/slug.js          ← slug/domaine/translittération
 
 # Frontend clipper (bundle autonome servi depuis /public)
-public/auth-bridge.html             ← pont JWT cross-origin (clé localStorage = "token")
+public/clipper-auth.html            ← popup JWT first-party (clé localStorage = "token")
 public/clipper.js                   ← bundle React injecté par le bookmarklet (buildé)
 vite.clipper.config.js              ← build dédié → public/clipper.js (hors PWA/SW)
 
 # Source du bundle clipper
-src/clipper/main.jsx                ← point d'entrée (injecte iframe + overlay)
-src/clipper/bridge.js               ← postMessage avec auth-bridge.html
+src/clipper/main.jsx                ← point d'entrée (monte l'overlay en shadow DOM)
+src/clipper/bridge.js               ← getTokenViaPopup (postMessage avec clipper-auth.html)
 src/clipper/ClipperOverlay.jsx      ← stepper 3 étapes
 src/clipper/ClipperAuth.jsx         ← mini-login si JWT absent
 src/clipper/ClipperWorkspace.jsx    ← étape 1 : sélection workspace
@@ -155,15 +155,23 @@ src/clipper/ClipperMeta.jsx         ← étape 2 : titre + objet/thème/catégor
 src/clipper/ClipperPreview.jsx      ← étape 3 : aperçu + enregistrer
 ```
 
-## Auth & bridge
+## Auth — popup first-party (PAS d'iframe)
 
 - JWT stocké dans `localStorage` sous la clé **`token`** (cf. `AuthContext.jsx`) —
   **pas** `jourdoc_token`.
-- `auth-bridge.html` tourne dans une iframe cachée sur `jourdoc.pogil.ch`, lit/écrit
-  cette clé et la transmet par `postMessage`. Sécurité assurée par la validation JWT
-  côté serveur (le bridge ne fait que lire/écrire le token).
-- Le bundle clipper récupère le token via le bridge, l'envoie en `Authorization:
-  Bearer` (ou `?t=` pour les médias).
+- ⚠️ **Pourquoi pas une iframe** (contrairement au briefing) : depuis le
+  **partitionnement du stockage tiers** (Chrome 115+, Safari ITP, Firefox ETP), le
+  `localStorage` d'une iframe embarquée sur un site tiers est isolé *par site de
+  premier niveau*. Une iframe `auth-bridge` ne voit donc **jamais** le token
+  first-party de JourDoc → renvoie toujours `null`. Architecture abandonnée.
+- ✅ **Solution retenue : popup**. `public/clipper-auth.html`, ouvert via
+  `window.open()` vers l'origine JourDoc, est un contexte **top-level first-party** :
+  il lit le vrai `localStorage`, renvoie le token à `window.opener` par `postMessage`
+  (vérif `e.origin === origin`), puis se referme.
+- Contrainte : `window.open` doit partir d'un **geste utilisateur** → l'overlay
+  expose un bouton « Connexion à JourDoc » (pas de récupération silencieuse au boot).
+- Le bundle clipper envoie ensuite le token en `Authorization: Bearer` (ou `?t=`
+  pour les médias). Sécurité finale assurée par la validation JWT côté serveur.
 
 ## Bundle & bookmarklet
 

@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 69 — 2026-06-25 — Clipper auth : iframe → popup
+
+Le pont JWT par **iframe cachée** ne fonctionne pas : le partitionnement du stockage
+tiers (Chrome 115+, Safari, Firefox) isole le `localStorage` d'une iframe embarquée
+sur un site tiers → elle ne voit jamais le token first-party de JourDoc (renvoie
+`null`). Constaté en test : « Aucun JWT trouvé » alors que connecté.
+
+Bascule sur une **popup first-party** (modèle OAuth) :
+- `public/clipper-auth.html` (remplace `auth-bridge.html`) : ouverte via `window.open`
+  vers l'origine JourDoc, contexte top-level → lit le vrai `localStorage`, renvoie le
+  token à `window.opener` (`postMessage`, vérif `e.origin`), se referme.
+- `bridge.js` : `getTokenViaPopup(origin)` (geste utilisateur requis).
+- `main.jsx` : plus d'iframe injectée ; overlay seul en shadow DOM.
+- `ClipperOverlay.jsx` : bouton « Connexion à JourDoc » + états anon/blocked/authed.
+
+---
+
 ## Build 68 — 2026-06-25 — Clipper Phase 1 (infra & auth)
 
 Démarrage du **web-clipper** JourDoc (capture de pages web → note documentation +

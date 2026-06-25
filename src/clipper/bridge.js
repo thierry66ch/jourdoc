@@ -1,58 +1,45 @@
-// src/clipper/bridge.js — communication postMessage avec auth-bridge.html
+// src/clipper/bridge.js — récupération du JWT via popup first-party.
 //
-// L'iframe bridge est hébergée sur l'origine JourDoc (jourdoc.pogil.ch en prod,
-// localhost:5173 en dev). Elle seule peut lire le JWT dans le localStorage de cette
-// origine. Ce module l'interroge depuis le bundle clipper injecté sur une page tierce.
+// Pourquoi une popup et pas une iframe : depuis le partitionnement du stockage tiers
+// (Chrome 115+, Safari, Firefox), une iframe embarquée sur un site tiers n'a accès
+// qu'à un localStorage PARTITIONNÉ — elle ne voit donc jamais le token first-party de
+// JourDoc. Une popup vers l'origine JourDoc est un contexte top-level first-party :
+// elle lit le vrai localStorage et renvoie le token par postMessage.
+//
+// ⚠️ Doit être appelé depuis un GESTE UTILISATEUR (clic) sous peine de blocage popup.
 
-const IFRAME_ID = 'jd-clipper-bridge'
-
-// Récupère le JWT via le bridge. Résout null si l'iframe ne répond pas (timeout).
-export function getTokenViaBridge(timeoutMs = 3000) {
+// Ouvre la popup d'auth et résout le token (ou null).
+// Retour : { token, blocked } — blocked=true si le navigateur a bloqué la popup.
+export function getTokenViaPopup(origin, timeoutMs = 120000) {
   return new Promise((resolve) => {
-    const iframe = document.getElementById(IFRAME_ID)
-    if (!iframe || !iframe.contentWindow) return resolve(null)
+    const w = window.open(
+      `${origin}/clipper-auth.html`,
+      'jd-clipper-auth',
+      'width=420,height=520,menubar=no,toolbar=no',
+    )
+    if (!w) return resolve({ token: null, blocked: true })
 
     let done = false
-    const finish = (value) => {
+    let pollId = 0
+    const finish = (token) => {
       if (done) return
       done = true
       window.removeEventListener('message', handler)
-      resolve(value)
+      clearInterval(pollId)
+      resolve({ token, blocked: false })
     }
 
     const handler = (e) => {
-      if (e.source !== iframe.contentWindow) return
-      if (e.data && e.data.type === 'TOKEN') finish(e.data.token ?? null)
+      if (e.origin !== origin) return // la popup est sur l'origine JourDoc
+      if (e.data && e.data.type === 'JD_CLIP_TOKEN') {
+        finish(e.data.token ?? null)
+        try { w.close() } catch (_) {}
+      }
     }
 
     window.addEventListener('message', handler)
-    iframe.contentWindow.postMessage('GET_TOKEN', '*')
+    // Si l'utilisateur ferme la popup sans se connecter → résoudre null.
+    pollId = setInterval(() => { if (w.closed) finish(null) }, 500)
     setTimeout(() => finish(null), timeoutMs)
-  })
-}
-
-// Écrit un JWT dans le localStorage JourDoc via le bridge (utilisé par le mini-login,
-// phase 3). Résout true si confirmé, false sinon.
-export function setTokenViaBridge(token, timeoutMs = 3000) {
-  return new Promise((resolve) => {
-    const iframe = document.getElementById(IFRAME_ID)
-    if (!iframe || !iframe.contentWindow) return resolve(false)
-
-    let done = false
-    const finish = (value) => {
-      if (done) return
-      done = true
-      window.removeEventListener('message', handler)
-      resolve(value)
-    }
-
-    const handler = (e) => {
-      if (e.source !== iframe.contentWindow) return
-      if (e.data && e.data.type === 'TOKEN_SET') finish(!!e.data.ok)
-    }
-
-    window.addEventListener('message', handler)
-    iframe.contentWindow.postMessage({ type: 'SET_TOKEN', token }, '*')
-    setTimeout(() => finish(false), timeoutMs)
   })
 }
