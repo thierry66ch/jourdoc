@@ -16,6 +16,7 @@ import { authMiddleware } from '../middleware/authMiddleware.js'
 import { putTextFile } from '../../packages/storage/index.js'
 import { extractArticle } from '../lib/clipper/readability.js'
 import { htmlToMarkdown } from '../lib/clipper/turndown.js'
+import { downloadAndReplaceImages } from '../lib/clipper/images.js'
 import { slugify, domainSlug } from '../lib/clipper/slug.js'
 
 const clip = new Hono()
@@ -132,8 +133,7 @@ clip.post('/', async (c) => {
   if (!article) return c.json({ error: 'Contenu illisible (Readability)' }, 422)
 
   const title = (body.title || article.title || 'Page web').trim()
-  const markdown = await htmlToMarkdown(article.content)
-  const fullMd = buildMarkdown({ title, url, article, markdown })
+  let markdown = await htmlToMarkdown(article.content)
 
   // Chemin EXTDOCS : clipper/{domaine}/{slug}.md (suffixe timestamp si collision)
   const slug = slugify(title)
@@ -142,6 +142,19 @@ clip.post('/', async (c) => {
   let full = `${dir}/${name}`
   const [clash] = await sql`SELECT id FROM jd_medias WHERE workspace_id = ${workspaceId} AND fichier = ${full}`
   if (clash) { name = `${slug}-${Date.now()}.md`; full = `${dir}/${name}` }
+
+  // Rapatriement des images dans le dossier d'assets, à côté du .md.
+  const base = name.replace(/\.md$/i, '')
+  let images = { uploadedCount: 0, failedCount: 0 }
+  try {
+    const res = await downloadAndReplaceImages(markdown, `${dir}/_${base}.assets`, `_${base}.assets`)
+    markdown = res.markdown
+    images = res
+  } catch (e) {
+    console.error('[clip] images:', e?.message) // non bloquant : on garde les URLs absolues
+  }
+
+  const fullMd = buildMarkdown({ title, url, article, markdown })
 
   try {
     await putTextFile(full, fullMd)
@@ -184,6 +197,7 @@ clip.post('/', async (c) => {
     mediaId,
     title,
     noteUrl: `/jourdoc/${workspaceId}/notes/${noteId}`,
+    images: { uploaded: images.uploadedCount, failed: images.failedCount },
   }, 201)
 })
 

@@ -4,6 +4,26 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 78 — 2026-06-25 — Clipper Phase 4 (rapatriement des images sur KDrive)
+
+Les images du `.md` ne sont plus en URLs externes : téléchargées et stockées sur
+KDrive à côté du document.
+
+- `server/lib/clipper/images.js` : `downloadAndReplaceImages` — repère `![alt](url)`,
+  télécharge (URLs absolues + data: base64, `Promise.allSettled`, timeout 8 s, max
+  8 Mo, contrôle content-type image), upload dans `_<base>.assets/` (convention
+  partagée), réécrit les chemins en relatif `_<base>.assets/img-NNN.ext`. Échec
+  (404/timeout/non-image/trop gros) → URL d'origine conservée. Détection/réécriture
+  validées en isolation.
+- `clipper.js` : réordonné (chemin/collision avant images), intègre le rapatriement
+  avant l'écriture du `.md` ; réponse enrichie `{ images: { uploaded, failed } }`.
+- `ClipperPreview.jsx` : bilan « N images rapatriées · M échecs » sur l'écran succès.
+
+Les images relatives sont servies par le proxy `relfile` existant (résolu sur
+`dirname(media.fichier)`), donc affichées/éditables dans Milkdown sans code en plus.
+
+---
+
 ## Build 77 — 2026-06-25 — Clipper : métadonnées en bloc citation (fix faux titre)
 
 Le frontmatter YAML (`---…---`) du .md s'affichait en faux gras/titre dans Milkdown :

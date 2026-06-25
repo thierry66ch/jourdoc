@@ -18,9 +18,16 @@ export default function ClipperPreview({
   }
 
   if (status === 'done' && result) {
+    const img = result.images
     return (
       <>
         <p style={{ margin: '0 0 8px' }}>✅ Note créée dans JourDoc.</p>
+        {img && (img.uploaded > 0 || img.failed > 0) && (
+          <p style={S.note}>
+            🖼 {img.uploaded} image{img.uploaded > 1 ? 's' : ''} rapatriée{img.uploaded > 1 ? 's' : ''}
+            {img.failed > 0 ? ` · ${img.failed} échec${img.failed > 1 ? 's' : ''} (URL conservée)` : ''}
+          </p>
+        )}
         <a
           href={`${origin}${result.noteUrl}`} target="_blank" rel="noreferrer"
           style={{ ...S.btn, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box', paddingTop: '13px' }}
