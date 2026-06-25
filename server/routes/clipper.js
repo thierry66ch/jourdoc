@@ -25,20 +25,25 @@ const EXTDOCS = () => (process.env.WEBDAV_PATH_EXTDOCS || '').trim()
 const extdocsRoot = (wsId) => `${EXTDOCS()}/${wsId}`
 const today = () => new Date().toISOString().slice(0, 10)
 
-function yaml(v) {
-  return `"${String(v ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-}
 function escapeHtml(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
+function frDate(iso) {
+  const [y, m, d] = iso.split('-')
+  return `${d}/${m}/${y}`
+}
 
+// En-tête de métadonnées en BLOC CITATION (cadre discret), pas en frontmatter YAML :
+// Milkdown ne parse pas le YAML `---…---` → le `---` final crée un titre setext.
+// Lignes séparées par un saut dur (deux espaces avant le \n) dans la même citation.
 function buildMarkdown({ title, url, article, markdown }) {
-  const fm = ['---', `title: ${yaml(title)}`, `source: ${yaml(url)}`]
-  if (article.byline)   fm.push(`author: ${yaml(article.byline)}`)
-  if (article.siteName) fm.push(`site: ${yaml(article.siteName)}`)
-  fm.push(`clipped: ${yaml(today())}`, '---', '')
+  const meta = [`🔗 **Source :** <${url}>`]
+  if (article.siteName) meta.push(`🌐 **Site :** ${article.siteName}`)
+  if (article.byline)   meta.push(`✍️ **Auteur :** ${article.byline}`)
+  meta.push(`🗓 **Capturé le :** ${frDate(today())}`)
+  const quote = meta.map((l) => `> ${l}`).join('  \n')
   const body = markdown || article.textContent || ''
-  return `${fm.join('\n')}\n# ${title}\n\n${body}\n`
+  return `# ${title}\n\n${quote}\n\n${body}\n`
 }
 
 // ── PUBLIC : mini-login intégré ──────────────────────────────

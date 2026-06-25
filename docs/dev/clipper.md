@@ -77,16 +77,17 @@ structurée).
 
 ### 4. Format du `.md` attaché
 
-```markdown
----
-title: "Titre de l'article"
-source: "https://example.com/url-originale"
-author: "Prénom Nom"        # si byline Readability
-site: "Nom du site"          # si siteName Readability
-clipped: "2026-06-25"
----
+⚠️ **Pas de frontmatter YAML** : Milkdown ne le parse pas → le `---` final crée un
+titre setext (faux gras). Les métadonnées sont en **bloc citation** (cadre discret),
+lignes séparées par un saut dur (deux espaces avant le `\n`) :
 
+```markdown
 # Titre de l'article
+
+> 🔗 **Source :** <https://example.com/url-originale>  
+> 🌐 **Site :** Nom du site        (si siteName Readability)
+> ✍️ **Auteur :** Prénom Nom       (si byline Readability)
+> 🗓 **Capturé le :** 25/06/2026
 
 Contenu Markdown (Turndown + plugin GFM)…
 

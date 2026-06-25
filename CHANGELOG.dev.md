@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 77 — 2026-06-25 — Clipper : métadonnées en bloc citation (fix faux titre)
+
+Le frontmatter YAML (`---…---`) du .md s'affichait en faux gras/titre dans Milkdown :
+le `---` final, précédé de texte, est interprété en **titre setext**. Remplacé par un
+**bloc citation** discret (cadre à filet), sans aucun `---` : titre H1, puis citation
+(🔗 Source cliquable, 🌐 Site, ✍️ Auteur, 🗓 Capturé le JJ/MM/AAAA), puis le contenu.
+Rendu vérifié avec marked. `buildMarkdown` réécrit, helper `yaml()` retiré.
+
+---
+
 ## Build 76 — 2026-06-25 — Clipper : génération du titre court (titre_alt)
 
 Le clipper renseigne désormais le **titre court** (`titre_alt`) dérivé des objets/
