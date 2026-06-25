@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 74 — 2026-06-25 — Clipper : gestion session expirée (401)
+
+Sur mobile, token présent mais 401 au chargement des workspaces (JWT expiré, durée
+7 j). L'overlay distingue désormais l'état `expired` : message clair + bouton
+« Se reconnecter à JourDoc » (`window.open(origin/login)`). Le 401 sur
+`/api/clip/workspaces` réinitialise le token au lieu d'afficher une erreur brute.
+
+---
+
 ## Build 73 — 2026-06-25 — Clipper : nettoyage HTML côté client (fix 413)
 
 Certaines pages dépassaient 3 Mo de HTML brut (`document.documentElement.outerHTML`)

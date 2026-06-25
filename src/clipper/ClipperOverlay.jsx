@@ -67,15 +67,23 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
     return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
   }
 
+  function relogin() {
+    // Ouvre la connexion JourDoc (token absent/expiré) puis l'utilisateur réessaie.
+    window.open(`${origin}/login`, '_blank', 'noopener')
+    setAuthState('idle')
+    setError('Reconnecte-toi dans l’onglet JourDoc, puis clique « Connexion à JourDoc ».')
+  }
+
   async function connect() {
-    setAuthState('connecting')
+    setAuthState('connecting'); setError('')
     const { token: t, blocked } = await getTokenViaPopup(origin)
     if (blocked) { setAuthState('blocked'); return }
-    if (!t) { setAuthState('idle'); setError('Pas connecté à JourDoc.'); return }
+    if (!t) { setAuthState('expired'); setError('Pas connecté à JourDoc sur ce navigateur.'); return }
     setToken(t)
     // Charge les workspaces
     try {
       const r = await fetch(`${origin}/api/clip/workspaces`, { headers: { Authorization: `Bearer ${t}` } })
+      if (r.status === 401) { setToken(null); setAuthState('expired'); setError('Session JourDoc expirée.'); return }
       if (!r.ok) throw new Error(`workspaces ${r.status}`)
       const { workspaces: ws } = await r.json()
       setWorkspaces(ws)
@@ -122,13 +130,28 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
       <div style={BODY}>
         {phase === 'auth' && (
           <>
-            {authState !== 'blocked' && <p style={{ margin: 0 }}>Connecte le clipper à ton compte JourDoc.</p>}
             {authState === 'blocked' && (
               <p style={{ margin: 0 }}>🚫 Popup bloquée. Autorise les pop-ups pour ce site, puis réessaie.</p>
             )}
+            {authState === 'expired' && (
+              <p style={{ margin: 0 }}>🔑 Session JourDoc absente ou expirée sur ce navigateur.</p>
+            )}
+            {authState !== 'blocked' && authState !== 'expired' && (
+              <p style={{ margin: 0 }}>Connecte le clipper à ton compte JourDoc.</p>
+            )}
+
             {authState === 'connecting'
               ? <p style={NOTE}>Ouverture de la fenêtre de connexion…</p>
-              : <button style={BTN} onClick={connect}>Connexion à JourDoc</button>}
+              : (
+                <>
+                  <button style={BTN} onClick={connect}>Connexion à JourDoc</button>
+                  {authState === 'expired' && (
+                    <button style={{ ...BTN, background: '#33334d' }} onClick={relogin}>
+                      Se reconnecter à JourDoc
+                    </button>
+                  )}
+                </>
+              )}
             {error && <p style={{ ...NOTE, color: '#ff9d9d' }}>{error}</p>}
           </>
         )}
