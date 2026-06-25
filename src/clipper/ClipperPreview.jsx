@@ -9,7 +9,7 @@ function names(ids, items) {
 }
 
 export default function ClipperPreview({
-  origin, pageUrl, title, wsName, taxonomy,
+  origin, pageUrl, title, titreAlt, wsName, taxonomy,
   objetIds, themeIds, docCategorieId,
   status, result, error, onBack, onClip, onClose,
 }) {
@@ -43,6 +43,7 @@ export default function ClipperPreview({
     <>
       <div style={{ ...S.list, maxHeight: 'none', padding: '10px' }}>
         <div style={recapRow}><span style={k}>Titre · </span>{title}</div>
+        {titreAlt && <div style={recapRow}><span style={k}>Titre court · </span>{titreAlt}</div>}
         <div style={recapRow}><span style={k}>Workspace · </span>{wsName}</div>
         {cat && <div style={recapRow}><span style={k}>Catégorie · </span>{cat}</div>}
         {objs.length > 0 && <div style={recapRow}><span style={k}>Objets · </span>{objs.join(', ')}</div>}

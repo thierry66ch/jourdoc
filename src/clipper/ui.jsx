@@ -60,6 +60,17 @@ export function Btn({ children, ghost, style, ...p }) {
   return <button style={{ ...(ghost ? S.btnGhost : S.btn), ...style }} {...p}>{children}</button>
 }
 
+// Titre court compact (titre_alt) — même règle que l'auto-titre de NoteForm :
+// noms courts, « objets → thèmes », cap à 3 par groupe (au-delà : 3 premiers + « … »).
+export function buildTitreAlt(selectedObjets, selectedThemes) {
+  const cap = (names) =>
+    names.length === 0 ? '' : names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')}…`
+  return [
+    cap(selectedObjets.map((o) => o.nom_court || o.nom.slice(0, 3))),
+    cap(selectedThemes.map((t) => t.nom_court || t.nom.slice(0, 4))),
+  ].filter(Boolean).join(' → ')
+}
+
 // Aplati une liste hiérarchique (parent_id) en ordre d'arbre avec profondeur.
 export function ordered(items) {
   const byParent = new Map()

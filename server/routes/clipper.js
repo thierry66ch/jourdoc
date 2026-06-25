@@ -160,9 +160,10 @@ clip.post('/', async (c) => {
   const docCategorieId = body.doc_categorie_id ?? null
   const contenu = article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : null
 
+  const titreAlt = (body.titre_alt || '').trim() || null
   const [note] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, theme_id, doc_categorie_id, titre, contenu, date, source_url)
-    VALUES (${workspaceId}, 'documentation', ${theme_ids[0] ?? null}, ${docCategorieId}, ${title}, ${contenu}, ${today()}, ${url})
+    INSERT INTO jd_notes (workspace_id, type, theme_id, doc_categorie_id, titre, titre_alt, contenu, date, source_url)
+    VALUES (${workspaceId}, 'documentation', ${theme_ids[0] ?? null}, ${docCategorieId}, ${title}, ${titreAlt}, ${contenu}, ${today()}, ${url})
     RETURNING id
   `
   const noteId = note.id

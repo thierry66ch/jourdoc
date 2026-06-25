@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 76 — 2026-06-25 — Clipper : génération du titre court (titre_alt)
+
+Le clipper renseigne désormais le **titre court** (`titre_alt`) dérivé des objets/
+thèmes sélectionnés, sans toucher au titre principal (= titre de l'article). Même
+règle que l'auto-titre de NoteForm : noms courts, « objets → thèmes », cap à 3 par
+groupe (au-delà : 3 premiers + « … »). Helper `buildTitreAlt` dans `ui.jsx`, affiché
+dans l'aperçu et stocké via `POST /api/clip` (colonne `jd_notes.titre_alt`).
+
+---
+
 ## Build 75 — 2026-06-25 — Clipper Phase 3 (stepper + classification + mini-login)
 
 UI complète en stepper 3 étapes et classification métier.

@@ -5,7 +5,7 @@
 // capture sous /api/clip/* (CORS tiers). Cf. docs/dev/clipper.md.
 
 import React, { useState } from 'react'
-import { authHeader, S } from './ui.jsx'
+import { authHeader, buildTitreAlt, S } from './ui.jsx'
 import ClipperAuth from './ClipperAuth.jsx'
 import ClipperWorkspace from './ClipperWorkspace.jsx'
 import ClipperMeta from './ClipperMeta.jsx'
@@ -86,6 +86,11 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
     }
   }
 
+  // Titre court (titre_alt) dérivé des objets/thèmes sélectionnés, ordre taxonomie.
+  const selObjets = (taxonomy.objets || []).filter((o) => objetIds.includes(o.id))
+  const selThemes = (taxonomy.themes || []).filter((t) => themeIds.includes(t.id))
+  const titreAlt = buildTitreAlt(selObjets, selThemes)
+
   async function doClip() {
     setClipStatus('clipping'); setError('')
     try {
@@ -95,6 +100,7 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
           url: pageUrl,
           html: cleanPageHtml(),
           title: title.trim() || pageTitle,
+          titre_alt: titreAlt || null,
           workspaceId: wsId,
           objet_ids: objetIds,
           theme_ids: themeIds,
@@ -148,7 +154,7 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
 
         {!loading && step === 'preview' && (
           <ClipperPreview
-            origin={origin} pageUrl={pageUrl} title={title} wsName={wsName} taxonomy={taxonomy}
+            origin={origin} pageUrl={pageUrl} title={title} titreAlt={titreAlt} wsName={wsName} taxonomy={taxonomy}
             objetIds={objetIds} themeIds={themeIds} docCategorieId={docCategorieId}
             status={clipStatus} result={result} error={error}
             onBack={() => { setClipStatus('idle'); setStep('meta') }}
