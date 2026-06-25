@@ -37,6 +37,21 @@ const FIELD = {
 const LABEL = { display: 'block', marginTop: '10px', fontSize: '12px', opacity: .8 }
 const NOTE = { fontSize: '12px', opacity: .6, marginTop: '10px' }
 
+// Sérialise le HTML de la page en retirant tout ce dont Readability n'a pas besoin
+// (scripts, styles, SVG inline, médias, iframes, notre overlay, gros data: URIs).
+// Réduit massivement la taille pour rester sous la limite serveur / Vercel.
+function cleanPageHtml() {
+  const root = document.documentElement.cloneNode(true)
+  root.querySelectorAll(
+    'script,style,noscript,svg,link,template,iframe,canvas,video,audio,object,embed,#jd-clipper-root'
+  ).forEach((el) => el.remove())
+  // Retire les images base64 volumineuses (rapatriées en phase 4 si besoin).
+  root.querySelectorAll('img[src^="data:"]').forEach((img) => {
+    if ((img.getAttribute('src') || '').length > 5000) img.removeAttribute('src')
+  })
+  return `<!DOCTYPE html>${root.outerHTML}`
+}
+
 export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) {
   // auth | ready | clipping | done | error
   const [phase, setPhase] = useState('auth')
@@ -81,7 +96,7 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
         headers: authHeaders(),
         body: JSON.stringify({
           url: pageUrl,
-          html: document.documentElement.outerHTML,
+          html: cleanPageHtml(),
           title: title.trim() || pageTitle,
           workspaceId: wsId,
         }),

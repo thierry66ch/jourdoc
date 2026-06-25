@@ -222,7 +222,7 @@ javascript:(function(){
 | Sujet | Détail |
 |---|---|
 | CORS `/api/clip` | appelé depuis domaines tiers ; CORS dédié `*`, ne pas laisser le CORS global l'écraser ; gérer `OPTIONS`. |
-| Taille HTML | rejeter > 3 Mo (413). |
+| Taille HTML | l'overlay **nettoie** le HTML avant envoi (retire script/style/svg/iframe/médias/gros data: URIs) → réduit fortement le payload. Serveur : rejet > 4 Mo (413), sous la limite Vercel ~4,5 Mo. |
 | Pages SPA | le HTML envoyé est le DOM **rendu** (le bookmarklet tourne dans le navigateur) → Readability OK. |
 | Timeout Vercel | images en parallèle (`Promise.allSettled`). |
 | `linkedom` | **server-only**, ne jamais l'importer dans le bundle clipper. PAS jsdom (incompat. Vercel CJS/ESM). |

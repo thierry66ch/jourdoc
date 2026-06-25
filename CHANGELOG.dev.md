@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 73 — 2026-06-25 — Clipper : nettoyage HTML côté client (fix 413)
+
+Certaines pages dépassaient 3 Mo de HTML brut (`document.documentElement.outerHTML`)
+→ « HTML trop volumineux ». L'overlay **nettoie** désormais le HTML avant envoi
+(`cleanPageHtml` : retire script/style/svg/link/iframe/canvas/video/audio/object/embed,
+notre propre overlay, et les `img` data: URIs > 5 Ko). Readability n'a pas besoin de
+ces éléments → payload fortement réduit. Plafond serveur relevé à 4 Mo (sous la limite
+Vercel ~4,5 Mo).
+
+---
+
 ## Build 72 — 2026-06-25 — Clipper : extraction jsdom → linkedom (fix Vercel)
 
 `POST /api/clip` échouait en prod : `require() of ES Module @exodus/bytes … not

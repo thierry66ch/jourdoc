@@ -18,7 +18,7 @@ import { slugify, domainSlug } from '../lib/clipper/slug.js'
 
 const clip = new Hono()
 
-const MAX_HTML = 3 * 1024 * 1024 // 3 Mo
+const MAX_HTML = 4 * 1024 * 1024 // 4 Mo (sous la limite de payload Vercel ~4,5 Mo)
 const EXTDOCS = () => (process.env.WEBDAV_PATH_EXTDOCS || '').trim()
 const extdocsRoot = (wsId) => `${EXTDOCS()}/${wsId}`
 const today = () => new Date().toISOString().slice(0, 10)
