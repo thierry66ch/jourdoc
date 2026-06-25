@@ -326,6 +326,13 @@ Fonctionnalités opérationnelles :
   callouts GitHub, surlignage couleur, math KaTeX éditable, tableaux, listes à cocher,
   images collées → assets externes, mode source). Navigateur de fichiers externes (créer/
   lier). Import de bundles Notion (zip imbriqués). Voir `docs/dev/jourdoc.md` §Médias.
+- **Web-clipper** (capture d'une page web → note documentation + `.md` joint). Bookmarklet
+  (réglages workspace) → lanceur JS pur injecté → **fenêtre `clipper-app` first-party**
+  (CSP-proof, tout en same-origin) : auth (token localStorage ou mini-login) → workspace →
+  classification (objet/thème/catégorie) → aperçu → capture. Serveur : Readability
+  (**linkedom**, pas jsdom) + Turndown → `.md` (en-tête en bloc citation, **pas** de
+  frontmatter YAML) + images rapatriées sur KDrive sous `external/{wsId}/clipper/{domaine}/`.
+  Détection « déjà clippé » (`source_url`). Routes `/api/clip/*`. Voir `docs/dev/clipper.md`.
 
 Workspaces existants :
 
