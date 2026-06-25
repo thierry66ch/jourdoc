@@ -135,7 +135,7 @@ Réponse : `{ noteId, noteUrl, mediaId, uploadedImages, failedImages }`.
 ```
 # Backend (JavaScript, ESM — pas de TypeScript)
 server/routes/clipper.js            ← endpoint POST /api/clip (+ CORS dédié)
-server/lib/clipper/readability.js   ← @mozilla/readability + jsdom (server-only)
+server/lib/clipper/readability.js   ← @mozilla/readability + linkedom (server-only)
 server/lib/clipper/turndown.js      ← HTML → Markdown (turndown + turndown-plugin-gfm)
 server/lib/clipper/images.js        ← download + upload KDrive + réécriture chemins
 server/lib/clipper/slug.js          ← slug/domaine/translittération
@@ -199,8 +199,11 @@ javascript:(function(){
 
 - **Déjà présentes** : `turndown`, `turndown-plugin-gfm`, `webdav`, `react`,
   `react-dom`, `hono`, `jsonwebtoken`.
-- **À ajouter** : `@mozilla/readability`, `jsdom` (server-only, ~30 Mo, aucun impact
-  sur le bundle front car jamais importés côté client).
+- **À ajouter** : `@mozilla/readability`, `linkedom` (server-only, léger).
+- ⚠️ **PAS `jsdom`** : sur le runtime Node CJS de Vercel, jsdom échoue avec
+  `require() of ES Module … @exodus/bytes … not supported` (via `html-encoding-sniffer`).
+  On utilise **`linkedom`** (DOM léger compatible Readability). linkedom ne renseigne
+  pas `baseURI` → on absolutise nous-mêmes les `href`/`src` (cf. `readability.js`).
 
 ## Ordre de livraison
 
@@ -222,6 +225,6 @@ javascript:(function(){
 | Taille HTML | rejeter > 3 Mo (413). |
 | Pages SPA | le HTML envoyé est le DOM **rendu** (le bookmarklet tourne dans le navigateur) → Readability OK. |
 | Timeout Vercel | images en parallèle (`Promise.allSettled`). |
-| `jsdom` | **server-only**, ne jamais l'importer dans le bundle clipper. |
+| `linkedom` | **server-only**, ne jamais l'importer dans le bundle clipper. PAS jsdom (incompat. Vercel CJS/ESM). |
 | Adaptateur Vercel | `/api/clip` passe par `api/index.js` (reconstruction `Request`) comme le reste. |
 ```

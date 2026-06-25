@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 72 — 2026-06-25 — Clipper : extraction jsdom → linkedom (fix Vercel)
+
+`POST /api/clip` échouait en prod : `require() of ES Module @exodus/bytes … not
+supported` — jsdom (via `html-encoding-sniffer`) incompatible avec le runtime Node CJS
+de Vercel. Bascule de l'extraction sur **`linkedom`** (DOM léger, serverless-friendly,
+compatible @mozilla/readability). jsdom désinstallé.
+
+- `readability.js` : `parseHTML` (linkedom) au lieu de `JSDOM`. linkedom ne renseigne
+  pas `baseURI` → absolutisation maison des `href`/`src` via un élément conteneur
+  (`innerHTML` + querySelectorAll), car `parseHTML('<body>…</body>')` ne reparente pas
+  le fragment dans linkedom. Pipeline revalidé en isolation (liens/images absolus,
+  tables/listes/citations GFM).
+- Détail d'erreur d'extraction remonté au client (debug) — conservé.
+
+---
+
 ## Build 70 — 2026-06-25 — Clipper Phase 2 (endpoint /api/clip, sans images)
 
 Backend de capture + flux e2e minimal dans l'overlay.
