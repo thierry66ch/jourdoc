@@ -83,8 +83,8 @@ clip.post('/', async (c) => {
   try {
     article = await extractArticle(html, url)
   } catch (e) {
-    console.error('[clip] readability:', e?.message)
-    return c.json({ error: 'Extraction échouée' }, 500)
+    console.error('[clip] readability:', e?.stack || e?.message)
+    return c.json({ error: 'Extraction échouée', detail: String(e?.message || e).slice(0, 300) }, 500)
   }
   if (!article) return c.json({ error: 'Contenu illisible (Readability)' }, 422)
 

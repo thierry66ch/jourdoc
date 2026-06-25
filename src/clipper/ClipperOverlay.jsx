@@ -87,7 +87,7 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
         }),
       })
       const data = await r.json().catch(() => ({}))
-      if (!r.ok) throw new Error(data.error || `Erreur ${r.status}`)
+      if (!r.ok) throw new Error([data.error, data.detail].filter(Boolean).join(' — ') || `Erreur ${r.status}`)
       setResult(data)
       setPhase('done')
     } catch (e) {
