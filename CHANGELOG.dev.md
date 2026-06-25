@@ -4,6 +4,27 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 70 — 2026-06-25 — Clipper Phase 2 (endpoint /api/clip, sans images)
+
+Backend de capture + flux e2e minimal dans l'overlay.
+
+- `server/lib/clipper/{readability.js,turndown.js,slug.js}` : extraction Readability
+  (jsdom, server-only, imports dynamiques) → Markdown (turndown + GFM). Liens/images
+  relatifs résolus en absolus. Slug sans accents + slug de domaine. Validé en isolation.
+- `server/routes/clipper.js` monté sur `/api/clip` :
+  - `GET /api/clip/workspaces` (liste les workspaces JourDoc de l'utilisateur),
+  - `POST /api/clip` : extrait → `.md` (frontmatter) → `putTextFile` sous
+    `EXTDOCS/{wsId}/clipper/{domaine}/{slug}.md` → média `markdown`/`externe` +
+    note `documentation` (contenu = excerpt) + liaison `jd_note_media`. Cap HTML 3 Mo.
+- `app.js` : CORS global rendu **réflexif pour `/api/clip/*`** (origine tierce
+  autorisée, préflight OK) ; les autres routes restent verrouillées sur VITE_API_URL.
+- `ClipperOverlay.jsx` : après auth → choix workspace + titre + « Clipper cette page »
+  → POST /api/clip → lien « Ouvrir la note ». (Classification fine = phase 3.)
+
+Images encore en URLs absolues dans le `.md` (phase 4).
+
+---
+
 ## Build 69 — 2026-06-25 — Clipper auth : iframe → popup
 
 Le pont JWT par **iframe cachée** ne fonctionne pas : le partitionnement du stockage

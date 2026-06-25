@@ -12,6 +12,7 @@ import adminRoutes   from './routes/admin.js'
 import portalRoutes  from './routes/portal.js'
 import jourdocRoutes from './routes/jourdoc.js'
 import inboxRoutes   from './routes/inbox.js'
+import clipperRoutes from './routes/clipper.js'
 
 // Rate limiting en mémoire (par instance — acceptable pour usage personnel)
 const loginAttempts = new Map()
@@ -22,7 +23,14 @@ const app = new Hono()
 
 app.use('*', logger())
 app.use('*', cors({
-  origin: process.env.VITE_API_URL || '*',
+  // Le clipper est appelé depuis des domaines tiers arbitraires (bookmarklet) :
+  // on réfléchit l'origine pour /api/clip/*. Les autres routes restent verrouillées
+  // sur l'origine JourDoc. Sécurité réelle = validation JWT côté serveur.
+  origin: (origin, c) => {
+    const p = c.req.path
+    if (p === '/api/clip' || p.startsWith('/api/clip/')) return origin || '*'
+    return process.env.VITE_API_URL || '*'
+  },
   credentials: true,
 }))
 
@@ -37,6 +45,7 @@ app.route('/api/admin',   adminRoutes)
 app.route('/api/me',      portalRoutes)
 app.route('/api/jourdoc', jourdocRoutes)
 app.route('/api/jourdoc', inboxRoutes)
+app.route('/api/clip',    clipperRoutes)
 
 // ─── Manifest PWA ────────────────────────────────────────────────────────────
 

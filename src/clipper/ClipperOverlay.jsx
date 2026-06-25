@@ -1,7 +1,8 @@
 // src/clipper/ClipperOverlay.jsx — overlay du clipper.
 //
-// Phase 1 (infra & auth) : récupère le JWT via une popup first-party et affiche le
-// statut. Les étapes workspace / classification / aperçu arriveront en phases 2-3.
+// Phase 2 : auth popup (phase 1) + flux e2e minimal — choix du workspace, titre,
+// puis POST /api/clip (Readability + Turndown côté serveur, sans images encore).
+// La classification fine (objet/thème/catégorie) et le stepper arrivent en phase 3.
 
 import React, { useState } from 'react'
 import { getTokenViaPopup } from './bridge.js'
@@ -28,27 +29,71 @@ const BTN = {
   cursor: 'pointer', border: 0, borderRadius: '8px',
   background: '#6366f1', color: '#fff', fontWeight: 600, fontSize: '15px',
 }
-const CODE = {
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '12px',
-  background: '#0f0f1a', padding: '8px', borderRadius: '6px', wordBreak: 'break-all',
+const FIELD = {
+  display: 'block', width: '100%', boxSizing: 'border-box', marginTop: '6px',
+  padding: '10px', borderRadius: '8px', border: '1px solid #33334d',
+  background: '#0f0f1a', color: '#e6e6f0', fontSize: '14px',
 }
-
-function mask(token) {
-  if (!token) return ''
-  if (token.length <= 16) return token
-  return `${token.slice(0, 8)}…${token.slice(-8)}`
-}
+const LABEL = { display: 'block', marginTop: '10px', fontSize: '12px', opacity: .8 }
+const NOTE = { fontSize: '12px', opacity: .6, marginTop: '10px' }
 
 export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) {
-  const [status, setStatus] = useState('idle') // idle | connecting | authed | anon | blocked
+  // auth | ready | clipping | done | error
+  const [phase, setPhase] = useState('auth')
+  const [authState, setAuthState] = useState('idle') // idle | connecting | blocked
   const [token, setToken] = useState(null)
+  const [workspaces, setWorkspaces] = useState([])
+  const [wsId, setWsId] = useState(null)
+  const [title, setTitle] = useState(pageTitle || '')
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+
+  function authHeaders() {
+    return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+  }
 
   async function connect() {
-    setStatus('connecting')
+    setAuthState('connecting')
     const { token: t, blocked } = await getTokenViaPopup(origin)
-    if (blocked) { setStatus('blocked'); return }
+    if (blocked) { setAuthState('blocked'); return }
+    if (!t) { setAuthState('idle'); setError('Pas connecté à JourDoc.'); return }
     setToken(t)
-    setStatus(t ? 'authed' : 'anon')
+    // Charge les workspaces
+    try {
+      const r = await fetch(`${origin}/api/clip/workspaces`, { headers: { Authorization: `Bearer ${t}` } })
+      if (!r.ok) throw new Error(`workspaces ${r.status}`)
+      const { workspaces: ws } = await r.json()
+      setWorkspaces(ws)
+      setWsId(ws[0]?.id ?? null)
+      setPhase('ready')
+    } catch (e) {
+      setError(`Chargement des workspaces impossible (${e.message}).`)
+      setAuthState('idle')
+    }
+  }
+
+  async function doClip() {
+    if (!wsId) { setError('Choisis un workspace.'); return }
+    setPhase('clipping'); setError('')
+    try {
+      const r = await fetch(`${origin}/api/clip`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          url: pageUrl,
+          html: document.documentElement.outerHTML,
+          title: title.trim() || pageTitle,
+          workspaceId: wsId,
+        }),
+      })
+      const data = await r.json().catch(() => ({}))
+      if (!r.ok) throw new Error(data.error || `Erreur ${r.status}`)
+      setResult(data)
+      setPhase('done')
+    } catch (e) {
+      setError(e.message)
+      setPhase('error')
+    }
   }
 
   const host = origin.replace(/^https?:\/\//, '')
@@ -60,52 +105,61 @@ export default function ClipperOverlay({ origin, pageUrl, pageTitle, onClose }) 
         <button style={CLOSE} onClick={onClose} aria-label="Fermer">×</button>
       </div>
       <div style={BODY}>
-        {status === 'idle' && (
+        {phase === 'auth' && (
           <>
-            <p style={{ margin: 0 }}>Connecte le clipper à ton compte JourDoc.</p>
-            <button style={BTN} onClick={connect}>Connexion à JourDoc</button>
+            {authState !== 'blocked' && <p style={{ margin: 0 }}>Connecte le clipper à ton compte JourDoc.</p>}
+            {authState === 'blocked' && (
+              <p style={{ margin: 0 }}>🚫 Popup bloquée. Autorise les pop-ups pour ce site, puis réessaie.</p>
+            )}
+            {authState === 'connecting'
+              ? <p style={NOTE}>Ouverture de la fenêtre de connexion…</p>
+              : <button style={BTN} onClick={connect}>Connexion à JourDoc</button>}
+            {error && <p style={{ ...NOTE, color: '#ff9d9d' }}>{error}</p>}
           </>
         )}
 
-        {status === 'connecting' && (
-          <p style={{ margin: 0 }}>Ouverture de la fenêtre de connexion…</p>
-        )}
-
-        {status === 'authed' && (
+        {phase === 'ready' && (
           <>
-            <p style={{ margin: '0 0 4px' }}>✅ Authentifié sur JourDoc.</p>
-            <div style={CODE}>token : {mask(token)}</div>
+            <label style={LABEL}>Workspace</label>
+            <select style={FIELD} value={wsId ?? ''} onChange={(e) => setWsId(Number(e.target.value))}>
+              {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+
+            <label style={LABEL}>Titre de la note</label>
+            <input style={FIELD} value={title} onChange={(e) => setTitle(e.target.value)} />
+
+            <button style={BTN} onClick={doClip}>Clipper cette page</button>
+            <p style={NOTE}>Documentation + .md joint (images en phase 4).</p>
+            {error && <p style={{ ...NOTE, color: '#ff9d9d' }}>{error}</p>}
           </>
         )}
 
-        {status === 'anon' && (
+        {phase === 'clipping' && (
+          <p style={{ margin: 0 }}>⏳ Extraction et enregistrement… (5–15 s)</p>
+        )}
+
+        {phase === 'done' && result && (
           <>
-            <p style={{ margin: 0 }}>
-              ⚠️ Pas connecté à JourDoc (ou fenêtre fermée).<br />
-              Connecte-toi sur <strong>{host}</strong> puis réessaie.
-            </p>
-            <button style={BTN} onClick={connect}>Réessayer</button>
+            <p style={{ margin: '0 0 8px' }}>✅ Note créée dans JourDoc.</p>
+            <a
+              href={`${origin}${result.noteUrl}`}
+              target="_blank" rel="noreferrer"
+              style={{ ...BTN, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box', paddingTop: '13px' }}
+            >
+              Ouvrir la note
+            </a>
+            <button style={{ ...BTN, background: '#33334d' }} onClick={onClose}>Fermer</button>
           </>
         )}
 
-        {status === 'blocked' && (
+        {phase === 'error' && (
           <>
-            <p style={{ margin: 0 }}>
-              🚫 La popup a été bloquée par le navigateur.<br />
-              Autorise les fenêtres pop-up pour ce site, puis réessaie.
-            </p>
-            <button style={BTN} onClick={connect}>Réessayer</button>
+            <p style={{ margin: 0, color: '#ff9d9d' }}>❌ {error}</p>
+            <button style={BTN} onClick={() => setPhase('ready')}>Réessayer</button>
           </>
         )}
 
-        <div style={{ ...CODE, marginTop: '12px' }}>
-          <div><strong>page</strong> : {pageTitle || '(sans titre)'}</div>
-          <div><strong>url</strong> : {pageUrl}</div>
-        </div>
-
-        <div style={{ marginTop: '8px' }}>
-          <small style={{ opacity: .6 }}>Phase 1 — infra & auth</small>
-        </div>
+        <div style={NOTE}>{host} · Phase 2</div>
       </div>
     </div>
   )
