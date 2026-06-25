@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
@@ -231,6 +231,21 @@ export default function WorkspaceManager() {
 
   const isOwner = myRole === 'owner'
 
+  // ── Web-clipper : bookmarklet à glisser dans les favoris ──
+  const clipperOrigin = window.location.origin
+  const BOOKMARKLET =
+    `javascript:(function(){if(document.getElementById('jd-clipper-root'))return;` +
+    `var s=document.createElement('script');s.src='${clipperOrigin}/clipper.js?t='+Date.now();` +
+    `document.body.appendChild(s);})();`
+  const bookmarkletRef = useRef(null)
+  const [bmCopied, setBmCopied] = useState(false)
+  // React neutralise les href "javascript:" → on pose l'attribut à la main (drag-to-favoris).
+  useEffect(() => { bookmarkletRef.current?.setAttribute('href', BOOKMARKLET) }, [BOOKMARKLET])
+  async function copyBookmarklet() {
+    try { await navigator.clipboard.writeText(BOOKMARKLET); setBmCopied(true); setTimeout(() => setBmCopied(false), 2000) }
+    catch { /* clipboard indisponible */ }
+  }
+
   async function saveName() {
     if (!editName.trim() || editName === ws?.name) { setEditingName(false); return }
     const res = await fetch(`/api/jourdoc/${wsId}`, {
@@ -435,6 +450,33 @@ export default function WorkspaceManager() {
           onClick={() => navigate(`/jourdoc/${wsId}/elements`)}>
           🔩 Gérer les éléments →
         </button>
+      </section>
+
+      {/* ── Web-clipper ── */}
+      <section className="ws-manager__section">
+        <h3 className="ws-manager__title">🔖 Web-clipper</h3>
+        <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.75rem' }}>
+          Capture n'importe quelle page web comme note de <strong>documentation</strong>, avec
+          son contenu converti en Markdown et joint à la note. Une fenêtre JourDoc s'ouvre pour
+          choisir le workspace et la classification.
+        </p>
+        <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.75rem' }}>
+          <strong>Installation :</strong> glisse le bouton ci-dessous dans ta barre de favoris,
+          puis clique-le sur la page à capturer.
+        </p>
+        <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <a ref={bookmarkletRef} className="btn btn-primary" draggable="true"
+            style={{ textDecoration: 'none', cursor: 'grab' }}
+            onClick={e => e.preventDefault()} title="Glisse-moi dans ta barre de favoris">
+            📎 JourDoc Clipper
+          </a>
+          <button className="btn btn-secondary" style={{ fontSize: '.8rem' }} onClick={copyBookmarklet}>
+            {bmCopied ? '✓ Copié' : 'Copier le code'}
+          </button>
+        </div>
+        <p style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: '.6rem' }}>
+          Sur mobile (Android) : copie le code, crée un favori, puis remplace son adresse par ce code.
+        </p>
       </section>
 
       {/* ── Export ── */}

@@ -111,6 +111,7 @@ bénéficier du CORS réflexif (cf. § Auth) :
 | `POST` | `/api/clip/login` | publique | mini-login (identifiant+mdp → JWT), même logique que `/api/auth/login` |
 | `GET` | `/api/clip/workspaces` | JWT | workspaces JourDoc de l'utilisateur |
 | `GET` | `/api/clip/ws/:wsId/taxonomy` | JWT | `{ objets, themes, docCategories }` du workspace |
+| `GET` | `/api/clip/ws/:wsId/exists?url=` | JWT | notes du workspace au même `source_url` (avertissement « déjà clippé ») |
 | `POST` | `/api/clip` | JWT | capture (extrait → .md → note) |
 
 > `/api/clip/login` doit être déclaré **avant** `clip.use('*', authMiddleware)` pour

@@ -41,6 +41,7 @@ export default function ClipperApp() {
   const [clipStatus, setClipStatus] = useState('idle')    // idle | clipping | done | error
   const [result, setResult] = useState(null)
   const [authNote, setAuthNote] = useState('')
+  const [existing, setExisting] = useState([])            // notes déjà clippées (même URL)
 
   // Réception de la page depuis le lanceur + handshake "prêt".
   useEffect(() => {
@@ -99,6 +100,17 @@ export default function ClipperApp() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Passe à l'aperçu et vérifie si l'URL a déjà été clippée dans ce workspace.
+  async function goPreview() {
+    setStep('preview')
+    setExisting([])
+    if (!payload?.url) return
+    try {
+      const { existing: ex } = await api(`/api/clip/ws/${wsId}/exists?url=${encodeURIComponent(payload.url)}`)
+      setExisting(ex || [])
+    } catch { /* non bloquant */ }
   }
 
   const selObjets = (taxonomy.objets || []).filter((o) => objetIds.includes(o.id))
@@ -163,15 +175,15 @@ export default function ClipperApp() {
             themeIds={themeIds} setThemeIds={setThemeIds}
             docCategorieId={docCategorieId} setDocCategorieId={setDocCategorieId}
             onBack={() => setStep('workspace')}
-            onNext={() => setStep('preview')}
+            onNext={goPreview}
           />
         )}
 
         {authed && !loading && step === 'preview' && (
           <ClipperPreview
-            origin={window.location.origin}
+            origin={window.location.origin} wsId={wsId}
             pageUrl={payload?.url || ''} title={title} titreAlt={titreAlt} wsName={wsName} taxonomy={taxonomy}
-            objetIds={objetIds} themeIds={themeIds} docCategorieId={docCategorieId}
+            objetIds={objetIds} themeIds={themeIds} docCategorieId={docCategorieId} existing={existing}
             status={clipStatus} result={result} error={error}
             onBack={() => { setClipStatus('idle'); setStep('meta') }}
             onClip={doClip} onClose={() => window.close()}

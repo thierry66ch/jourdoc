@@ -9,8 +9,8 @@ function names(ids, items) {
 }
 
 export default function ClipperPreview({
-  origin, pageUrl, title, titreAlt, wsName, taxonomy,
-  objetIds, themeIds, docCategorieId,
+  origin, wsId, pageUrl, title, titreAlt, wsName, taxonomy,
+  objetIds, themeIds, docCategorieId, existing = [],
   status, result, error, onBack, onClip, onClose,
 }) {
   if (status === 'clipping') {
@@ -48,6 +48,23 @@ export default function ClipperPreview({
 
   return (
     <>
+      {existing.length > 0 && (
+        <div style={{
+          background: 'rgba(245,158,11,.14)', border: '1px solid #f59e0b',
+          borderRadius: '8px', padding: '8px 10px', fontSize: '12.5px', marginBottom: '10px',
+        }}>
+          ⚠️ Déjà clippé dans ce workspace ({existing.length}) :{' '}
+          {existing.slice(0, 3).map((n, i) => (
+            <span key={n.id}>
+              {i > 0 && ', '}
+              <a href={`${origin}/jourdoc/${wsId}/notes/${n.id}`} target="_blank" rel="noreferrer"
+                style={{ color: '#fbbf24' }}>{n.titre || `note #${n.id}`}</a>
+            </span>
+          ))}
+          . Tu peux clipper quand même.
+        </div>
+      )}
+
       <div style={{ ...S.list, maxHeight: 'none', padding: '10px' }}>
         <div style={recapRow}><span style={k}>Titre · </span>{title}</div>
         {titreAlt && <div style={recapRow}><span style={k}>Titre court · </span>{titreAlt}</div>}

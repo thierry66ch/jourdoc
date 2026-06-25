@@ -4,6 +4,19 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 80 — 2026-06-25 — Clipper Phase 5 (finitions)
+
+- **Bookmarklet dans les réglages** (`WorkspaceManager.jsx`, section « 🔖 Web-clipper ») :
+  lien à glisser dans les favoris (href `javascript:` posé via `ref.setAttribute` car
+  React neutralise ces href) + bouton « Copier le code » (utile sur mobile).
+- **Détection « déjà clippé »** : `GET /api/clip/ws/:wsId/exists?url=` retourne les
+  notes du workspace ayant le même `source_url`. La fenêtre vérifie à l'aperçu et
+  affiche un avertissement (liens vers les notes existantes), sans bloquer.
+- **Retrait du `detail` d'erreur de debug** : l'extraction échouée ne renvoie plus le
+  message interne au client (conservé en logs serveur).
+
+---
+
 ## Build 79 — 2026-06-25 — Clipper : refonte en fenêtre popup (CSP-proof)
 
 Sur les sites à CSP stricte (ex. lamaisondusureau.com : `connect-src` sans JourDoc,

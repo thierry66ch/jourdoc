@@ -99,6 +99,22 @@ clip.get('/ws/:wsId/taxonomy', async (c) => {
   return c.json({ objets, themes, docCategories })
 })
 
+// Notes déjà clippées avec la même URL source dans ce workspace (avertissement).
+clip.get('/ws/:wsId/exists', async (c) => {
+  const userId = c.get('userId')
+  const wsId = Number(c.req.param('wsId'))
+  const url = c.req.query('url')
+  if (!url) return c.json({ existing: [] })
+  const [ok] = await sql`SELECT 1 FROM user_workspace_access WHERE user_id = ${userId} AND workspace_id = ${wsId}`
+  if (!ok) return c.json({ error: 'Forbidden' }, 403)
+  const existing = await sql`
+    SELECT id, titre, date FROM jd_notes
+    WHERE workspace_id = ${wsId} AND source_url = ${url}
+    ORDER BY created_at DESC
+  `
+  return c.json({ existing: existing.map((n) => ({ ...n, date: n.date ? String(n.date).slice(0, 10) : null })) })
+})
+
 // Capture : extrait → markdown → upload EXTDOCS → note documentation + liaison.
 clip.post('/', async (c) => {
   const userId = c.get('userId')
@@ -127,8 +143,8 @@ clip.post('/', async (c) => {
   try {
     article = await extractArticle(html, url)
   } catch (e) {
-    console.error('[clip] readability:', e?.stack || e?.message)
-    return c.json({ error: 'Extraction échouée', detail: String(e?.message || e).slice(0, 300) }, 500)
+    console.error('[clip] readability:', e?.stack || e?.message) // détail en logs serveur uniquement
+    return c.json({ error: 'Extraction échouée' }, 500)
   }
   if (!article) return c.json({ error: 'Contenu illisible (Readability)' }, 422)
 
