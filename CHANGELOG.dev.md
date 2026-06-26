@@ -4,6 +4,24 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 85 — 2026-06-26 — Partage natif Android : flux fonctionnel
+
+`/share` devient opérationnel (au-dessus du socle). Réutilise au maximum l'existant.
+
+- `ShareTarget.jsx` : choix du workspace (mémorisé `jd_last_ws`), puis :
+  - **lien partagé** → fiche en création (`type=documentation`, `source_url`,
+    `autocapture`) → capture serveur auto (`fetchPage`+`captureToMd`) ;
+  - **photos/PDF** → upload via `POST /api/jourdoc/:wsId/medias` (réduction/JPG/EXIF
+    déjà gérés) → fiche en création avec les médias **pré-attachés** (`media_ids` en
+    `location.state`, canal déjà utilisé par la galerie).
+- `NoteForm.jsx` : lit `source_url` depuis `location.state` + effet **autocapture**
+  (déclenche la capture du lien à l'ouverture). Garde-fou `useRef` (une seule fois).
+- Manifeste/SW inchangés → pas de réinstallation PWA nécessaire.
+
+À suivre : option « joindre à une note existante » (sélecteur de note).
+
+---
+
 ## Build 84 — 2026-06-26 — Partage natif Android : socle (réception)
 
 Première brique de la cible de partage (« Partager → JourDoc » sur Android).

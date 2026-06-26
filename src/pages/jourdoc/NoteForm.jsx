@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
@@ -68,7 +68,7 @@ export default function NoteForm() {
     titre_alt: '',
     contenu:   location.state?.contenu ?? '',
     date:      location.state?.note_date ?? today(),
-    source_url: '',
+    source_url: location.state?.source_url ?? '',
   })
   const [noteLoaded, setNoteLoaded] = useState(!isEdit) // pour la clé de RichTextEditor
   const [editorBump, setEditorBump] = useState(0)       // force le remontage de l'éditeur (injection capture)
@@ -158,6 +158,15 @@ export default function NoteForm() {
         if ((note.medias?.length ?? 0) > 0) setShowPicker(true)
       })
   }, [isEdit, noteId, wsId, token])
+
+  // Auto-capture du lien partagé (partage natif Android → fiche en création).
+  const didAutocapture = useRef(false)
+  useEffect(() => {
+    if (!isEdit && location.state?.autocapture && (location.state?.source_url || '').trim() && !didAutocapture.current) {
+      didAutocapture.current = true
+      captureUrl()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Charger les détails des médias pré-sélectionnés depuis location.state
   useEffect(() => {
