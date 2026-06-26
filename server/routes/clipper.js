@@ -197,7 +197,9 @@ clip.post('/', async (c) => {
   const objet_ids   = Array.isArray(body.objet_ids) ? body.objet_ids : []
   const element_ids = Array.isArray(body.element_ids) ? body.element_ids : []
   const docCategorieId = body.doc_categorie_id ?? null
-  const contenu = article.excerpt ? `<p>${escapeHtml(article.excerpt)}</p>` : null
+  // Body de la note : description de la page en bloc citation (en-tête).
+  const desc = article.description || article.excerpt || ''
+  const contenu = desc ? `<blockquote><p>${escapeHtml(desc)}</p></blockquote>` : null
 
   const titreAlt = (body.titre_alt || '').trim() || null
   const [note] = await sql`
@@ -256,6 +258,7 @@ clip.post('/ws/:wsId/capture-url', async (c) => {
     media: { ...m, date_prise: m.date_prise ? String(m.date_prise).slice(0, 10) : null },
     title: cap.title,
     excerpt: cap.article.excerpt,
+    description: cap.article.description || cap.article.excerpt || '',
     images: cap.images,
   })
 })

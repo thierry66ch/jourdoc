@@ -71,6 +71,7 @@ export default function NoteForm() {
     source_url: '',
   })
   const [noteLoaded, setNoteLoaded] = useState(!isEdit) // pour la clé de RichTextEditor
+  const [editorBump, setEditorBump] = useState(0)       // force le remontage de l'éditeur (injection capture)
   const [mediaDetails, setMediaDetails] = useState([])  // détail des médias liés (pour miniatures)
   const [showPicker, setShowPicker] = useState(initMediaIds.length > 0)
   const [mdOpen, setMdOpen] = useState(null) // null | { create: true } | { mediaId }
@@ -106,12 +107,18 @@ export default function NoteForm() {
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
       const m = data.media
+      const desc = (data.description || '').trim()
+      // Injecte la description en bloc citation EN TÊTE du contenu (si pas déjà présent).
+      const injectDesc = desc && !(form.contenu || '').includes('<blockquote')
+      const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       setForm(f => ({
         ...f,
         media_ids: f.media_ids.includes(m.id) ? f.media_ids : [...f.media_ids, m.id],
         titre: f.titre.trim() ? f.titre : (data.title || f.titre),
+        contenu: injectDesc ? `<blockquote><p>${escHtml(desc)}</p></blockquote>${f.contenu || ''}` : f.contenu,
       }))
       setMediaDetails(d => d.some(x => x.id === m.id) ? d : [...d, m])
+      if (injectDesc) setEditorBump(b => b + 1) // remonte l'éditeur pour afficher la citation
       const img = data.images
       setCaptureMsg(`✓ Capturé : ${m.nom_original}${img && (img.uploaded || img.failed) ? ` · ${img.uploaded} image(s)${img.failed ? `, ${img.failed} échec(s)` : ''}` : ''}. Joint en pièce jointe.`)
     } catch (e) {
@@ -409,7 +416,7 @@ export default function NoteForm() {
         <div className="form-field">
           <label className="form-label">Contenu</label>
           <RichTextEditor
-            key={isEdit ? (noteLoaded ? `e-${noteId}` : `loading-${noteId}`) : 'new'}
+            key={`${isEdit ? (noteLoaded ? `e-${noteId}` : `loading-${noteId}`) : 'new'}-${editorBump}`}
             initialContent={form.contenu}
             onChange={v => setForm(f => ({ ...f, contenu: v }))}
             mentionItems={mentionItems}

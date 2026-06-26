@@ -4,6 +4,20 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 83 — 2026-06-26 — Capture : description de la page en tête du body
+
+La **meta description** de la page est intégrée en **bloc citation** en tête du
+`contenu` de la note.
+
+- `readability.js` : extrait `description` (`og:description` puis `<meta name=description>`,
+  lue avant Readability ; repli sur l'excerpt).
+- `clipper.js` : bookmarklet → `contenu = <blockquote><p>description</p></blockquote>`
+  (au lieu de `<p>excerpt</p>`) ; `capture-url` retourne `description`.
+- `NoteForm.jsx` : le bouton « Capturer » injecte la citation en tête du contenu de
+  l'éditeur (si pas déjà une citation) et remonte l'éditeur (clé `editorBump`).
+
+---
+
 ## Build 82 — 2026-06-26 — Capture : finitions (images <2Ko, doublon, titre court)
 
 - **Images < 2 Ko ignorées** (`images.js`, `MIN_BYTES`) : pictos/émojis/trackers non

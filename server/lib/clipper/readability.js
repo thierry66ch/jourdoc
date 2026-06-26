@@ -40,12 +40,22 @@ export async function extractArticle(html, url) {
   const { Readability } = await import('@mozilla/readability')
 
   const { document } = parseHTML(html)
+
+  // Description : lue AVANT Readability (qui peut nettoyer le <head>).
+  // og:description prioritaire, puis <meta name="description">.
+  const metaDesc = (
+    document.querySelector('meta[property="og:description"]')?.getAttribute('content') ||
+    document.querySelector('meta[name="description"]')?.getAttribute('content') ||
+    ''
+  ).trim()
+
   const article = new Readability(document).parse()
   if (!article) return null
 
   return {
     title: article.title || '',
     excerpt: article.excerpt || '',
+    description: metaDesc || article.excerpt || '',
     content: absolutizeUrls(parseHTML, article.content || '', url),
     byline: article.byline || null,
     siteName: article.siteName || null,
