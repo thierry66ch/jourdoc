@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 84 — 2026-06-26 — Partage natif Android : socle (réception)
+
+Première brique de la cible de partage (« Partager → JourDoc » sur Android).
+
+- **Manifeste** (`vite.config.js`) : `share_target` POST multipart sur `/share`
+  (title/text/url + `files` image/*, application/pdf).
+- **Service worker** (`src/sw.js`) : interception du `POST /share` → stockage du
+  contenu dans le Cache Storage (`jd-share`) → redirection vers `/share` (GET).
+- **Page** `src/pages/ShareTarget.jsx` (route `/share`, PrivateRoute) : lit le cache et
+  **affiche** le contenu reçu (lien/texte/fichiers + miniatures) — validation réception.
+- ⚠️ Android uniquement, PWA installée requise (réinstaller pour réenregistrer le
+  share_target). Suite : lien → capture, photos → upload/attache.
+
+---
+
 ## Build 83 — 2026-06-26 — Capture : description de la page en tête du body
 
 La **meta description** de la page est intégrée en **bloc citation** en tête du

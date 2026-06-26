@@ -25,6 +25,7 @@ import ElementManager from './pages/jourdoc/ElementManager'
 import BibliothequeView from './pages/jourdoc/BibliothequeView'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import ShareTarget from './pages/ShareTarget'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 
@@ -50,6 +51,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/" element={<PrivateRoute><Portal /></PrivateRoute>} />
+            <Route path="/share" element={<PrivateRoute><ShareTarget /></PrivateRoute>} />
             <Route path="/jourdoc/:wsId" element={<PrivateRoute><JourDocApp /></PrivateRoute>}>
               <Route index element={<JourDocJournal />} />
               <Route path="new" element={<NoteForm />} />

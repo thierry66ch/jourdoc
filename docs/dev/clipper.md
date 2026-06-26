@@ -233,6 +233,25 @@ javascript:(function(){
 })();
 ```
 
+## Partage natif Android (Web Share Target) — en cours
+
+Entrée alternative au bookmarklet : « Partager → JourDoc » depuis la galerie/le
+navigateur Android. **Android uniquement** (iOS/Safari ne reçoit pas les partages PWA),
+**PWA installée requise**.
+
+- **Manifeste** (`vite.config.js`) : `share_target` POST multipart sur `/share`
+  (`params` : title/text/url + `files` accept `image/*`, `application/pdf`).
+- **Service worker** (`src/sw.js`) : un POST de navigation n'étant pas lisible par la
+  page, le SW **intercepte** `POST /share`, stocke le contenu dans le Cache Storage
+  (`jd-share` : `/__share/meta` + `/__share/file/i`) et **redirige** vers `/share` (GET).
+- **Page** `src/pages/ShareTarget.jsx` (route `/share`, `PrivateRoute`) : lit le cache.
+  - Socle : affiche le contenu reçu (validation réception).
+  - Suite : **lien** → workspace → NoteForm en création avec `source_url` + capture
+    auto (réutilise `fetchPage`+`captureToMd`) ; **photos** → upload (réduction/JPG via
+    l'upload média existant) → note nouvelle/existante.
+- ⚠️ Un changement de `share_target` peut nécessiter de **réinstaller** la PWA pour
+  réapparaître dans la feuille de partage. Test uniquement sur Android réel.
+
 ## Dépendances
 
 - **Déjà présentes** : `turndown`, `turndown-plugin-gfm`, `webdav`, `react`,

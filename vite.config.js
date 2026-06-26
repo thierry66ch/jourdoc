@@ -42,6 +42,21 @@ export default defineConfig({
           { src: '/icon-512.png',          sizes: '512x512', type: 'image/png' },
           { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
+        // Cible de partage Android : « Partager → JourDoc » (lien/texte + fichiers).
+        // Reçu en POST multipart sur /share, intercepté par le service worker (src/sw.js).
+        share_target: {
+          action: '/share',
+          method: 'POST',
+          enctype: 'multipart/form-data',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url',
+            files: [
+              { name: 'file', accept: ['image/*', 'application/pdf'] },
+            ],
+          },
+        },
       },
     }),
   ],
