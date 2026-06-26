@@ -4,6 +4,18 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 82 — 2026-06-26 — Capture : finitions (images <2Ko, doublon, titre court)
+
+- **Images < 2 Ko ignorées** (`images.js`, `MIN_BYTES`) : pictos/émojis/trackers non
+  stockés sur KDrive, URL d'origine conservée, **non comptés en échec**.
+- **Contrôle « déjà capturé »** sur le bouton « Capturer » : vérifie `…/exists` (hors
+  note courante) et demande confirmation, comme le bookmarklet.
+- **Titre court auto à la sauvegarde** (`NoteForm`) : si `titre_alt` vide, applique la
+  règle objets→thèmes (version courte). Helper `computeTitreAlt` factorisé avec l'auto-titre.
+- (Déjà en place) « Capturer » reprend le titre de page si le titre de note est vide.
+
+---
+
 ## Build 81 — 2026-06-26 — Capture serveur d'un lien + bouton « Capturer » dans la fiche
 
 Préparation du partage natif (priorité = capture de lien) et capture in-app sans

@@ -9,6 +9,7 @@ import { uploadFile } from '../../../packages/storage/index.js'
 
 const TIMEOUT_MS = 8000
 const MAX_BYTES = 8 * 1024 * 1024
+const MIN_BYTES = 2 * 1024 // < 2 Ko = picto/émoji/tracker → on garde l'URL d'origine
 
 const MIME_EXT = {
   'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/gif': 'gif',
@@ -72,13 +73,18 @@ export async function downloadAndReplaceImages(markdown, assetDir, relPrefix) {
   if (urls.length === 0) return { markdown, uploadedCount: 0, failedCount: 0 }
 
   const map = new Map() // url d'origine → chemin relatif
-  const results = await Promise.allSettled(urls.map(async (u, i) => {
-    const { buffer, mime } = await fetchImage(u)
-    const filename = `img-${String(i + 1).padStart(3, '0')}.${pickExt(mime, u)}`
-    await uploadFile(assetDir, filename, buffer, mime)
-    map.set(u, `${relPrefix}/${filename}`)
+  let failedCount = 0
+  await Promise.allSettled(urls.map(async (u, i) => {
+    let img
+    try { img = await fetchImage(u) }
+    catch { failedCount++; return } // 404/timeout/non-image → garde l'URL
+    if (img.buffer.length < MIN_BYTES) return // picto/émoji → garde l'URL (pas un échec)
+    const filename = `img-${String(i + 1).padStart(3, '0')}.${pickExt(img.mime, u)}`
+    try {
+      await uploadFile(assetDir, filename, img.buffer, img.mime)
+      map.set(u, `${relPrefix}/${filename}`)
+    } catch { failedCount++ }
   }))
-  const failedCount = results.filter((r) => r.status === 'rejected').length
 
   const out = markdown.replace(IMG_RE, (full, alt, url) => {
     const rel = map.get(url)

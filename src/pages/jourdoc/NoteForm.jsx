@@ -88,6 +88,16 @@ export default function NoteForm() {
   async function captureUrl() {
     const url = (form.source_url || '').trim()
     if (!url) { setError('Renseigne d’abord une URL source.'); return }
+
+    // Déjà capturé dans ce workspace ? (hors note courante) → demander confirmation.
+    try {
+      const ex = await fetch(`/api/clip/ws/${wsId}/exists?url=${encodeURIComponent(url)}`, { headers: authHeader(token) }).then(r => r.json())
+      const others = (ex.existing || []).filter(n => n.id !== Number(noteId))
+      if (others.length && !confirm(
+        `Cette URL est déjà capturée dans : ${others.slice(0, 3).map(n => n.titre || `note #${n.id}`).join(', ')}${others.length > 3 ? '…' : ''}.\nCapturer quand même ?`
+      )) return
+    } catch { /* non bloquant */ }
+
     setCapturing(true); setError(''); setCaptureMsg('')
     try {
       const res = await fetch(`/api/clip/ws/${wsId}/capture-url`, {
@@ -152,12 +162,20 @@ export default function NoteForm() {
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Titre court compact : noms courts, « objets → thèmes », cap à 3 par groupe.
+  function computeTitreAlt() {
+    const selectedObjets = objets.filter(o => form.objet_ids.includes(o.id))
+    const selectedThemes = themes.filter(t => form.theme_ids.includes(t.id))
+    const cap = names => names.length === 0 ? '' : names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')}…`
+    return [
+      cap(selectedObjets.map(o => o.nom_court || o.nom.slice(0, 3))),
+      cap(selectedThemes.map(t => t.nom_court || t.nom.slice(0, 4))),
+    ].filter(Boolean).join(' → ')
+  }
+
   function autoTitle() {
     const selectedObjets = objets.filter(o => form.objet_ids.includes(o.id))
     const selectedThemes = themes.filter(t => form.theme_ids.includes(t.id))
-
-    // Titre alternatif compact : max 3 noms joints, sinon les 3 premiers suivis de « … »
-    const cap = names => names.length === 0 ? '' : names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')}…`
 
     // Titre complet : tous les noms
     const parts = []
@@ -165,13 +183,7 @@ export default function NoteForm() {
     if (selectedThemes.length) parts.push(selectedThemes.map(t => t.nom).join(', '))
     const titre = parts.join(' → ')
 
-    // Titre alternatif : noms courts, cap à 2
-    const titreAlt = [
-      cap(selectedObjets.map(o => o.nom_court || o.nom.slice(0, 3))),
-      cap(selectedThemes.map(t => t.nom_court || t.nom.slice(0, 4))),
-    ].filter(Boolean).join(' → ')
-
-    setForm(f => ({ ...f, titre, titre_alt: titreAlt }))
+    setForm(f => ({ ...f, titre, titre_alt: computeTitreAlt() }))
   }
 
   function toggleMedia(id) {
@@ -226,7 +238,8 @@ export default function NoteForm() {
         nature: form.type === 'journal' ? form.nature : null,
         doc_categorie_id: form.type === 'documentation' ? form.doc_categorie_id : null,
         source_url: form.source_url || null,
-        titre_alt: form.titre_alt || null,
+        // Si le titre court n'est pas rempli, l'auto-générer (objets → thèmes, version courte).
+        titre_alt: (form.titre_alt.trim() || computeTitreAlt()) || null,
       }
       const url = isEdit ? API_ROUTES.JD_NOTE(wsId, noteId) : API_ROUTES.JD_NOTES(wsId)
       const res = await fetch(url, {
