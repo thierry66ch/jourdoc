@@ -17,6 +17,7 @@ import { putTextFile } from '../../packages/storage/index.js'
 import { extractArticle } from '../lib/clipper/readability.js'
 import { htmlToMarkdown } from '../lib/clipper/turndown.js'
 import { downloadAndReplaceImages } from '../lib/clipper/images.js'
+import { fetchPage } from '../lib/clipper/fetchPage.js'
 import { slugify, domainSlug } from '../lib/clipper/slug.js'
 
 const clip = new Hono()
@@ -45,6 +46,46 @@ function buildMarkdown({ title, url, article, markdown }) {
   const quote = meta.map((l) => `> ${l}`).join('  \n')
   const body = markdown || article.textContent || ''
   return `# ${title}\n\n${quote}\n\n${body}\n`
+}
+
+// Cœur de capture partagé (bookmarklet ET capture serveur de lien) :
+// HTML → markdown → rapatriement images → .md sur KDrive (EXTDOCS) → média markdown.
+// Retourne { media (ligne complète), article, title, images } ou null si Readability
+// n'extrait rien. Peut throw (erreur Readability ou upload) — géré par l'appelant.
+async function captureToMd({ workspaceId, url, html, titleOverride }) {
+  const article = await extractArticle(html, url)
+  if (!article) return null
+
+  const title = (titleOverride || article.title || 'Page web').trim()
+  let markdown = await htmlToMarkdown(article.content)
+
+  // Chemin EXTDOCS : clipper/{domaine}/{slug}.md (suffixe timestamp si collision)
+  const slug = slugify(title)
+  const dir = `${extdocsRoot(workspaceId)}/clipper/${domainSlug(url)}`
+  let name = `${slug}.md`
+  let full = `${dir}/${name}`
+  const [clash] = await sql`SELECT id FROM jd_medias WHERE workspace_id = ${workspaceId} AND fichier = ${full}`
+  if (clash) { name = `${slug}-${Date.now()}.md`; full = `${dir}/${name}` }
+
+  // Rapatriement des images dans le dossier d'assets, à côté du .md (non bloquant).
+  const base = name.replace(/\.md$/i, '')
+  let images = { uploadedCount: 0, failedCount: 0 }
+  try {
+    const res = await downloadAndReplaceImages(markdown, `${dir}/_${base}.assets`, `_${base}.assets`)
+    markdown = res.markdown
+    images = res
+  } catch (e) {
+    console.error('[capture] images:', e?.message)
+  }
+
+  await putTextFile(full, buildMarkdown({ title, url, article, markdown }))
+
+  const [media] = await sql`
+    INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, externe, date_prise)
+    VALUES (${workspaceId}, ${full}, ${name}, 'markdown', 'text/markdown', TRUE, ${today()})
+    RETURNING *
+  `
+  return { media, article, title, images: { uploaded: images.uploadedCount, failed: images.failedCount } }
 }
 
 // ── PUBLIC : mini-login intégré ──────────────────────────────
@@ -129,7 +170,7 @@ clip.post('/', async (c) => {
     return c.json({ error: 'url, html, workspaceId requis' }, 400)
   }
   if (typeof html !== 'string' || html.length > MAX_HTML) {
-    return c.json({ error: 'HTML absent ou trop volumineux (max 3 Mo)' }, 413)
+    return c.json({ error: 'HTML absent ou trop volumineux (max 4 Mo)' }, 413)
   }
 
   // Accès workspace
@@ -138,53 +179,17 @@ clip.post('/', async (c) => {
   `
   if (!ok) return c.json({ error: 'Forbidden' }, 403)
 
-  // Extraction Readability
-  let article
+  // Extraction + .md + images + média (cœur partagé)
+  let cap
   try {
-    article = await extractArticle(html, url)
+    cap = await captureToMd({ workspaceId, url, html, titleOverride: body.title })
   } catch (e) {
-    console.error('[clip] readability:', e?.stack || e?.message) // détail en logs serveur uniquement
+    console.error('[clip] capture:', e?.stack || e?.message) // détail en logs serveur uniquement
     return c.json({ error: 'Extraction échouée' }, 500)
   }
-  if (!article) return c.json({ error: 'Contenu illisible (Readability)' }, 422)
+  if (!cap) return c.json({ error: 'Contenu illisible (Readability)' }, 422)
 
-  const title = (body.title || article.title || 'Page web').trim()
-  let markdown = await htmlToMarkdown(article.content)
-
-  // Chemin EXTDOCS : clipper/{domaine}/{slug}.md (suffixe timestamp si collision)
-  const slug = slugify(title)
-  const dir = `${extdocsRoot(workspaceId)}/clipper/${domainSlug(url)}`
-  let name = `${slug}.md`
-  let full = `${dir}/${name}`
-  const [clash] = await sql`SELECT id FROM jd_medias WHERE workspace_id = ${workspaceId} AND fichier = ${full}`
-  if (clash) { name = `${slug}-${Date.now()}.md`; full = `${dir}/${name}` }
-
-  // Rapatriement des images dans le dossier d'assets, à côté du .md.
-  const base = name.replace(/\.md$/i, '')
-  let images = { uploadedCount: 0, failedCount: 0 }
-  try {
-    const res = await downloadAndReplaceImages(markdown, `${dir}/_${base}.assets`, `_${base}.assets`)
-    markdown = res.markdown
-    images = res
-  } catch (e) {
-    console.error('[clip] images:', e?.message) // non bloquant : on garde les URLs absolues
-  }
-
-  const fullMd = buildMarkdown({ title, url, article, markdown })
-
-  try {
-    await putTextFile(full, fullMd)
-  } catch (e) {
-    console.error('[clip] putTextFile:', e?.message)
-    return c.json({ error: 'Upload KDrive échoué' }, 500)
-  }
-
-  // Média markdown externe
-  const [media] = await sql`
-    INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, externe, date_prise)
-    VALUES (${workspaceId}, ${full}, ${name}, 'markdown', 'text/markdown', TRUE, ${today()})
-    RETURNING id
-  `
+  const { media, article, title, images } = cap
   const mediaId = media.id
 
   // Note documentation
@@ -213,8 +218,46 @@ clip.post('/', async (c) => {
     mediaId,
     title,
     noteUrl: `/jourdoc/${workspaceId}/notes/${noteId}`,
-    images: { uploaded: images.uploadedCount, failed: images.failedCount },
+    images,
   }, 201)
+})
+
+// Capture serveur d'un LIEN (bouton « Capturer » de la fiche, future cible de partage).
+// Télécharge l'URL côté serveur (HTML brut, sans JS), extrait, crée le .md média.
+// Ne crée PAS de note : retourne le média à attacher (la fiche gère la liaison).
+clip.post('/ws/:wsId/capture-url', async (c) => {
+  const userId = c.get('userId')
+  if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré' }, 400)
+  const workspaceId = Number(c.req.param('wsId'))
+  const [ok] = await sql`SELECT 1 FROM user_workspace_access WHERE user_id = ${userId} AND workspace_id = ${workspaceId}`
+  if (!ok) return c.json({ error: 'Forbidden' }, 403)
+
+  const { url } = await c.req.json().catch(() => ({}))
+  if (!url) return c.json({ error: 'URL requise' }, 400)
+
+  let page
+  try {
+    page = await fetchPage(url)
+  } catch (e) {
+    return c.json({ error: `Téléchargement impossible : ${e.message}` }, 422)
+  }
+
+  let cap
+  try {
+    cap = await captureToMd({ workspaceId, url: page.finalUrl, html: page.html })
+  } catch (e) {
+    console.error('[capture-url] capture:', e?.stack || e?.message)
+    return c.json({ error: 'Extraction échouée' }, 500)
+  }
+  if (!cap) return c.json({ error: 'Page sans article exploitable (souvent une page rendue en JavaScript).' }, 422)
+
+  const m = cap.media
+  return c.json({
+    media: { ...m, date_prise: m.date_prise ? String(m.date_prise).slice(0, 10) : null },
+    title: cap.title,
+    excerpt: cap.article.excerpt,
+    images: cap.images,
+  })
 })
 
 export default clip

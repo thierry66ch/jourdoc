@@ -112,7 +112,14 @@ bénéficier du CORS réflexif (cf. § Auth) :
 | `GET` | `/api/clip/workspaces` | JWT | workspaces JourDoc de l'utilisateur |
 | `GET` | `/api/clip/ws/:wsId/taxonomy` | JWT | `{ objets, themes, docCategories }` du workspace |
 | `GET` | `/api/clip/ws/:wsId/exists?url=` | JWT | notes du workspace au même `source_url` (avertissement « déjà clippé ») |
-| `POST` | `/api/clip` | JWT | capture (extrait → .md → note) |
+| `POST` | `/api/clip` | JWT | capture depuis le **HTML fourni** (bookmarklet) → .md + note |
+| `POST` | `/api/clip/ws/:wsId/capture-url` | JWT | capture **serveur d'un lien** : télécharge l'URL → .md, **sans** créer de note (retourne le média à attacher). Utilisé par le bouton « Capturer » de la fiche. |
+
+> **Cœur partagé** : `captureToMd()` (HTML → markdown → images → .md → média) est commun
+> au bookmarklet et à la capture serveur. La capture serveur ajoute `fetchPage()`
+> (`server/lib/clipper/fetchPage.js` : UA navigateur, redirections, timeout, charset,
+> garde anti-SSRF). ⚠️ HTML **brut sans JS** → OK sites « article », échoue sur les SPA.
+> Ce même socle resservira pour la **cible de partage** (share-target) Android.
 
 > `/api/clip/login` doit être déclaré **avant** `clip.use('*', authMiddleware)` pour
 > rester public.

@@ -4,6 +4,26 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 81 — 2026-06-26 — Capture serveur d'un lien + bouton « Capturer » dans la fiche
+
+Préparation du partage natif (priorité = capture de lien) et capture in-app sans
+bookmarklet (pratique sur Android).
+
+- `server/lib/clipper/fetchPage.js` : téléchargement serveur d'une page (UA navigateur,
+  redirections, timeout 12 s, max 4 Mo, détection charset header+meta, garde anti-SSRF
+  basique). HTML brut sans JS → fiable sur sites « article », pas sur les SPA.
+- `captureToMd()` factorisé dans `clipper.js` (HTML → md → images → .md → média),
+  partagé par `POST /api/clip` (refactorisé) et le nouveau
+  `POST /api/clip/ws/:wsId/capture-url` (capture de lien, retourne le média sans créer
+  de note).
+- `NoteForm.jsx` : bouton **« 📥 Capturer »** à côté du champ Source URL → télécharge la
+  page, joint le `.md` en pièce jointe (média markdown éditable Milkdown), pré-remplit
+  le titre si vide, message de succès avec bilan images.
+- Fiabilité validée en isolation sur gerbeaud, lamaisondusureau, Wikipédia (FR).
+- Ce socle resservira pour la cible de partage (share-target) Android.
+
+---
+
 ## Build 80 — 2026-06-25 — Clipper Phase 5 (finitions)
 
 - **Bookmarklet dans les réglages** (`WorkspaceManager.jsx`, section « 🔖 Web-clipper ») :

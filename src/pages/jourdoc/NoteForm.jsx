@@ -81,6 +81,35 @@ export default function NoteForm() {
   const [showLinkPicker, setShowLinkPicker] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [capturing, setCapturing] = useState(false)
+  const [captureMsg, setCaptureMsg] = useState('')
+
+  // Capture serveur du lien : télécharge l'URL, génère un .md attaché à la note.
+  async function captureUrl() {
+    const url = (form.source_url || '').trim()
+    if (!url) { setError('Renseigne d’abord une URL source.'); return }
+    setCapturing(true); setError(''); setCaptureMsg('')
+    try {
+      const res = await fetch(`/api/clip/ws/${wsId}/capture-url`, {
+        method: 'POST', headers: authHeader(token), body: JSON.stringify({ url }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`)
+      const m = data.media
+      setForm(f => ({
+        ...f,
+        media_ids: f.media_ids.includes(m.id) ? f.media_ids : [...f.media_ids, m.id],
+        titre: f.titre.trim() ? f.titre : (data.title || f.titre),
+      }))
+      setMediaDetails(d => d.some(x => x.id === m.id) ? d : [...d, m])
+      const img = data.images
+      setCaptureMsg(`✓ Capturé : ${m.nom_original}${img && (img.uploaded || img.failed) ? ` · ${img.uploaded} image(s)${img.failed ? `, ${img.failed} échec(s)` : ''}` : ''}. Joint en pièce jointe.`)
+    } catch (e) {
+      setError(`Capture impossible : ${e.message}`)
+    } finally {
+      setCapturing(false)
+    }
+  }
 
   // Chargement note existante
   useEffect(() => {
@@ -415,9 +444,24 @@ export default function NoteForm() {
 
             <div className="form-field">
               <label className="form-label">Source URL</label>
-              <input className="input" type="url" value={form.source_url}
-                onChange={e => setForm(f => ({ ...f, source_url: e.target.value }))}
-                placeholder="https://…" />
+              <div style={{ display: 'flex', gap: '.5rem', alignItems: 'center' }}>
+                <input className="input" type="url" value={form.source_url}
+                  onChange={e => { setForm(f => ({ ...f, source_url: e.target.value })); setCaptureMsg('') }}
+                  placeholder="https://…" style={{ flex: 1 }} />
+                <button type="button" className="btn btn-secondary"
+                  style={{ whiteSpace: 'nowrap', padding: '.5rem .8rem' }}
+                  onClick={captureUrl} disabled={capturing || !form.source_url.trim()}
+                  title="Télécharge la page et la joint en Markdown">
+                  {capturing ? '⏳ Capture…' : '📥 Capturer'}
+                </button>
+              </div>
+              {captureMsg && (
+                <p style={{ fontSize: '.8125rem', color: 'var(--success)', margin: '.4rem 0 0' }}>{captureMsg}</p>
+              )}
+              <p style={{ fontSize: '.75rem', color: 'var(--text-muted)', margin: '.35rem 0 0' }}>
+                « Capturer » télécharge le contenu de la page et l'attache en Markdown éditable.
+                Marche sur les sites « article » ; échoue sur les pages rendues en JavaScript.
+              </p>
             </div>
           </>
         )}
