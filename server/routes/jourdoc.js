@@ -1309,6 +1309,23 @@ jourdoc.get('/:wsId/notes/:id/medias', async (c) => {
   return c.json({ medias })
 })
 
+// Annexer des médias à une note existante (partage natif → « note existante »).
+// Ajoute la liaison sans toucher aux autres champs de la note.
+jourdoc.post('/:wsId/notes/:id/medias', async (c) => {
+  const wsId = c.get('wsId')
+  const noteId = Number(c.req.param('id'))
+  const { media_ids = [] } = await c.req.json().catch(() => ({}))
+  const [note] = await sql`SELECT id FROM jd_notes WHERE id = ${noteId} AND workspace_id = ${wsId}`
+  if (!note) return c.json({ error: 'Not found' }, 404)
+  for (const mid of media_ids) {
+    const [m] = await sql`SELECT id FROM jd_medias WHERE id = ${mid} AND workspace_id = ${wsId}`
+    if (!m) continue
+    await sql`INSERT INTO jd_note_media (note_id, media_id) VALUES (${noteId}, ${mid}) ON CONFLICT DO NOTHING`
+    await refreshLie(mid)
+  }
+  return c.json({ ok: true })
+})
+
 jourdoc.get('/:wsId/medias/:id/notes', async (c) => {
   const wsId = c.get('wsId')
   const mediaId = Number(c.req.param('id'))

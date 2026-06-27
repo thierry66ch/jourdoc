@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import NoteLinkPicker from './jourdoc/NoteLinkPicker'
 
 const SHARE_CACHE = 'jd-share'
 
@@ -51,6 +52,8 @@ export default function ShareTarget() {
   const [wsId, setWsId] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [pickNote, setPickNote] = useState(false)   // recherche de note (annexer)
+  const [pendingIds, setPendingIds] = useState([])  // médias uploadés en attente d'annexion
 
   useEffect(() => {
     readShared().then(setData).catch(() => setData(null))
@@ -75,28 +78,65 @@ export default function ShareTarget() {
     })
   }
 
-  // Photos/PDF → upload puis fiche en création avec médias attachés
-  async function attachFilesToNewNote() {
+  // Upload des fichiers partagés → renvoie les ids des médias créés (réduction/JPG côté serveur).
+  async function uploadFiles() {
+    const fd = new FormData()
+    for (const f of data.files) fd.append('files', f.blob, f.name)
+    const res = await fetch(`/api/jourdoc/${wsId}/medias`, {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+    })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error(d.error || `Upload échoué (${res.status})`)
+    const ids = (d.medias || []).map(m => m.id)
+    if (ids.length === 0) throw new Error('Aucun fichier accepté.')
+    return ids
+  }
+
+  // 1) Nouvelle note → fiche en création avec médias pré-attachés
+  async function filesToNewNote() {
     if (!wsId || data.files.length === 0) return
     setBusy(true); setError('')
     try {
-      const fd = new FormData()
-      for (const f of data.files) fd.append('files', f.blob, f.name)
-      const res = await fetch(`/api/jourdoc/${wsId}/medias`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
-      })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(d.error || `Upload échoué (${res.status})`)
-      const ids = (d.medias || []).map(m => m.id)
-      if (ids.length === 0) throw new Error('Aucun fichier accepté.')
-      rememberWs()
-      await clearShared()
+      const ids = await uploadFiles()
+      rememberWs(); await clearShared()
       navigate(`/jourdoc/${wsId}/new`, { state: { media_ids: ids, titre: data.meta.title || '' } })
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setBusy(false)
-    }
+    } catch (e) { setError(e.message); setBusy(false) }
+  }
+
+  // 2) Note existante → upload puis recherche de note
+  async function filesToExistingNote() {
+    if (!wsId || data.files.length === 0) return
+    setBusy(true); setError('')
+    try {
+      const ids = await uploadFiles()
+      setPendingIds(ids)
+      setPickNote(true)
+    } catch (e) { setError(e.message) }
+    finally { setBusy(false) }
+  }
+
+  async function attachToNote(note) {
+    setBusy(true); setError('')
+    try {
+      const res = await fetch(`/api/jourdoc/${wsId}/notes/${note.id}/medias`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ media_ids: pendingIds }),
+      })
+      if (!res.ok) throw new Error(`Annexion échouée (${res.status})`)
+      rememberWs(); await clearShared()
+      navigate(`/jourdoc/${wsId}/notes/${note.id}`)
+    } catch (e) { setError(e.message); setBusy(false); setPickNote(false) }
+  }
+
+  // 3) Médiathèque → upload seul, puis aller voir la médiathèque
+  async function filesToLibrary() {
+    if (!wsId || data.files.length === 0) return
+    setBusy(true); setError('')
+    try {
+      await uploadFiles()
+      rememberWs(); await clearShared()
+      navigate(`/jourdoc/${wsId}/medias`)
+    } catch (e) { setError(e.message); setBusy(false) }
   }
 
   if (data === undefined) return <div className="ws-manager"><p>Lecture du partage…</p></div>
@@ -146,12 +186,33 @@ export default function ShareTarget() {
               </div>
             ))}
           </div>
-          <button className="btn btn-primary" disabled={busy || !wsId} onClick={attachFilesToNewNote}>
-            {busy ? '⏳ Envoi…' : '➕ Joindre à une nouvelle note'}
-          </button>
-          <p style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: '.5rem' }}>
-            Les images sont réduites et converties en JPG, comme un upload classique.
-          </p>
+
+          {pickNote ? (
+            <>
+              <p style={{ fontSize: '.85rem', marginBottom: '.5rem' }}>
+                {pendingIds.length} média(s) prêt(s) — choisis la note à annexer :
+              </p>
+              <NoteLinkPicker wsId={wsId} token={token} currentNoteId={0}
+                onSelect={attachToNote} onClose={() => setPickNote(false)} />
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '.5rem' }}>
+                <button className="btn btn-primary" disabled={busy || !wsId} onClick={filesToNewNote}>
+                  {busy ? '⏳ Envoi…' : '➕ Créer une note'}
+                </button>
+                <button className="btn btn-secondary" disabled={busy || !wsId} onClick={filesToExistingNote}>
+                  📎 Annexer à une note existante
+                </button>
+                <button className="btn btn-secondary" disabled={busy || !wsId} onClick={filesToLibrary}>
+                  🖼 Importer dans la médiathèque
+                </button>
+              </div>
+              <p style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: '.5rem' }}>
+                Les images sont réduites et converties en JPG, comme un upload classique.
+              </p>
+            </>
+          )}
         </section>
       ) : sharedUrl ? (
         <section className="ws-manager__section">

@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 86 — 2026-06-27 — Partage de fichiers : 3 choix (note / annexer / médiathèque)
+
+Le partage de photos/PDF propose désormais trois destinations (lien → toujours une note).
+
+- `ShareTarget.jsx` : après upload, 3 actions —
+  1. **Créer une note** (fiche en création, médias pré-attachés) ;
+  2. **Annexer à une note existante** (recherche via `NoteLinkPicker` réutilisé →
+     attache → ouvre la note) ;
+  3. **Importer dans la médiathèque** (upload seul, médias non liés → ouvre la galerie).
+- Backend : `POST /api/jourdoc/:wsId/notes/:id/medias` — annexe des médias à une note
+  sans toucher aux autres champs (insert `jd_note_media` + `refreshLie`), évite le PUT
+  complet qui aurait écrasé la note.
+
+---
+
 ## Build 85 — 2026-06-26 — Partage natif Android : flux fonctionnel
 
 `/share` devient opérationnel (au-dessus du socle). Réutilise au maximum l'existant.
