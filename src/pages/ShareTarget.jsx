@@ -67,6 +67,13 @@ export default function ShareTarget() {
       .catch(() => {})
   }, [token])
 
+  // Libère les object URLs des miniatures à la fermeture.
+  useEffect(() => () => {
+    if (data && Array.isArray(data.files)) {
+      data.files.forEach(f => f.objectUrl && URL.revokeObjectURL(f.objectUrl))
+    }
+  }, [data])
+
   function rememberWs() { if (wsId) localStorage.setItem('jd_last_ws', String(wsId)) }
 
   // Lien partagé → fiche documentation + capture auto

@@ -331,8 +331,16 @@ Fonctionnalités opérationnelles :
   (CSP-proof, tout en same-origin) : auth (token localStorage ou mini-login) → workspace →
   classification (objet/thème/catégorie) → aperçu → capture. Serveur : Readability
   (**linkedom**, pas jsdom) + Turndown → `.md` (en-tête en bloc citation, **pas** de
-  frontmatter YAML) + images rapatriées sur KDrive sous `external/{wsId}/clipper/{domaine}/`.
-  Détection « déjà clippé » (`source_url`). Routes `/api/clip/*`. Voir `docs/dev/clipper.md`.
+  frontmatter YAML) + images rapatriées sur KDrive sous `external/{wsId}/clipper/{domaine}/`
+  (images < 2 Ko ignorées). Détection « déjà clippé » (`source_url`). **Fallback**
+  métadonnées (OG/JSON-LD) si pas d'article → « capture partielle ». Routes `/api/clip/*`.
+- **Capture in-app de lien** : bouton « 📥 Capturer » dans la fiche (à côté de Source URL)
+  → `fetchPage` côté serveur (UA navigateur, anti-blocage léger) → `.md` joint, sans
+  bookmarklet. Titre de repli dérivé du slug si capture impossible (site protégé 403).
+- **Partage natif Android** (Web Share Target, `share_target` manifeste + SW + route
+  `/share`) : « Partager → JourDoc » d'un **lien** (→ note + capture) ou de **photos/PDF**
+  (→ créer une note / annexer à une note existante / importer dans la médiathèque).
+  Android + Chrome (WebAPK) uniquement. Voir `docs/dev/clipper.md`.
 
 Workspaces existants :
 

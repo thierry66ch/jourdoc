@@ -22,6 +22,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     try {
       const form = await event.request.formData()
+      await caches.delete(SHARE_CACHE) // purge un partage précédent non consommé
       const cache = await caches.open(SHARE_CACHE)
 
       // Fichiers (param "file" du manifeste) → un Response par fichier.

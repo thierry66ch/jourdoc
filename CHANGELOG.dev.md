@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 91 — 2026-06-28 — Revue + nettoyage + doc (clipper & partage)
+
+Revue de code du chantier (depuis 2a005a8) : **aucun bug de correction** trouvé
+(`wsCheck` global couvre le nouvel endpoint d'annexe, cohérence `images`/`partial`/`cap`
+OK, pas de référence résiduelle). Nettoyages + doc :
+
+- `ShareTarget.jsx` : révocation des object URLs des miniatures à la fermeture
+  (fuite mémoire mineure).
+- `src/sw.js` : purge du cache `jd-share` avant d'écrire un nouveau partage (évite des
+  fichiers orphelins si le partage suivant a moins de fichiers).
+- `docs/dev/clipper.md` : section partage natif passée en « fonctionnel » (3 destinations
+  fichiers, capture in-app, WebAPK/Chrome-only) ; `CLAUDE.md` état de production enrichi
+  (capture in-app, fallback métadonnées, partage natif).
+
+---
+
 ## Build 90 — 2026-06-28 — Capture : défilement auto du message (visible sur mobile)
 
 Le résultat de capture (succès / partiel / erreur) défile automatiquement à l'écran

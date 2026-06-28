@@ -239,24 +239,36 @@ javascript:(function(){
 })();
 ```
 
-## Partage natif Android (Web Share Target) — en cours
+## Partage natif Android (Web Share Target)
 
 Entrée alternative au bookmarklet : « Partager → JourDoc » depuis la galerie/le
-navigateur Android. **Android uniquement** (iOS/Safari ne reçoit pas les partages PWA),
-**PWA installée requise**.
+navigateur Android. **Android uniquement** (iOS/Safari ne reçoit pas les partages PWA).
+⚠️ Nécessite un vrai **WebAPK** : seul **Chrome** (services Google Play) le génère ;
+les autres navigateurs Chromium ne créent qu'un *raccourci* qui n'enregistre pas le
+partage. Un changement de `share_target` peut imposer de **réinstaller** la PWA après
+avoir « Effacé et réinitialisé » les données du site.
 
 - **Manifeste** (`vite.config.js`) : `share_target` POST multipart sur `/share`
   (`params` : title/text/url + `files` accept `image/*`, `application/pdf`).
 - **Service worker** (`src/sw.js`) : un POST de navigation n'étant pas lisible par la
-  page, le SW **intercepte** `POST /share`, stocke le contenu dans le Cache Storage
-  (`jd-share` : `/__share/meta` + `/__share/file/i`) et **redirige** vers `/share` (GET).
-- **Page** `src/pages/ShareTarget.jsx` (route `/share`, `PrivateRoute`) : lit le cache.
-  - Socle : affiche le contenu reçu (validation réception).
-  - Suite : **lien** → workspace → NoteForm en création avec `source_url` + capture
-    auto (réutilise `fetchPage`+`captureToMd`) ; **photos** → upload (réduction/JPG via
-    l'upload média existant) → note nouvelle/existante.
-- ⚠️ Un changement de `share_target` peut nécessiter de **réinstaller** la PWA pour
-  réapparaître dans la feuille de partage. Test uniquement sur Android réel.
+  page, le SW **intercepte** `POST /share`, purge puis stocke le contenu dans le Cache
+  Storage (`jd-share` : `/__share/meta` + `/__share/file/i`) et **redirige** vers
+  `/share` (GET).
+- **Page** `src/pages/ShareTarget.jsx` (route `/share`, `PrivateRoute`) : lit le cache,
+  choix du workspace (mémorisé `jd_last_ws`), puis :
+  - **lien** → fiche en création (`type=documentation`, `source_url`, `autocapture`)
+    → capture serveur auto (`fetchPage`+`captureToMd`). Toujours une note (l'OS ne
+    fournit que l'URL). Si la capture échoue, la note garde titre + lien.
+  - **photos/PDF** → upload via `POST /api/jourdoc/:wsId/medias` (réduction/JPG/EXIF
+    déjà gérés), puis 3 destinations :
+    1. **Créer une note** (fiche en création, médias pré-attachés via `media_ids` en
+       `location.state`) ;
+    2. **Annexer à une note existante** (`NoteLinkPicker` → `POST
+       /api/jourdoc/:wsId/notes/:id/medias`, attache sans écraser la note) ;
+    3. **Importer dans la médiathèque** (upload seul, médias non liés → galerie).
+
+Capture in-app **sans bookmarklet** : le bouton « 📥 Capturer » de la fiche (à côté de
+Source URL) utilise le même `capture-url` côté serveur — pratique sur Android.
 
 ## Dépendances
 
