@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 100 — 2026-06-28 — Multi-tâches Todoist — Phase 4 (page Tâches) ✅
+
+Dernière phase : la page Tâches passe en **1 ligne par tâche**.
+
+- `GET /:wsId/todoist/tasks` : 1 ligne par `jd_note_todoist`, jointe à la note
+  (titre/thème/objets), **triée par urgence décroissante** (`done ASC, urgence DESC,
+  due ASC NULLS LAST`).
+- `TodoistTasks.jsx` : libellé = **contenu de la tâche** (plus le titre de note), note
+  d'origine en contexte, sections À traiter / En cours / Traités, actions par tâche
+  (Consigner / Suivi / →) via routes `:taskRowId`.
+- `schema.sql` : table `jd_note_todoist` + index ajoutés (installs neuves). `CLAUDE.md`
+  état de production mis à jour.
+
+**Chantier multi-tâches Todoist terminé** (phases 1→4).
+
+---
+
 ## Build 99 — 2026-06-28 — Multi-tâches Todoist — Phase 3 (panneau multi)
 
 `TodoistPanel` réécrit en **liste de tâches** : chaque tâche a son badge (en cours /

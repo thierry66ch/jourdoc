@@ -12,52 +12,49 @@ function fmtDate(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('fr-CH', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-function NoteRow({ note, onImport, onFollowUp, importing }) {
+function TaskRow({ task, onImport, onFollowUp, importing }) {
   const { wsId } = useParams()
   const navigate = useNavigate()
-  const isRecurring = note.tache_todoist_recurrence_done === 1
-  const isDone      = note.tache_todoist_done === 1
-  const isConsigne  = note.tache_todoist_consigne === 1
+  const goNote = () => navigate(`/jourdoc/${wsId}/notes/${task.note_id}`)
 
   return (
     <div className="todoist-task-row">
-      {/* Titre de la note — plein titre pour le contexte complet */}
       <div className="todoist-task-row__body">
         <div className="todoist-task-row__head">
-          {isRecurring && <span style={{ fontSize: '1rem', flexShrink: 0 }} title="Tâche récurrente">🔄</span>}
-          <p className="jd-note-card__titre"
-            style={{ cursor: 'pointer', margin: 0, flex: 1 }}
-            onClick={() => navigate(`/jourdoc/${wsId}/notes/${note.id}`)}>
-            {note.tache_todoist_content ?? note.titre}
+          {task.recurrence_done && <span style={{ fontSize: '1rem', flexShrink: 0 }} title="Tâche récurrente">🔄</span>}
+          {/* Libellé = contenu de la TÂCHE */}
+          <p className="jd-note-card__titre" style={{ cursor: 'pointer', margin: 0, flex: 1 }} onClick={goNote}>
+            {task.content ?? task.note_titre}
           </p>
-          {isConsigne && <span className="todoist-task-row__badge todoist-task-row__badge--done">✓ consigné</span>}
+          {task.consigne && <span className="todoist-task-row__badge todoist-task-row__badge--done">✓ consigné</span>}
         </div>
 
-        {/* Contexte : thèmes + objets */}
-        {(note.themes?.length > 0 || note.theme_nom || note.objets?.length > 0) && (
-          <div className="todoist-task-row__context">
-            {note.themes?.length > 0
-              ? note.themes.map(t => <span key={t.id} className="jd-note-card__theme">{t.nom}</span>)
-              : note.theme_nom && <span className="jd-note-card__theme">{note.theme_nom}</span>}
-            {note.objets?.length > 0 && (
-              <span style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>
-                🌿 {note.objets.map(o => o.nom).join(', ')}
-              </span>
-            )}
-          </div>
-        )}
+        {/* Contexte : note + thèmes + objets */}
+        <div className="todoist-task-row__context">
+          <span style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>
+            📔 {task.note_titre_alt ?? task.note_titre}
+          </span>
+          {task.themes?.length > 0
+            ? task.themes.map(t => <span key={t.id} className="jd-note-card__theme">{t.nom}</span>)
+            : task.theme_nom && <span className="jd-note-card__theme">{task.theme_nom}</span>}
+          {task.objets?.length > 0 && (
+            <span style={{ fontSize: '.75rem', color: 'var(--text-muted)' }}>
+              🌿 {task.objets.map(o => o.nom).join(', ')}
+            </span>
+          )}
+        </div>
 
         {/* Meta : date note + priorité + échéance */}
         <div className="todoist-task-row__meta">
-          {note.date && <span className="todoist-task-row__date">{fmtDate(note.date)}</span>}
-          {note.tache_todoist_priority && (
-            <span className="todoist-task-row__prio" style={{ color: PRIO_COLOR[note.tache_todoist_priority] }}>
-              {PRIO_LABEL[note.tache_todoist_priority]}
+          {task.note_date && <span className="todoist-task-row__date">{fmtDate(task.note_date)}</span>}
+          {task.priority && (
+            <span className="todoist-task-row__prio" style={{ color: PRIO_COLOR[task.priority] }}>
+              {PRIO_LABEL[task.priority]}
             </span>
           )}
-          {note.tache_todoist_due && (
+          {task.due && (
             <span className="todoist-task-row__due">
-              {isRecurring ? '🔄' : '📅'} {fmtDate(note.tache_todoist_due)}
+              {task.recurrence_done ? '🔄' : '📅'} {fmtDate(task.due)}
             </span>
           )}
         </div>
@@ -65,22 +62,17 @@ function NoteRow({ note, onImport, onFollowUp, importing }) {
 
       {/* Actions */}
       <div className="todoist-task-row__actions">
-        {(isDone || isRecurring) && !isConsigne && (
+        {(task.done || task.recurrence_done) && !task.consigne && (
           <>
             <button className="btn btn-secondary" style={{ fontSize: '.78rem', padding: '.3rem .6rem' }}
-              onClick={() => onImport(note)} disabled={importing === note.id}>
-              {importing === note.id ? '…' : '↓ Consigner'}
+              onClick={() => onImport(task)} disabled={importing === task.id}>
+              {importing === task.id ? '…' : '↓ Consigner'}
             </button>
             <button className="btn btn-ghost" style={{ fontSize: '.78rem', padding: '.3rem .6rem' }}
-              onClick={() => onFollowUp(note)}>
-              ✎ Suivi
-            </button>
+              onClick={() => onFollowUp(task)}>✎ Suivi</button>
           </>
         )}
-        <button className="btn btn-ghost" style={{ fontSize: '.78rem', padding: '.3rem .6rem' }}
-          onClick={() => navigate(`/jourdoc/${wsId}/notes/${note.id}`)}>
-          →
-        </button>
+        <button className="btn btn-ghost" style={{ fontSize: '.78rem', padding: '.3rem .6rem' }} onClick={goNote}>→</button>
       </div>
     </div>
   )
@@ -91,7 +83,7 @@ export default function TodoistTasks() {
   const { token } = useAuth()
   const navigate  = useNavigate()
 
-  const [notes, setNotes]         = useState([])
+  const [tasks, setTasks]         = useState([])
   const [loading, setLoading]     = useState(true)
   const [importing, setImporting] = useState(null)
   const [msg, setMsg]             = useState('')
@@ -102,7 +94,7 @@ export default function TodoistTasks() {
       .then(r => r.json())
       .then(d => {
         if (d.error) { setMsg(`Erreur API : ${d.error}`); return }
-        setNotes(d.notes ?? [])
+        setTasks(d.tasks ?? [])
       })
       .catch(e => setMsg(`Erreur réseau : ${e.message}`))
       .finally(() => setLoading(false))
@@ -110,40 +102,40 @@ export default function TodoistTasks() {
 
   useEffect(() => { load() }, [wsId, token])
 
-  // À traiter : terminées non consignées + récurrentes exécutées
-  const toHandle = notes.filter(n =>
-    (n.tache_todoist_done && !n.tache_todoist_consigne) || n.tache_todoist_recurrence_done
-  )
-  // En cours : actives
-  const active  = notes.filter(n => !n.tache_todoist_done && !n.tache_todoist_recurrence_done)
-  // Traités : consignées
-  const done    = notes.filter(n => n.tache_todoist_done && n.tache_todoist_consigne)
+  // Déjà triées par urgence décroissante côté serveur.
+  const toHandle = tasks.filter(t => (t.done && !t.consigne) || t.recurrence_done)
+  const active   = tasks.filter(t => !t.done && !t.recurrence_done)
+  const done     = tasks.filter(t => t.done && t.consigne)
 
-  async function handleImport(note) {
-    setImporting(note.id); setMsg('')
+  async function handleImport(task) {
+    setImporting(task.id); setMsg('')
+    const base = API_ROUTES.JD_NOTE_TODOIST(wsId, task.note_id)
     try {
-      const details = await fetch(API_ROUTES.JD_NOTE_TODOIST_DETAILS(wsId, note.id), { headers: authHeader(token) }).then(r => r.json())
+      const details = await fetch(`${base}/${task.id}/details`, { headers: authHeader(token) }).then(r => r.json())
       if (details.error) { setMsg(`Erreur : ${details.error}`); return }
-      const res = await fetch(API_ROUTES.JD_NOTE_TODOIST_IMPORT(wsId, note.id), {
+      const res = await fetch(`${base}/${task.id}/import`, {
         method: 'POST', headers: authHeader(token),
         body: JSON.stringify({ completed_at: details.completed_at, comments: details.comments, task_title: details.task_content, task_id: details.task_id }),
       })
       if (res.ok) {
-        setMsg(`Résolution consignée dans "${note.titre_alt ?? note.titre}".`)
+        setMsg(`Résolution consignée dans « ${task.note_titre_alt ?? task.note_titre} ».`)
         load()
+      } else {
+        const e = await res.json().catch(() => ({}))
+        setMsg(`Erreur : ${e.error ?? res.status}`)
       }
     } catch (e) { setMsg(`Erreur : ${e.message}`) }
     finally { setImporting(null) }
   }
 
-  function handleFollowUp(note) {
-    const titre = note.titre_alt ?? note.titre
+  function handleFollowUp(task) {
+    const titre = task.note_titre_alt ?? task.note_titre
     navigate(`/jourdoc/${wsId}/new`, {
       state: {
-        objet_ids: note.objets?.map(o => o.id) ?? [],
-        titre: `Suivi — ${titre}`,
-        contenu: `<p>Note d'origine : <a href="/jourdoc/${wsId}/notes/${note.id}">${titre}</a></p>`,
-      }
+        objet_ids: task.objets?.map(o => o.id) ?? [],
+        titre: `Suivi — ${task.content ?? titre}`,
+        contenu: `<p>Note d'origine : <a href="/jourdoc/${wsId}/notes/${task.note_id}">${titre}</a></p>`,
+      },
     })
   }
 
@@ -152,8 +144,8 @@ export default function TodoistTasks() {
     return (
       <section className="todoist-tasks-section">
         <h3 className="todoist-tasks-section__title">{title} ({items.length})</h3>
-        {items.map(n => (
-          <NoteRow key={n.id} note={n} onImport={handleImport} onFollowUp={handleFollowUp} importing={importing} />
+        {items.map(t => (
+          <TaskRow key={t.id} task={t} onImport={handleImport} onFollowUp={handleFollowUp} importing={importing} />
         ))}
       </section>
     )
@@ -173,7 +165,7 @@ export default function TodoistTasks() {
 
       {loading ? (
         <div className="jd-loading">Chargement…</div>
-      ) : notes.length === 0 ? (
+      ) : tasks.length === 0 ? (
         <div className="empty-state"><div className="empty-state__icon">✓</div><p>Aucune tâche Todoist liée.</p></div>
       ) : (
         <>

@@ -1580,28 +1580,37 @@ jourdoc.post('/:wsId/todoist/sync', wsCheck, async (c) => {
 jourdoc.get('/:wsId/todoist/tasks', wsCheck, async (c) => {
   const wsId = c.get('wsId')
   try {
-  const notes = await sql`
-    SELECT n.id, n.titre, n.titre_alt, n.date, n.type, n.nature,
-           n.tache_todoist_id, n.tache_todoist_done, n.tache_todoist_due,
-           n.tache_todoist_priority, n.tache_todoist_recurrence_done,
-           COALESCE(n.tache_todoist_consigne, FALSE) AS tache_todoist_consigne,
-           n.tache_todoist_content,
-           t.nom AS theme_nom
-    FROM jd_notes n
-    LEFT JOIN jd_themes t ON t.id = n.theme_id
-    WHERE n.workspace_id = ${wsId} AND n.tache_todoist_id IS NOT NULL
-    ORDER BY n.tache_todoist_done ASC, n.tache_todoist_recurrence_done DESC,
-             n.tache_todoist_due ASC, n.date DESC
-  `
-  const withObjets = await Promise.all(notes.map(async n => ({
-    ...normalizeNote(n),
-    objets: await sql`SELECT o.id, o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${n.id}`,
-    themes: await sql`SELECT t.id, t.nom FROM jd_note_theme nt JOIN jd_themes t ON t.id = nt.theme_id WHERE nt.note_id = ${n.id} ORDER BY t.nom`,
-  })))
-  return c.json({ notes: withObjets })
+    // 1 ligne par TÂCHE (libellée par content), triée par urgence décroissante.
+    const rows = await sql`
+      SELECT tt.id, tt.todoist_id, tt.content, tt.due, tt.priority,
+             tt.done, tt.recurrence_done, tt.consigne, tt.urgence,
+             n.id AS note_id, n.titre AS note_titre, n.titre_alt AS note_titre_alt,
+             n.date AS note_date, n.type AS note_type, n.nature AS note_nature,
+             t.nom AS theme_nom
+      FROM jd_note_todoist tt
+      JOIN jd_notes n ON n.id = tt.note_id
+      LEFT JOIN jd_themes t ON t.id = n.theme_id
+      WHERE tt.workspace_id = ${wsId}
+      ORDER BY tt.done ASC, tt.urgence DESC, tt.due ASC NULLS LAST, n.date DESC
+    `
+    // objets/thèmes de la note (cache par note pour éviter les requêtes répétées)
+    const objetsCache = new Map(), themesCache = new Map()
+    const tasks = await Promise.all(rows.map(async (r) => {
+      if (!objetsCache.has(r.note_id)) {
+        objetsCache.set(r.note_id, await sql`SELECT o.id, o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${r.note_id}`)
+        themesCache.set(r.note_id, await sql`SELECT t.id, t.nom FROM jd_note_theme nt JOIN jd_themes t ON t.id = nt.theme_id WHERE nt.note_id = ${r.note_id} ORDER BY t.nom`)
+      }
+      return {
+        ...r,
+        note_date: fmtDate(r.note_date),
+        objets: objetsCache.get(r.note_id),
+        themes: themesCache.get(r.note_id),
+      }
+    }))
+    return c.json({ tasks })
   } catch (err) {
     console.error('[todoist/tasks] error:', err.message)
-    return c.json({ error: err.message, notes: [] }, 500)
+    return c.json({ error: err.message, tasks: [] }, 500)
   }
 })
 

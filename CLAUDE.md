@@ -320,7 +320,11 @@ Fonctionnalités opérationnelles :
 - Notes, calendrier, objets, thèmes, éléments, liens
 - Médias (upload direct, inbox scan, proxy WebDAV, miniatures)
 - HEIC → JPEG via heic-convert + resize via sharp
-- Todoist (création tâche, liaison, page tâches, consignation)
+- Todoist : **plusieurs tâches par note** (table `jd_note_todoist`, plafond 10 ; les
+  colonnes `jd_notes.tache_todoist_*` = cache de la tâche la plus **urgente** pour le
+  badge/listes, `urgence = 2 + priorité + bucket délai`). Création, liaison, clôture,
+  consignation par tâche ; page Tâches 1 ligne/tâche triée par urgence. Routes
+  `…/todoist/:taskRowId/…`. Voir migration `009`.
 - Migration SQLite→Neon + fichiers→KDrive (scripts dans db/)
 - Documents Markdown liés/importés : éditeur **Milkdown** markdown-natif (toolbar, slash,
   callouts GitHub, surlignage couleur, math KaTeX éditable, tableaux, listes à cocher,

@@ -191,6 +191,24 @@ CREATE TABLE IF NOT EXISTS jd_note_media (
   PRIMARY KEY (note_id, media_id)
 );
 
+-- Tâches Todoist : N par note (source de vérité). Les colonnes jd_notes.tache_todoist_*
+-- restent comme CACHE de la tâche la plus urgente (badge + listes). Cf. migration 009.
+CREATE TABLE IF NOT EXISTS jd_note_todoist (
+  id              SERIAL PRIMARY KEY,
+  note_id         INTEGER REFERENCES jd_notes(id) ON DELETE CASCADE,
+  workspace_id    INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
+  todoist_id      TEXT NOT NULL,
+  content         TEXT,
+  due             TEXT,
+  priority        INTEGER,
+  done            BOOLEAN DEFAULT FALSE,
+  recurrence_done BOOLEAN DEFAULT FALSE,
+  consigne        BOOLEAN DEFAULT FALSE,
+  urgence         INTEGER DEFAULT 0,   -- 2 + priorité + bucket de délai (cf. computeUrgence)
+  created_at      TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (note_id, todoist_id)
+);
+
 -- ─────────────────────────────────────────────
 -- Index utiles
 -- ─────────────────────────────────────────────
@@ -207,3 +225,5 @@ CREATE INDEX IF NOT EXISTS idx_jd_objets_workspace ON jd_objets(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_themes_workspace ON jd_themes(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_medias_workspace ON jd_medias(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_elements_ws      ON jd_elements(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_jd_note_todoist_note ON jd_note_todoist(note_id);
+CREATE INDEX IF NOT EXISTS idx_jd_note_todoist_ws   ON jd_note_todoist(workspace_id);
