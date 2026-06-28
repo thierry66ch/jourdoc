@@ -1433,6 +1433,89 @@ function notePublicUrl(c, wsId, noteId) {
 
 const syncTimestamps = new Map()
 
+const todoistTaskUrl = (id) => `https://app.todoist.com/app/task/${id}`
+
+function taskRowJson(r) {
+  return {
+    id: r.id, todoist_id: r.todoist_id, content: r.content,
+    due: r.due, priority: r.priority, done: r.done,
+    recurrence_done: r.recurrence_done, consigne: r.consigne, urgence: r.urgence,
+    url: todoistTaskUrl(r.todoist_id),
+  }
+}
+
+// rowId de la tâche-cache (la plus urgente) d'une note — pour les routes rétro-compat.
+async function cacheTaskRowId(wsId, noteId) {
+  const [n] = await sql`SELECT tache_todoist_id FROM jd_notes WHERE id = ${noteId} AND workspace_id = ${wsId}`
+  if (!n?.tache_todoist_id) return null
+  const [r] = await sql`SELECT id FROM jd_note_todoist WHERE note_id = ${noteId} AND todoist_id = ${n.tache_todoist_id}`
+  return r?.id ?? null
+}
+
+// Rafraîchit une ligne tâche depuis Todoist (statut/délai/priorité/urgence).
+async function refreshTaskRowLive(row, token) {
+  const res = await fetch(`${TODOIST_API}/tasks/${row.todoist_id}?include_completed=true`,
+    { headers: todoistAuthHeader(token) }).catch(() => null)
+  if (!res) return row
+  if (res.status === 404) {
+    await sql`UPDATE jd_note_todoist SET done = TRUE WHERE id = ${row.id}`
+    row.done = true; return row
+  }
+  if (!res.ok) return row
+  const t = extractTask(await res.json())
+  const completed = Boolean(t?.checked || t?.completed_at || t?.is_completed)
+  const due = t?.due?.date ?? null
+  const prio = t?.priority ?? null
+  const content = t?.content ?? row.content
+  const u = computeUrgence(due, prio)
+  await sql`UPDATE jd_note_todoist SET done=${completed}, due=${due}, priority=${prio}, content=${content}, urgence=${u} WHERE id=${row.id}`
+  Object.assign(row, { done: completed, due, priority: prio, content, urgence: u })
+  return row
+}
+
+async function closeTaskRowById(wsId, noteId, rowId, token) {
+  const [row] = await sql`SELECT todoist_id FROM jd_note_todoist WHERE id=${rowId} AND note_id=${noteId} AND workspace_id=${wsId}`
+  if (!row) return { error: 'Tâche introuvable', status: 404 }
+  const res = await fetch(`${TODOIST_API}/tasks/${row.todoist_id}/close`, { method: 'POST', headers: todoistAuthHeader(token) })
+  if (res.ok || res.status === 204) {
+    await sql`UPDATE jd_note_todoist SET done = TRUE WHERE id = ${rowId}`
+    await refreshNoteTaskCache(noteId)
+    return { ok: true }
+  }
+  const b = await res.text().catch(() => '')
+  return { error: `Todoist ${res.status}: ${b.slice(0, 200) || 'pas de détail'}`, status: 400 }
+}
+
+async function deleteTaskRowById(wsId, noteId, rowId, token, deleteInTodoist) {
+  const [row] = await sql`SELECT todoist_id FROM jd_note_todoist WHERE id=${rowId} AND note_id=${noteId} AND workspace_id=${wsId}`
+  if (!row) return { error: 'Tâche introuvable', status: 404 }
+  if (deleteInTodoist && token) {
+    try { await fetch(`${TODOIST_API}/tasks/${row.todoist_id}`, { method: 'DELETE', headers: todoistAuthHeader(token) }) } catch { /* on continue */ }
+  }
+  await sql`DELETE FROM jd_note_todoist WHERE id = ${rowId}`
+  await refreshNoteTaskCache(noteId)
+  return { ok: true }
+}
+
+async function detailsForRowById(wsId, noteId, rowId, token) {
+  const [row] = await sql`SELECT todoist_id FROM jd_note_todoist WHERE id=${rowId} AND note_id=${noteId} AND workspace_id=${wsId}`
+  if (!row) return { error: 'Tâche introuvable', status: 404 }
+  const taskId = row.todoist_id
+  const [taskRes, commRes] = await Promise.all([
+    fetch(`${TODOIST_API}/tasks/${taskId}?include_completed=true`, { headers: todoistAuthHeader(token) }),
+    fetch(`${TODOIST_API}/comments?task_id=${taskId}`, { headers: todoistAuthHeader(token) }),
+  ])
+  const task = taskRes.ok ? extractTask(await taskRes.json()) : null
+  const commData = commRes.ok ? await commRes.json() : null
+  const comments = Array.isArray(commData) ? commData : (commData?.results ?? [])
+  return {
+    completed_at: task?.completed_at ?? null,
+    task_content: task?.content ?? null,
+    task_id: taskId,
+    comments: comments.map(cm => ({ content: cm.content, posted_at: cm.posted_at })),
+  }
+}
+
 jourdoc.get('/:wsId/todoist', wsCheck, async (c) => {
   const wsId = c.get('wsId')
   const [ws] = await sql`SELECT todoist_token, todoist_project_id, todoist_project_nom FROM workspaces WHERE id=${wsId}`
@@ -1450,41 +1533,45 @@ jourdoc.post('/:wsId/todoist/sync', wsCheck, async (c) => {
     const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
     if (!ws?.todoist_token) return c.json({ ok: false, error: 'Todoist non configuré' })
 
-    const notes = await sql`
-      SELECT id, tache_todoist_id, tache_todoist_due FROM jd_notes
-      WHERE workspace_id=${wsId} AND tache_todoist_id IS NOT NULL
-        AND (tache_todoist_done IS NULL OR tache_todoist_done = FALSE)
+    const rows = await sql`
+      SELECT id, note_id, todoist_id, due FROM jd_note_todoist
+      WHERE workspace_id=${wsId} AND (done IS NULL OR done = FALSE)
     `
 
     let completed = 0, errors = 0
-    for (const note of notes) {
+    const touched = new Set()
+    for (const row of rows) {
       try {
-        const res = await fetch(`${TODOIST_API}/tasks/${note.tache_todoist_id}?include_completed=true`, {
+        const res = await fetch(`${TODOIST_API}/tasks/${row.todoist_id}?include_completed=true`, {
           headers: todoistAuthHeader(ws.todoist_token)
         })
         if (res.status === 404) {
-          await sql`UPDATE jd_notes SET tache_todoist_done=TRUE WHERE id=${note.id}`
-          completed++; continue
+          await sql`UPDATE jd_note_todoist SET done=TRUE WHERE id=${row.id}`
+          completed++; touched.add(row.note_id); continue
         }
         if (!res.ok) { errors++; continue }
         const task = extractTask(await res.json())
         const isDone = Boolean(task?.checked || task?.completed_at || task?.is_completed)
         const currentDue = task?.due?.date ?? null
-        const isRecurring = !isDone && note.tache_todoist_due && currentDue && currentDue > note.tache_todoist_due
+        const prio = task?.priority ?? null
         const taskContent = task?.content ?? null
+        const isRecurring = !isDone && row.due && currentDue && currentDue > row.due
+        const u = computeUrgence(currentDue, prio)
         if (isRecurring) {
-          await sql`UPDATE jd_notes SET tache_todoist_due=${currentDue}, tache_todoist_priority=${task?.priority ?? null}, tache_todoist_recurrence_done=TRUE, tache_todoist_content=${taskContent} WHERE id=${note.id}`
+          await sql`UPDATE jd_note_todoist SET due=${currentDue}, priority=${prio}, recurrence_done=TRUE, content=${taskContent}, urgence=${u} WHERE id=${row.id}`
           completed++
         } else {
-          await sql`UPDATE jd_notes SET tache_todoist_due=${currentDue}, tache_todoist_priority=${task?.priority ?? null}, tache_todoist_done=${isDone}, tache_todoist_content=${taskContent} WHERE id=${note.id}`
+          await sql`UPDATE jd_note_todoist SET due=${currentDue}, priority=${prio}, done=${isDone}, content=${taskContent}, urgence=${u} WHERE id=${row.id}`
           if (isDone) completed++
         }
+        touched.add(row.note_id)
       } catch { errors++ }
     }
+    for (const noteId of touched) await refreshNoteTaskCache(noteId)
 
     const syncedAt = new Date().toISOString()
     syncTimestamps.set(wsId, syncedAt)
-    return c.json({ ok: true, synced: notes.length, completed, errors, synced_at: syncedAt })
+    return c.json({ ok: true, synced: rows.length, completed, errors, synced_at: syncedAt })
   } catch (e) {
     return c.json({ ok: false, error: String(e?.message ?? e) }, 500)
   }
@@ -1562,6 +1649,9 @@ jourdoc.post('/:wsId/notes/:noteId/todoist', wsCheck, async (c) => {
   const [note] = await sql`SELECT titre, date FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
   if (!note) return c.json({ error: 'Note introuvable' }, 404)
 
+  const [{ n: nbTasks }] = await sql`SELECT COUNT(*) AS n FROM jd_note_todoist WHERE note_id=${noteId}`
+  if (Number(nbTasks) >= 10) return c.json({ error: 'Maximum 10 tâches par note' }, 400)
+
   const noteUrl = notePublicUrl(c, wsId, noteId)
   const dateStr = note.date ? `\nDate : ${note.date}` : ''
   const taskBody = {
@@ -1587,12 +1677,15 @@ jourdoc.post('/:wsId/notes/:noteId/todoist', wsCheck, async (c) => {
     const task = data.id ? data : (data.task ?? data.item ?? data)
     const cachedDue = task.due?.date ?? due_date ?? null
     const taskContent = task.content ?? taskBody.content ?? null
-    await sql`
-      UPDATE jd_notes SET tache_todoist_id=${task.id}, tache_todoist_due=${cachedDue},
-        tache_todoist_priority=${Number(priority) || 2}, tache_todoist_done=FALSE, tache_todoist_content=${taskContent}
-      WHERE id=${noteId}
+    const prio = Number(priority) || 2
+    const [row] = await sql`
+      INSERT INTO jd_note_todoist (note_id, workspace_id, todoist_id, content, due, priority, done, urgence)
+      VALUES (${noteId}, ${wsId}, ${task.id}, ${taskContent}, ${cachedDue}, ${prio}, FALSE, ${computeUrgence(cachedDue, prio)})
+      ON CONFLICT (note_id, todoist_id) DO NOTHING
+      RETURNING id
     `
-    return c.json({ task_id: task.id, url: `https://app.todoist.com/app/task/${task.id}` })
+    await refreshNoteTaskCache(noteId)
+    return c.json({ id: row?.id ?? null, task_id: task.id, url: todoistTaskUrl(task.id) })
   } catch (e) {
     return c.json({ error: `Impossible de contacter Todoist : ${e.message}` }, 502)
   }
@@ -1625,12 +1718,21 @@ jourdoc.post('/:wsId/notes/:noteId/todoist/link', wsCheck, async (c) => {
     if (!res.ok) return c.json({ error: `Tâche introuvable dans Todoist (${res.status})` }, 400)
     const task = extractTask(await res.json())
     const isDone = Boolean(task?.checked || task?.completed_at || task?.is_completed)
+    const due = task?.due?.date ?? null
+    const prio = task?.priority ?? null
+
+    const [already] = await sql`SELECT id FROM jd_note_todoist WHERE note_id=${noteId} AND todoist_id=${taskId}`
+    if (!already) {
+      const [{ n }] = await sql`SELECT COUNT(*) AS n FROM jd_note_todoist WHERE note_id=${noteId}`
+      if (Number(n) >= 10) return c.json({ error: 'Maximum 10 tâches par note' }, 400)
+    }
     await sql`
-      UPDATE jd_notes SET tache_todoist_id=${taskId}, tache_todoist_content=${task?.content ?? null},
-        tache_todoist_due=${task?.due?.date ?? null}, tache_todoist_priority=${task?.priority ?? null},
-        tache_todoist_done=${isDone}
-      WHERE id=${noteId}
+      INSERT INTO jd_note_todoist (note_id, workspace_id, todoist_id, content, due, priority, done, urgence)
+      VALUES (${noteId}, ${wsId}, ${taskId}, ${task?.content ?? null}, ${due}, ${prio}, ${isDone}, ${computeUrgence(due, prio)})
+      ON CONFLICT (note_id, todoist_id) DO UPDATE SET
+        content=EXCLUDED.content, due=EXCLUDED.due, priority=EXCLUDED.priority, done=EXCLUDED.done, urgence=EXCLUDED.urgence
     `
+    await refreshNoteTaskCache(noteId)
 
     const [note] = await sql`SELECT titre FROM jd_notes WHERE id=${noteId}`
     const noteUrl = notePublicUrl(c, wsId, noteId)
@@ -1650,132 +1752,140 @@ jourdoc.get('/:wsId/notes/:noteId/todoist', wsCheck, async (c) => {
   const wsId   = c.get('wsId')
   const noteId = Number(c.req.param('noteId'))
   const [ws]   = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
-  const [note] = await sql`SELECT tache_todoist_id FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
-  if (!note?.tache_todoist_id) return c.json({ linked: false })
-  if (!ws?.todoist_token)      return c.json({ linked: true, error: 'Token manquant' })
-  try {
-    const taskId = note.tache_todoist_id
-    const res = await fetch(`${TODOIST_API}/tasks/${taskId}?include_completed=true`, {
-      headers: todoistAuthHeader(ws.todoist_token)
-    })
-    if (res.status === 404) return c.json({ linked: true, completed: true, task_id: taskId })
-    if (!res.ok) {
-      const b = await res.text().catch(() => '')
-      return c.json({ linked: true, error: `Todoist ${res.status}: ${b.slice(0, 100)}` })
-    }
-    const task = extractTask(await res.json())
-    const completed = Boolean(task?.checked || task?.completed_at || task?.is_completed)
-    const dueDate = task?.due?.date ?? null
-    const priority = task?.priority ?? null
-    await sql`UPDATE jd_notes SET tache_todoist_due=${dueDate}, tache_todoist_priority=${priority}, tache_todoist_done=${completed} WHERE id=${noteId}`
-    return c.json({ linked: true, completed, content: task?.content ?? null, due: task?.due ?? task?.deadline ?? null, priority, url: `https://app.todoist.com/app/task/${task?.id ?? taskId}`, task_id: task?.id ?? taskId })
-  } catch (e) {
-    return c.json({ linked: true, error: `Impossible de contacter Todoist : ${e.message}` })
+
+  let rows = await sql`SELECT * FROM jd_note_todoist WHERE note_id=${noteId} AND workspace_id=${wsId} ORDER BY done ASC, urgence DESC, created_at ASC`
+
+  if (ws?.todoist_token && rows.length) {
+    await Promise.all(rows.map(r => refreshTaskRowLive(r, ws.todoist_token).catch(() => r)))
+    await refreshNoteTaskCache(noteId)
+    rows = await sql`SELECT * FROM jd_note_todoist WHERE note_id=${noteId} AND workspace_id=${wsId} ORDER BY done ASC, urgence DESC, created_at ASC`
   }
+
+  const tasks = rows.map(taskRowJson)
+  const top = tasks[0] || null
+  // Réponse : tableau `tasks` (nouveau panneau) + forme historique mono (rétro-compat).
+  return c.json({
+    configured: Boolean(ws?.todoist_token),
+    tasks,
+    linked: Boolean(top),
+    completed: top?.done ?? false,
+    content: top?.content ?? null,
+    due: top?.due ? { date: top.due } : null,
+    priority: top?.priority ?? null,
+    url: top?.url ?? null,
+    task_id: top?.todoist_id ?? null,
+    ...(top && !ws?.todoist_token ? { error: 'Token manquant' } : {}),
+  })
 })
 
+// Clore une tâche précise
+jourdoc.post('/:wsId/notes/:noteId/todoist/:taskRowId/close', wsCheck, async (c) => {
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId')); const rowId = Number(c.req.param('taskRowId'))
+  const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
+  if (!ws?.todoist_token) return c.json({ error: 'Todoist non configuré' }, 400)
+  const r = await closeTaskRowById(wsId, noteId, rowId, ws.todoist_token)
+  return r.ok ? c.json({ ok: true }) : c.json({ error: r.error }, r.status)
+})
+
+// Clore la tâche-cache (rétro-compat panneau mono)
 jourdoc.post('/:wsId/notes/:noteId/todoist/close', wsCheck, async (c) => {
-  const wsId   = c.get('wsId')
-  const noteId = Number(c.req.param('noteId'))
-  const [ws]   = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
-  const [note] = await sql`SELECT tache_todoist_id FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
-  if (!note?.tache_todoist_id) return c.json({ error: 'Aucune tâche liée' }, 400)
-  if (!ws?.todoist_token)      return c.json({ error: 'Todoist non configuré' }, 400)
-  try {
-    const res = await fetch(`${TODOIST_API}/tasks/${note.tache_todoist_id}/close`, {
-      method: 'POST', headers: todoistAuthHeader(ws.todoist_token),
-    })
-    if (res.ok || res.status === 204) {
-      await sql`UPDATE jd_notes SET tache_todoist_done=TRUE WHERE id=${noteId}`
-      return c.json({ ok: true })
-    }
-    const b = await res.text().catch(() => '')
-    return c.json({ error: `Todoist ${res.status}: ${b.slice(0, 200) || 'pas de détail'}` }, 400)
-  } catch (e) {
-    return c.json({ error: `Impossible de contacter Todoist : ${e.message}` }, 502)
-  }
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId'))
+  const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
+  if (!ws?.todoist_token) return c.json({ error: 'Todoist non configuré' }, 400)
+  const rowId = await cacheTaskRowId(wsId, noteId)
+  if (!rowId) return c.json({ error: 'Aucune tâche liée' }, 400)
+  const r = await closeTaskRowById(wsId, noteId, rowId, ws.todoist_token)
+  return r.ok ? c.json({ ok: true }) : c.json({ error: r.error }, r.status)
 })
 
-jourdoc.delete('/:wsId/notes/:noteId/todoist', wsCheck, async (c) => {
-  const wsId   = c.get('wsId')
-  const noteId = Number(c.req.param('noteId'))
+// Détacher une tâche précise
+jourdoc.delete('/:wsId/notes/:noteId/todoist/:taskRowId', wsCheck, async (c) => {
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId')); const rowId = Number(c.req.param('taskRowId'))
   const { delete_in_todoist = false } = await c.req.json().catch(() => ({}))
-  const [ws]   = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
-  const [note] = await sql`SELECT tache_todoist_id FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
-  if (!note) return c.json({ error: 'Note introuvable' }, 404)
-  if (delete_in_todoist && note.tache_todoist_id && ws?.todoist_token) {
-    try {
-      await fetch(`${TODOIST_API}/tasks/${note.tache_todoist_id}`, {
-        method: 'DELETE', headers: todoistAuthHeader(ws.todoist_token),
-      })
-    } catch { /* on continue même si ça échoue */ }
-  }
-  await sql`UPDATE jd_notes SET tache_todoist_id=NULL, tache_todoist_due=NULL, tache_todoist_priority=NULL, tache_todoist_done=FALSE WHERE id=${noteId}`
-  return c.json({ ok: true })
+  const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
+  const r = await deleteTaskRowById(wsId, noteId, rowId, ws?.todoist_token, delete_in_todoist)
+  return r.ok ? c.json({ ok: true }) : c.json({ error: r.error }, r.status)
 })
 
-jourdoc.get('/:wsId/notes/:noteId/todoist/details', wsCheck, async (c) => {
-  const wsId   = c.get('wsId')
-  const noteId = Number(c.req.param('noteId'))
-  const [ws]   = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
-  const [note] = await sql`SELECT tache_todoist_id FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
-  if (!note?.tache_todoist_id) return c.json({ error: 'Aucune tâche liée' }, 400)
+// Détacher la tâche-cache (rétro-compat panneau mono)
+jourdoc.delete('/:wsId/notes/:noteId/todoist', wsCheck, async (c) => {
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId'))
+  const { delete_in_todoist = false } = await c.req.json().catch(() => ({}))
+  const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
+  const rowId = await cacheTaskRowId(wsId, noteId)
+  if (!rowId) return c.json({ ok: true })
+  const r = await deleteTaskRowById(wsId, noteId, rowId, ws?.todoist_token, delete_in_todoist)
+  return r.ok ? c.json({ ok: true }) : c.json({ error: r.error }, r.status)
+})
+
+// Détails d'une tâche précise
+jourdoc.get('/:wsId/notes/:noteId/todoist/:taskRowId/details', wsCheck, async (c) => {
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId')); const rowId = Number(c.req.param('taskRowId'))
+  const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
   if (!ws?.todoist_token) return c.json({ error: 'Token manquant' }, 400)
-  const taskId = note.tache_todoist_id
   try {
-    const [taskRes, commRes] = await Promise.all([
-      fetch(`${TODOIST_API}/tasks/${taskId}?include_completed=true`, { headers: todoistAuthHeader(ws.todoist_token) }),
-      fetch(`${TODOIST_API}/comments?task_id=${taskId}`, { headers: todoistAuthHeader(ws.todoist_token) }),
-    ])
-    const task = taskRes.ok ? extractTask(await taskRes.json()) : null
-    const commData = commRes.ok ? await commRes.json() : null
-    const comments = Array.isArray(commData) ? commData : (commData?.results ?? [])
-    return c.json({
-      completed_at: task?.completed_at ?? null,
-      task_content: task?.content ?? null,
-      task_id:      taskId,
-      comments: comments.map(cm => ({ content: cm.content, posted_at: cm.posted_at })),
-    })
-  } catch (e) {
-    return c.json({ error: `Impossible de contacter Todoist : ${e.message}` }, 502)
-  }
+    const r = await detailsForRowById(wsId, noteId, rowId, ws.todoist_token)
+    return r.error ? c.json({ error: r.error }, r.status) : c.json(r)
+  } catch (e) { return c.json({ error: `Impossible de contacter Todoist : ${e.message}` }, 502) }
 })
 
-jourdoc.post('/:wsId/notes/:noteId/todoist/import', wsCheck, async (c) => {
-  const wsId   = c.get('wsId')
-  const noteId = Number(c.req.param('noteId'))
-  const { completed_at, comments = [], task_title, task_id } = await c.req.json()
-  const [note] = await sql`SELECT contenu, tache_todoist_recurrence_done FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
-  if (!note) return c.json({ error: 'Note introuvable' }, 404)
+// Détails de la tâche-cache (rétro-compat panneau mono)
+jourdoc.get('/:wsId/notes/:noteId/todoist/details', wsCheck, async (c) => {
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId'))
+  const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
+  if (!ws?.todoist_token) return c.json({ error: 'Token manquant' }, 400)
+  const rowId = await cacheTaskRowId(wsId, noteId)
+  if (!rowId) return c.json({ error: 'Aucune tâche liée' }, 400)
+  try {
+    const r = await detailsForRowById(wsId, noteId, rowId, ws.todoist_token)
+    return r.error ? c.json({ error: r.error }, r.status) : c.json(r)
+  } catch (e) { return c.json({ error: `Impossible de contacter Todoist : ${e.message}` }, 502) }
+})
 
-  function esc(s) {
-    return (s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
-  }
+// Consigner une tâche dans le contenu de la note (par tâche). recurrence_done → on
+// repasse à FALSE (tâche récurrente : nouvelle occurrence à venir) ; sinon consigne=TRUE.
+async function consignerTaskRow(wsId, noteId, rowId, { completed_at, comments = [], task_title, task_id }) {
+  const [note] = await sql`SELECT contenu FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
+  if (!note) return { error: 'Note introuvable', status: 404 }
+  const [row] = await sql`SELECT recurrence_done FROM jd_note_todoist WHERE id=${rowId} AND note_id=${noteId} AND workspace_id=${wsId}`
+  if (!row) return { error: 'Tâche introuvable', status: 404 }
 
-  const dateStr = completed_at
-    ? new Date(completed_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })
-    : ''
-
+  const esc = (s) => (s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  const dateStr = completed_at ? new Date(completed_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
   let append = `<hr><p><strong>✓ Tâche exécutée${dateStr ? ` le ${dateStr}` : ''}</strong></p>`
   if (task_title && task_id) {
-    const taskUrl = `https://app.todoist.com/app/task/${esc(task_id)}`
-    append += `<p>📌 <a href="${taskUrl}" target="_blank" rel="noopener noreferrer">${esc(task_title)}</a></p>`
+    append += `<p>📌 <a href="${todoistTaskUrl(esc(task_id))}" target="_blank" rel="noopener noreferrer">${esc(task_title)}</a></p>`
   }
   for (const cm of comments) {
-    const cmDate = cm.posted_at
-      ? new Date(cm.posted_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' })
-      : ''
-    const safeContent = esc(cm.content ?? '').replace(/\n/g, '</p><p>')
-    append += `<blockquote><p>${cmDate ? `<em>${cmDate}</em> — ` : ''}${safeContent}</p></blockquote>`
+    const cmDate = cm.posted_at ? new Date(cm.posted_at).toLocaleDateString('fr-CH', { day: 'numeric', month: 'long', year: 'numeric' }) : ''
+    const safe = esc(cm.content ?? '').replace(/\n/g, '</p><p>')
+    append += `<blockquote><p>${cmDate ? `<em>${cmDate}</em> — ` : ''}${safe}</p></blockquote>`
   }
 
   const newContenu = (note.contenu ?? '') + append
-  if (note.tache_todoist_recurrence_done) {
-    await sql`UPDATE jd_notes SET contenu=${newContenu}, tache_todoist_recurrence_done=FALSE WHERE id=${noteId}`
-  } else {
-    await sql`UPDATE jd_notes SET contenu=${newContenu}, tache_todoist_consigne=TRUE WHERE id=${noteId}`
-  }
-  return c.json({ ok: true, contenu: newContenu })
+  await sql`UPDATE jd_notes SET contenu=${newContenu} WHERE id=${noteId}`
+  if (row.recurrence_done) await sql`UPDATE jd_note_todoist SET recurrence_done=FALSE WHERE id=${rowId}`
+  else await sql`UPDATE jd_note_todoist SET consigne=TRUE WHERE id=${rowId}`
+  await refreshNoteTaskCache(noteId)
+  return { ok: true, contenu: newContenu }
+}
+
+// Consigner une tâche précise
+jourdoc.post('/:wsId/notes/:noteId/todoist/:taskRowId/import', wsCheck, async (c) => {
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId')); const rowId = Number(c.req.param('taskRowId'))
+  const body = await c.req.json().catch(() => ({}))
+  const r = await consignerTaskRow(wsId, noteId, rowId, body)
+  return r.error ? c.json({ error: r.error }, r.status) : c.json(r)
+})
+
+// Consigner la tâche-cache (rétro-compat panneau mono)
+jourdoc.post('/:wsId/notes/:noteId/todoist/import', wsCheck, async (c) => {
+  const wsId = c.get('wsId'); const noteId = Number(c.req.param('noteId'))
+  const rowId = await cacheTaskRowId(wsId, noteId)
+  if (!rowId) return c.json({ error: 'Aucune tâche liée' }, 400)
+  const body = await c.req.json().catch(() => ({}))
+  const r = await consignerTaskRow(wsId, noteId, rowId, body)
+  return r.error ? c.json({ error: r.error }, r.status) : c.json(r)
 })
 
 // ── EXPORT WORKSPACE ─────────────────────────────────────────

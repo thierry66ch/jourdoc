@@ -4,6 +4,25 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 98 — 2026-06-28 — Multi-tâches Todoist — Phase 2 (backend, rétro-compatible)
+
+Routes réécrites pour opérer sur `jd_note_todoist`, en gardant le panneau mono actuel
+fonctionnel (cache « plus urgente »).
+
+- **create / link** : INSERT ligne (plafond **10**/note) + `refreshNoteTaskCache`.
+- **GET statut** : renvoie un tableau `tasks` **+** la forme historique mono (rétro-compat),
+  rafraîchit chaque tâche live (≤10) puis le cache.
+- **close / delete / details / import** : nouvelles routes `…/:taskRowId/…` (par tâche) +
+  routes historiques conservées (agissent sur la tâche-cache). Consigne désormais par tâche.
+- **sync** : boucle sur `jd_note_todoist` (undone), recalcul urgence, refresh cache des
+  notes touchées.
+- Page Tâches (`/todoist/tasks`) et `NoteCard` **inchangés** (lisent le cache) — réécrits
+  en phase 4. Helpers `cacheTaskRowId`, `refreshTaskRowLive`, `*TaskRowById`, `consignerTaskRow`.
+
+Vérifié : cache cohérent 8/8 (tâche-cache = la plus urgente), serveur OK.
+
+---
+
 ## Build 97 — 2026-06-28 — Multi-tâches Todoist — Phase 1 (DB + helpers)
 
 Socle pour plusieurs tâches Todoist par note (inerte, additif).
