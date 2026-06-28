@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 90 — 2026-06-28 — Capture : défilement auto du message (visible sur mobile)
+
+Le résultat de capture (succès / partiel / erreur) défile automatiquement à l'écran
+(`scrollIntoView`) dès qu'il apparaît, sinon il restait hors champ sur mobile et on
+croyait l'opération en cours alors qu'elle était terminée. Refs `captureMsgRef` /
+`errorRef` + effets dans `NoteForm`.
+
+---
+
 ## Build 89 — 2026-06-28 — Capture échouée : titre de repli depuis l'URL (Desktop)
 
 Parité Desktop/Android quand la capture échoue (ex. digitec 403 — blocage IP Vercel

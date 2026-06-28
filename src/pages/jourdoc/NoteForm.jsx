@@ -96,6 +96,12 @@ export default function NoteForm() {
   const [error, setError] = useState('')
   const [capturing, setCapturing] = useState(false)
   const [captureMsg, setCaptureMsg] = useState('')
+  const captureMsgRef = useRef(null)
+  const errorRef = useRef(null)
+
+  // Le résultat de capture (succès/partiel/erreur) défile à l'écran (visible sur mobile).
+  useEffect(() => { if (captureMsg) captureMsgRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [captureMsg])
+  useEffect(() => { if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }) }, [error])
 
   // Capture serveur du lien : télécharge l'URL, génère un .md attaché à la note.
   async function captureUrl() {
@@ -328,7 +334,7 @@ export default function NoteForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="jd-form">
-        {error && <p className="msg msg-error">{error}</p>}
+        {error && <p ref={errorRef} className="msg msg-error">{error}</p>}
 
         {/* Type + Nature */}
         <div className="jd-form-row">
@@ -506,7 +512,7 @@ export default function NoteForm() {
                 </button>
               </div>
               {captureMsg && (
-                <p style={{ fontSize: '.8125rem', color: 'var(--success)', margin: '.4rem 0 0' }}>{captureMsg}</p>
+                <p ref={captureMsgRef} style={{ fontSize: '.8125rem', color: 'var(--success)', margin: '.4rem 0 0' }}>{captureMsg}</p>
               )}
               <p style={{ fontSize: '.75rem', color: 'var(--text-muted)', margin: '.35rem 0 0' }}>
                 « Capturer » télécharge le contenu de la page et l'attache en Markdown éditable.
