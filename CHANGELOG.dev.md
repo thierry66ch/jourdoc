@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 93 — 2026-06-28 — Menus / et @ : basculement au-dessus du curseur
+
+Sur la dernière ligne d'une note longue, le menu slash/mention s'ouvrait sous le
+curseur → caché par le clavier. Nouveau helper `menuPosition.js` : place le menu
+**au-dessus** du curseur quand l'espace en dessous est insuffisant (selon
+`visualViewport`, clavier inclus), et **plafonne la hauteur** à l'espace dispo (défile
+sinon). Utilisé par `slashMenu.js` et `mention.js` (dédup du positionnement).
+
+---
+
 ## Build 92 — 2026-06-28 — Éditeur documentation : 4 retouches
 
 1. **Statut sous Catégorie** (`NoteForm`) : le sélecteur de statut remonte directement

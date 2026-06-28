@@ -1,5 +1,6 @@
 import { Extension } from '@tiptap/core'
 import Suggestion from '@tiptap/suggestion'
+import { positionMenu } from './menuPosition'
 
 // Commandes du menu « / ». Chaque item supprime d'abord le texte « /query »
 // puis exécute la commande Tiptap correspondante.
@@ -47,12 +48,7 @@ function makeRenderer() {
 
   function pick(i) { const item = items[i]; if (item && command) command(item) }
 
-  function position(rect) {
-    if (!el || !rect) return
-    const w = 220
-    el.style.left = `${Math.min(rect.left, window.innerWidth - w - 8)}px`
-    el.style.top = `${rect.bottom + 4}px`
-  }
+  function position(rect) { positionMenu(el, rect, { width: 220 }) }
 
   return {
     onStart: p => {

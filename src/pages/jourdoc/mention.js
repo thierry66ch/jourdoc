@@ -1,4 +1,5 @@
 import Mention from '@tiptap/extension-mention'
+import { positionMenu } from './menuPosition'
 
 const TYPE_ICON = { objet: '🌿', theme: '🏷️', note: '📔' }
 
@@ -29,12 +30,7 @@ function makeRenderer() {
 
   function pick(i) { const item = items[i]; if (item && command) command({ id: item.id, label: item.label }) }
 
-  function position(rect) {
-    if (!el || !rect) return
-    const w = 240
-    el.style.left = `${Math.min(rect.left, window.innerWidth - w - 8)}px`
-    el.style.top = `${rect.bottom + 4}px`
-  }
+  function position(rect) { positionMenu(el, rect, { width: 220 }) }
 
   function sync(p) {
     command = p.command; items = p.items; selected = 0
