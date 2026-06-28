@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 94 — 2026-06-28 — Éditeur HTML : hauteur réduite sur mobile (vue normale)
+
+`.rte-content` plafonnée à `50dvh` sur mobile (≤767px) au lieu de 75vh → scroll moins
+« interminable » en vue normale. Le mode plein écran conserve `max-height: none`
+(règle plus spécifique).
+
+---
+
 ## Build 93 — 2026-06-28 — Menus / et @ : basculement au-dessus du curseur
 
 Sur la dernière ligne d'une note longue, le menu slash/mention s'ouvrait sous le

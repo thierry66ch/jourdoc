@@ -3174,6 +3174,8 @@ button, input, select, textarea { font: inherit; color: inherit }
 /* Barre d'outils allégée sur mobile : fonctions avancées via le slash-menu */
 @media (max-width: 767px) {
   .rte-btn--adv, .rte-sep--adv { display: none }
+  /* Éditeur moins haut en vue normale (le plein écran garde max-height: none). */
+  .rte-content { max-height: 50dvh }
 }
 .rte-content .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
