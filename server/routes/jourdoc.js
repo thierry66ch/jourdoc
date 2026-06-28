@@ -272,6 +272,59 @@ async function refreshLie(mediaId) {
   await sql`UPDATE jd_medias SET lie = ${Number(r.n) > 0} WHERE id = ${mediaId}`
 }
 
+// ── Todoist : urgence + cache « tâche la plus urgente » sur la note ──
+//
+// urgence = 2 + P + D  (P = priorité API 1–4, 4 = max ; D = bucket de délai).
+// Plus élevé = plus pressant ; tri & badge = urgence décroissante.
+function computeUrgence(due, priority) {
+  const P = Number(priority) || 1
+  let D = 0
+  if (due) {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
+    const days = Math.round((d - today) / 86400000)
+    if (days < 0) D = 6            // dépassé
+    else if (days === 0) D = 5     // aujourd'hui
+    else if (days === 1) D = 3     // demain
+    else if (days <= 7) D = 2      // 2–7 jours
+    else if (days <= 14) D = 1     // 8–14 jours
+    else D = 0                     // > 14 jours
+  }
+  return 2 + P + D
+}
+
+// Recalcule l'urgence des tâches d'une note, puis copie la PLUS URGENTE (undone
+// d'abord, urgence décroissante) dans les colonnes cache jd_notes.tache_todoist_*
+// (servent le badge NoteCard et les requêtes de liste, inchangées).
+async function refreshNoteTaskCache(noteId) {
+  const tasks = await sql`
+    SELECT id, todoist_id, content, due, priority, done, recurrence_done, consigne, urgence
+    FROM jd_note_todoist WHERE note_id = ${noteId}
+  `
+  for (const t of tasks) {
+    const u = computeUrgence(t.due, t.priority)
+    if (u !== t.urgence) await sql`UPDATE jd_note_todoist SET urgence = ${u} WHERE id = ${t.id}`
+    t.urgence = u
+  }
+  const top = tasks.sort((a, b) => (Number(a.done) - Number(b.done)) || (b.urgence - a.urgence))[0]
+  if (!top) {
+    await sql`
+      UPDATE jd_notes SET tache_todoist_id = NULL, tache_todoist_due = NULL, tache_todoist_priority = NULL,
+        tache_todoist_done = FALSE, tache_todoist_recurrence_done = FALSE, tache_todoist_consigne = FALSE,
+        tache_todoist_content = NULL
+      WHERE id = ${noteId}
+    `
+  } else {
+    await sql`
+      UPDATE jd_notes SET tache_todoist_id = ${top.todoist_id}, tache_todoist_due = ${top.due},
+        tache_todoist_priority = ${top.priority}, tache_todoist_done = ${top.done},
+        tache_todoist_recurrence_done = ${top.recurrence_done}, tache_todoist_consigne = ${top.consigne},
+        tache_todoist_content = ${top.content}
+      WHERE id = ${noteId}
+    `
+  }
+}
+
 // PostgreSQL DATE/TIMESTAMPTZ → string 'YYYY-MM-DD' (attendu par le frontend V1)
 function fmtDate(v) {
   if (!v) return null

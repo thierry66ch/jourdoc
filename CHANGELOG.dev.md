@@ -4,6 +4,24 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 97 — 2026-06-28 — Multi-tâches Todoist — Phase 1 (DB + helpers)
+
+Socle pour plusieurs tâches Todoist par note (inerte, additif).
+
+- Migration `009_jd_note_todoist.sql` : table de liaison `jd_note_todoist`
+  (note_id, todoist_id, content, due, priority, done, recurrence_done, consigne,
+  urgence). **Appliquée sur Neon** : 8 liens 1:1 existants migrés, urgence calculée.
+- Les colonnes `jd_notes.tache_todoist_*` sont **conservées** = cache de la tâche la
+  plus urgente (badge NoteCard + listes inchangés).
+- `jourdoc.js` : helpers `computeUrgence(due, priority)` (= 2+P+D) et
+  `refreshNoteTaskCache(noteId)` (recalcul urgence + copie de la plus urgente dans le
+  cache). Pas encore câblés (phase 2).
+
+Les routes 1:1 existantes continuent de fonctionner via les colonnes ; rien ne lit
+encore la nouvelle table.
+
+---
+
 ## Build 96 — 2026-06-28 — « Générer » titre : ne pas écraser un titre saisi
 
 Le bouton ✨ Générer ne remplit plus que les champs **vides** (titre et titre court) :
