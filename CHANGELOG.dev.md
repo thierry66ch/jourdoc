@@ -4,6 +4,13 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 96 — 2026-06-28 — « Générer » titre : ne pas écraser un titre saisi
+
+Le bouton ✨ Générer ne remplit plus que les champs **vides** (titre et titre court) :
+un titre déjà saisi est préservé. Pour régénérer, vider le champ puis cliquer.
+
+---
+
 ## Build 95 — 2026-06-28 — Éditeur HTML : hauteur = moitié de la zone visible
 
 `50dvh` restait la moitié de l'écran *plein* → clavier ouvert, l'éditeur occupait

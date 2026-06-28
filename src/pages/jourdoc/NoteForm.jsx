@@ -226,7 +226,12 @@ export default function NoteForm() {
     if (selectedThemes.length) parts.push(selectedThemes.map(t => t.nom).join(', '))
     const titre = parts.join(' → ')
 
-    setForm(f => ({ ...f, titre, titre_alt: computeTitreAlt() }))
+    // Ne pas écraser un titre / titre court déjà saisi : ne remplir que les champs vides.
+    setForm(f => ({
+      ...f,
+      titre:     f.titre.trim()     ? f.titre     : titre,
+      titre_alt: f.titre_alt.trim() ? f.titre_alt : computeTitreAlt(),
+    }))
   }
 
   function toggleMedia(id) {
