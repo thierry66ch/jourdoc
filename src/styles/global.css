@@ -3510,6 +3510,12 @@ button, input, select, textarea { font: inherit; color: inherit }
 .todoist-link:hover { text-decoration: underline }
 .todoist-panel__actions { display: flex; gap: .375rem; flex-wrap: wrap }
 
+/* Une tâche dans la liste multi-tâches */
+.todoist-task-row { border-top: 1px solid var(--border); padding-top: .5rem; margin-top: .5rem }
+.todoist-task-row:first-of-type { border-top: 0; padding-top: 0; margin-top: .25rem }
+.todoist-task-head { display: flex; align-items: flex-start; gap: .4rem; margin-bottom: .3rem }
+.todoist-task-head .todoist-task-content { margin: 0 }
+
 .todoist-form { display: flex; flex-direction: column; gap: .5rem }
 .todoist-form__row { display: flex; flex-direction: column; gap: .2rem }
 .todoist-form__label { font-size: .75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .04em }

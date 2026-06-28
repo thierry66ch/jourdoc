@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 99 — 2026-06-28 — Multi-tâches Todoist — Phase 3 (panneau multi)
+
+`TodoistPanel` réécrit en **liste de tâches** : chaque tâche a son badge (en cours /
+terminée), priorité, échéance, lien Todoist, et ses actions (Terminer / Importer dans
+la note / Note de suivi / Délier / Supprimer) branchées sur les routes `:taskRowId`.
+Bouton **« + Ajouter une tâche »** (créer ou lier) tant que < 10 tâches ; en-tête avec
+compteur « N en cours · M ✓ ». Consigne (import) gérée par tâche. Styles
+`.todoist-task-row`/`.todoist-task-head`.
+
+---
+
 ## Build 98 — 2026-06-28 — Multi-tâches Todoist — Phase 2 (backend, rétro-compatible)
 
 Routes réécrites pour opérer sur `jd_note_todoist`, en gardant le panneau mono actuel
