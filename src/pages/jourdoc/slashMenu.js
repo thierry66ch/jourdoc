@@ -13,10 +13,11 @@ const ITEMS = [
   { title: 'Tableau',        icon: '▦',  keywords: 'tableau table grille', run: (e, r) => e.chain().focus().deleteRange(r).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
   { title: 'Citation',       icon: '❝',  keywords: 'citation quote blockquote', run: (e, r) => e.chain().focus().deleteRange(r).toggleBlockquote().run() },
   { title: 'Bloc de code',   icon: '{ }', keywords: 'code bloc', run: (e, r) => e.chain().focus().deleteRange(r).toggleCodeBlock().run() },
-  { title: 'Encadré info',     icon: 'ℹ️', keywords: 'callout encadre info note', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('info').run() },
-  { title: 'Encadré astuce',   icon: '💡', keywords: 'callout encadre astuce conseil tip', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('tip').run() },
-  { title: 'Encadré attention',icon: '⚠️', keywords: 'callout encadre attention avertissement warning', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('warning').run() },
-  { title: 'Encadré succès',   icon: '✅', keywords: 'callout encadre succes success ok', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('success').run() },
+  { title: 'Encadré Note',      icon: 'ℹ️', keywords: 'callout encadre note info', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('note').run() },
+  { title: 'Encadré Tip',       icon: '💡', keywords: 'callout encadre astuce conseil tip', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('tip').run() },
+  { title: 'Encadré Important', icon: '💬', keywords: 'callout encadre important', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('important').run() },
+  { title: 'Encadré Warning',   icon: '⚠️', keywords: 'callout encadre attention avertissement warning', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('warning').run() },
+  { title: 'Encadré Caution',   icon: '🛑', keywords: 'callout encadre danger caution', run: (e, r) => e.chain().focus().deleteRange(r).toggleCallout('caution').run() },
 ]
 
 function makeRenderer() {

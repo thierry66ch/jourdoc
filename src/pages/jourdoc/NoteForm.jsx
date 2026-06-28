@@ -386,6 +386,25 @@ export default function NoteForm() {
                 </button>
               ))}
             </div>
+
+            {/* Statut (sous la catégorie) */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '.75rem' }}>
+              <label className="form-label" style={{ margin: 0 }}>Statut</label>
+              <button type="button" className="jd-auto-btn"
+                onClick={() => navigate(`/jourdoc/${wsId}/settings`)}>⚙️ Gérer</button>
+            </div>
+            <div className="jd-segmented" style={{ flexWrap: 'wrap' }}>
+              <button type="button"
+                className={`jd-seg-btn${form.doc_statut_id == null ? ' active' : ''}`}
+                onClick={() => setForm(f => ({ ...f, doc_statut_id: null }))}>— Aucun</button>
+              {docStatuts.map(s => (
+                <button key={s.id} type="button"
+                  className={`jd-seg-btn${form.doc_statut_id === s.id ? ' active' : ''}`}
+                  onClick={() => setForm(f => ({ ...f, doc_statut_id: s.id }))}>
+                  {s.icon} {s.nom}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -475,26 +494,6 @@ export default function NoteForm() {
                 <input className="input" value={form.doc_reference}
                   onChange={e => setForm(f => ({ ...f, doc_reference: e.target.value }))}
                   placeholder="Ex : éd. 2024, v2.1…" />
-              </div>
-            </div>
-
-            <div className="form-field">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <label className="form-label">Statut</label>
-                <button type="button" className="jd-auto-btn"
-                  onClick={() => navigate(`/jourdoc/${wsId}/settings`)}>⚙️ Gérer</button>
-              </div>
-              <div className="jd-segmented" style={{ flexWrap: 'wrap' }}>
-                <button type="button"
-                  className={`jd-seg-btn${form.doc_statut_id == null ? ' active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, doc_statut_id: null }))}>— Aucun</button>
-                {docStatuts.map(s => (
-                  <button key={s.id} type="button"
-                    className={`jd-seg-btn${form.doc_statut_id === s.id ? ' active' : ''}`}
-                    onClick={() => setForm(f => ({ ...f, doc_statut_id: s.id }))}>
-                    {s.icon} {s.nom}
-                  </button>
-                ))}
               </div>
             </div>
 

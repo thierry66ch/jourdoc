@@ -3009,6 +3009,31 @@ button, input, select, textarea { font: inherit; color: inherit }
   display: flex;
   flex-direction: column;
 }
+
+/* Mode plein écran : overlay fixe, toolbar collante, contenu défilant.
+   La hauteur/translation est pilotée en JS via visualViewport (clavier mobile). */
+.rte--fullscreen {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 100dvh;            /* repli si visualViewport indisponible */
+  z-index: 2000;
+  border: 0; border-radius: 0;
+  background: var(--surface-alt);
+  display: flex;
+  flex-direction: column;
+}
+.rte--fullscreen .rte-toolbar {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface-alt);
+  border-bottom: 1px solid var(--border);
+}
+.rte--fullscreen .rte-content,
+.rte--fullscreen .rte-source {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  resize: none;
+}
 .rte-content .ProseMirror {
   padding: .75rem 1rem;
   flex: 1 1 auto;
@@ -3129,7 +3154,7 @@ button, input, select, textarea { font: inherit; color: inherit }
 
 /* Slash-menu « / » */
 .slash-menu {
-  position: fixed; z-index: 1100; width: 220px; max-height: 280px; overflow-y: auto;
+  position: fixed; z-index: 2100; width: 220px; max-height: 280px; overflow-y: auto; /* > .rte--fullscreen (2000) */
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--r); box-shadow: var(--shadow-lg); padding: .25rem;
 }

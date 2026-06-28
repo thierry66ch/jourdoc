@@ -1,6 +1,10 @@
 import { Node, mergeAttributes } from '@tiptap/core'
 
-const VARIANTS = ['info', 'tip', 'warning', 'success']
+// 5 alertes GitHub, identiques à l'éditeur Markdown (Milkdown) : le CSS `.jd-callout--*`
+// est partagé entre les deux éditeurs et les vues.
+const VARIANTS = ['note', 'tip', 'important', 'warning', 'caution']
+// Anciennes variantes → équivalent GitHub (contenu existant).
+const LEGACY = { info: 'note', success: 'tip' }
 
 /**
  * Encadré (callout / admonition) : bloc coloré avec icône selon la variante.
@@ -16,9 +20,12 @@ export const Callout = Node.create({
   addAttributes() {
     return {
       variant: {
-        default: 'info',
-        parseHTML: el => el.getAttribute('data-variant') || 'info',
-        renderHTML: attrs => ({ 'data-variant': VARIANTS.includes(attrs.variant) ? attrs.variant : 'info' }),
+        default: 'note',
+        parseHTML: el => {
+          const v = el.getAttribute('data-variant') || 'note'
+          return LEGACY[v] || v
+        },
+        renderHTML: attrs => ({ 'data-variant': VARIANTS.includes(attrs.variant) ? attrs.variant : 'note' }),
       },
     }
   },
@@ -26,13 +33,13 @@ export const Callout = Node.create({
   parseHTML() { return [{ tag: 'div[data-callout]' }] },
 
   renderHTML({ HTMLAttributes }) {
-    const variant = HTMLAttributes['data-variant'] || 'info'
+    const variant = HTMLAttributes['data-variant'] || 'note'
     return ['div', mergeAttributes(HTMLAttributes, { 'data-callout': '', class: `jd-callout jd-callout--${variant}` }), 0]
   },
 
   addCommands() {
     return {
-      toggleCallout: (variant = 'info') => ({ commands, editor }) =>
+      toggleCallout: (variant = 'note') => ({ commands, editor }) =>
         editor.isActive('callout')
           ? commands.lift('callout')
           : commands.wrapIn('callout', { variant }),

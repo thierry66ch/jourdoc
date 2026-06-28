@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 92 — 2026-06-28 — Éditeur documentation : 4 retouches
+
+1. **Statut sous Catégorie** (`NoteForm`) : le sélecteur de statut remonte directement
+   sous la catégorie (au lieu d'être en bas avec auteur/référence/source).
+2. **Call-outs HTML harmonisés** avec Milkdown : `callout.js` + `slashMenu.js` passent
+   aux 5 alertes GitHub (note/tip/important/warning/caution), CSS `.jd-callout--*` déjà
+   partagé. Mapping legacy `info→note`, `success→tip` pour le contenu existant.
+3. **Boutons indenter/désindenter** (`RichTextEditor`) `⇤`/`⇥` (visibles sur mobile,
+   pas en `--adv`) via `liftListItem`/`sinkListItem` (taskItem ou listItem) — pour
+   Android sans touche Tab.
+4. **Mode plein écran** de l'éditeur HTML (bouton `⛶`) : overlay fixe, toolbar collante,
+   hauteur pilotée par `visualViewport` (reste au-dessus du clavier Android) → fini le
+   double-scroll et la toolbar qui disparaît. Échap pour sortir. `.slash-menu` relevé à
+   z-index 2100 pour rester au-dessus.
+
+---
+
 ## Build 91 — 2026-06-28 — Revue + nettoyage + doc (clipper & partage)
 
 Revue de code du chantier (depuis 2a005a8) : **aucun bug de correction** trouvé

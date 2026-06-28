@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -23,8 +23,50 @@ export default function RichTextEditor({
 }) {
   const [sourceMode, setSourceMode] = useState(false)
   const [sourceText, setSourceText] = useState('')
+  const [fullscreen, setFullscreen] = useState(false)
+  const rootRef = useRef(null)
   const mentionRef = useRef(null)
   mentionRef.current = mentionItems
+
+  // Plein écran : overlay fixe dont la hauteur suit le viewport visible (au-dessus du
+  // clavier Android). Évite le double-scroll et garde la toolbar visible.
+  useEffect(() => {
+    const root = rootRef.current
+    if (!fullscreen || !root) return
+    document.body.style.overflow = 'hidden'
+    const vv = window.visualViewport
+    const apply = () => {
+      if (!vv) return
+      root.style.height = `${vv.height}px`
+      root.style.transform = `translateY(${vv.offsetTop}px)`
+    }
+    apply()
+    vv?.addEventListener('resize', apply)
+    vv?.addEventListener('scroll', apply)
+    const onKey = (e) => { if (e.key === 'Escape') setFullscreen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = ''
+      vv?.removeEventListener('resize', apply)
+      vv?.removeEventListener('scroll', apply)
+      window.removeEventListener('keydown', onKey)
+      root.style.height = ''
+      root.style.transform = ''
+    }
+  }, [fullscreen])
+
+  // Indenter / désindenter l'élément de liste courant (taskList ou liste classique).
+  // Utile sur mobile (pas de touche Tab).
+  function indentList() {
+    if (!editor) return
+    if (editor.can().sinkListItem('taskItem')) editor.chain().focus().sinkListItem('taskItem').run()
+    else editor.chain().focus().sinkListItem('listItem').run()
+  }
+  function outdentList() {
+    if (!editor) return
+    if (editor.can().liftListItem('taskItem')) editor.chain().focus().liftListItem('taskItem').run()
+    else editor.chain().focus().liftListItem('listItem').run()
+  }
 
   const editor = useEditor({
     extensions: [
@@ -76,7 +118,7 @@ export default function RichTextEditor({
   if (!editor) return null
 
   return (
-    <div className="rte">
+    <div className={`rte${fullscreen ? ' rte--fullscreen' : ''}`} ref={rootRef}>
       <div className="rte-toolbar">
         {/* Format texte */}
         <button type="button" className={`rte-btn rte-bold${editor.isActive('bold') ? ' active' : ''}`}
@@ -120,6 +162,14 @@ export default function RichTextEditor({
           title="Case à cocher"
           onMouseDown={e => { e.preventDefault(); editor.chain().focus().toggleTaskList().run() }}
           disabled={sourceMode}>☑</button>
+        <button type="button" className="rte-btn"
+          title="Désindenter la liste (Maj+Tab)"
+          onMouseDown={e => { e.preventDefault(); outdentList() }}
+          disabled={sourceMode}>⇤</button>
+        <button type="button" className="rte-btn"
+          title="Indenter la liste (Tab)"
+          onMouseDown={e => { e.preventDefault(); indentList() }}
+          disabled={sourceMode}>⇥</button>
 
         <span className="rte-sep" />
 
@@ -180,6 +230,13 @@ export default function RichTextEditor({
           title="Voir/éditer le code source"
           onMouseDown={e => { e.preventDefault(); toggleSource() }}>
           &lt;/&gt;
+        </button>
+
+        {/* Plein écran (confort de saisie mobile : toolbar fixe, pas de double-scroll) */}
+        <button type="button" className={`rte-btn${fullscreen ? ' active' : ''}`}
+          title={fullscreen ? 'Quitter le plein écran (Échap)' : 'Plein écran'}
+          onMouseDown={e => { e.preventDefault(); setFullscreen(f => !f) }}>
+          {fullscreen ? '✕' : '⛶'}
         </button>
       </div>
 
