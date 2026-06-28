@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 95 — 2026-06-28 — Éditeur HTML : hauteur = moitié de la zone visible
+
+`50dvh` restait la moitié de l'écran *plein* → clavier ouvert, l'éditeur occupait
+quasi toute la zone visible. Désormais `.rte-content` est plafonnée à **½ de la zone
+réellement visible** via `visualViewport` (qui rétrécit avec le clavier), pilotée par
+une var CSS `--rte-maxh` (repli `50dvh`). On voit toujours le contenu au-dessus/en
+dessous et la page reste scrollable. Plein écran inchangé.
+
+---
+
 ## Build 94 — 2026-06-28 — Éditeur HTML : hauteur réduite sur mobile (vue normale)
 
 `.rte-content` plafonnée à `50dvh` sur mobile (≤767px) au lieu de 75vh → scroll moins

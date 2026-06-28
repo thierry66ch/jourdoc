@@ -55,6 +55,20 @@ export default function RichTextEditor({
     }
   }, [fullscreen])
 
+  // Vue normale mobile : plafonne la hauteur de l'éditeur à ~la moitié de la zone
+  // VISIBLE (visualViewport, qui rétrécit avec le clavier) → on voit toujours le
+  // contenu au-dessus/en dessous, la page reste scrollable. (En plein écran, une règle
+  // CSS plus spécifique reprend la main.)
+  useEffect(() => {
+    const root = rootRef.current
+    const vv = window.visualViewport
+    if (!root || !vv) return
+    const apply = () => root.style.setProperty('--rte-maxh', `${Math.round(vv.height * 0.5)}px`)
+    apply()
+    vv.addEventListener('resize', apply)
+    return () => vv.removeEventListener('resize', apply)
+  }, [])
+
   // Indenter / désindenter l'élément de liste courant (taskList ou liste classique).
   // Utile sur mobile (pas de touche Tab).
   function indentList() {
