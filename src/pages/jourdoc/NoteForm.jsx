@@ -19,6 +19,18 @@ function today() {
 
 const NATURE_ICO = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
 
+// Titre de repli dérivé du slug de l'URL (quand la capture échoue, p. ex. 403).
+function slugTitle(url) {
+  try {
+    const u = new URL(url)
+    let seg = u.pathname.split('/').filter(Boolean).pop() || ''
+    seg = decodeURIComponent(seg).replace(/\.(html?|php|aspx?)$/i, '').replace(/[-_]+\d+$/, '')
+    seg = seg.replace(/[-_]+/g, ' ').trim()
+    if (!seg) seg = u.hostname.replace(/^www\./, '')
+    return seg ? seg.charAt(0).toUpperCase() + seg.slice(1) : ''
+  } catch { return '' }
+}
+
 const sortByDate = arr => [...arr].sort((a, b) => {
   const d = (a.date ?? '').localeCompare(b.date ?? '')
   return d !== 0 ? d : (a.created_at ?? '').localeCompare(b.created_at ?? '')
@@ -125,6 +137,9 @@ export default function NoteForm() {
         : `✓ Capturé : ${m.nom_original}`
       setCaptureMsg(`${prefix}${img && (img.uploaded || img.failed) ? ` · ${img.uploaded} image(s)${img.failed ? `, ${img.failed} échec(s)` : ''}` : ''}. Joint en pièce jointe.`)
     } catch (e) {
+      // À défaut de capture, donner au moins un titre dérivé de l'URL (si vide).
+      const fallback = slugTitle(url)
+      if (fallback) setForm(f => f.titre.trim() ? f : { ...f, titre: fallback })
       const protege = /refusé|403|401|429/.test(e.message)
       setError(`Capture impossible : ${e.message}.${protege
         ? ' Site protégé — utilise le bookmarklet directement sur la page, ou enregistre la note avec le lien seul.'

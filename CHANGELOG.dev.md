@@ -4,6 +4,15 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 89 — 2026-06-28 — Capture échouée : titre de repli depuis l'URL (Desktop)
+
+Parité Desktop/Android quand la capture échoue (ex. digitec 403 — blocage IP Vercel
+structurel) : sur Android le titre venait de la feuille de partage, pas sur Desktop.
+`NoteForm` dérive maintenant un **titre de repli du slug de l'URL** (`slugTitle`) si le
+titre est vide après échec de capture (n'écrase pas un titre déjà présent).
+
+---
+
 ## Build 88 — 2026-06-28 — Capture : en-têtes anti-blocage + message 403
 
 - `fetchPage.js` : en-têtes navigateur enrichis (`Upgrade-Insecure-Requests`,
