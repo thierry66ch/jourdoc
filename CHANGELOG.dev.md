@@ -4,6 +4,19 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 88 — 2026-06-28 — Capture : en-têtes anti-blocage + message 403
+
+- `fetchPage.js` : en-têtes navigateur enrichis (`Upgrade-Insecure-Requests`,
+  `Sec-Fetch-*`, `Sec-Ch-Ua*`) → passe les filtres anti-robot « naïfs ». En test,
+  **digitec.ch passe de 403 à 200**. (Ne passera pas les CDN à empreinte TLS/JA3 si
+  l'IP datacenter de Vercel est elle-même bloquée.)
+- 403/401/429 → message explicite « accès refusé (protection anti-robot) ».
+- `NoteForm` : sur capture impossible, suggère le **bookmarklet** (site protégé) et
+  rappelle qu'on peut enregistrer la note avec le **lien seul**. Le partage de lien
+  reste gracieux (la note garde titre Android + `source_url`).
+
+---
+
 ## Build 87 — 2026-06-28 — Capture : fallback métadonnées (sites non extractibles)
 
 Quand Readability n'extrait pas d'article (SPA, pages liste), on récupère au moins

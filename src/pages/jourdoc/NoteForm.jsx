@@ -125,7 +125,10 @@ export default function NoteForm() {
         : `✓ Capturé : ${m.nom_original}`
       setCaptureMsg(`${prefix}${img && (img.uploaded || img.failed) ? ` · ${img.uploaded} image(s)${img.failed ? `, ${img.failed} échec(s)` : ''}` : ''}. Joint en pièce jointe.`)
     } catch (e) {
-      setError(`Capture impossible : ${e.message}`)
+      const protege = /refusé|403|401|429/.test(e.message)
+      setError(`Capture impossible : ${e.message}.${protege
+        ? ' Site protégé — utilise le bookmarklet directement sur la page, ou enregistre la note avec le lien seul.'
+        : ' Tu peux enregistrer la note avec le lien seul.'}`)
     } finally {
       setCapturing(false)
     }

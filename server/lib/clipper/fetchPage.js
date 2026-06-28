@@ -48,12 +48,27 @@ export async function fetchPage(url, { timeoutMs = 12000, maxBytes = 4 * 1024 * 
       signal: ctrl.signal,
       redirect: 'follow',
       headers: {
+        // En-têtes les plus proches possible d'un vrai Chrome (réduit les blocages
+        // « anti-robot » naïfs ; ne passe PAS les CDN à empreinte TLS/JA3 type digitec).
         'User-Agent': UA,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Sec-Ch-Ua': '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+        'Sec-Ch-Ua-Mobile': '?0',
+        'Sec-Ch-Ua-Platform': '"Windows"',
       },
     })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    if (!res.ok) {
+      if ([401, 403, 429].includes(res.status)) {
+        throw new Error(`accès refusé par le site (${res.status}, protection anti-robot)`)
+      }
+      throw new Error(`HTTP ${res.status}`)
+    }
     const ct = res.headers.get('content-type') || ''
     if (ct && !/text\/html|application\/xhtml|application\/xml/i.test(ct)) {
       throw new Error(`pas une page HTML (${ct.split(';')[0].trim()})`)
