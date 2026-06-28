@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 87 — 2026-06-28 — Capture : fallback métadonnées (sites non extractibles)
+
+Quand Readability n'extrait pas d'article (SPA, pages liste), on récupère au moins
+les métadonnées plutôt qu'échouer.
+
+- `readability.js` : `extractMeta()` — OG (`og:title/description/image/site_name`),
+  `<meta name=description/twitter:*>`, et **JSON-LD** (`headline`/`description`). Image
+  absolutisée.
+- `captureToMd()` : si pas d'article → fallback `extractMeta` → note « **capture
+  partielle** » (titre + description + image, `partial: true`). Si même les métadonnées
+  manquent → null (422) ; la fiche garde `source_url` (note-lien possible).
+- `NoteForm` : message « ⚠️ Capture partielle » quand `data.partial`.
+- `partial` propagé dans les réponses `/api/clip` et `/api/clip/ws/:wsId/capture-url`.
+
+---
+
 ## Build 86 — 2026-06-27 — Partage de fichiers : 3 choix (note / annexer / médiathèque)
 
 Le partage de photos/PDF propose désormais trois destinations (lien → toujours une note).

@@ -31,6 +31,42 @@ function absolutizeUrls(parseHTML, htmlStr, base) {
 }
 
 /**
+ * Fallback : métadonnées de la page (OG, <meta>, JSON-LD) quand Readability n'extrait
+ * pas d'article (SPA, pages liste…). Le HTML a été téléchargé, on récupère au moins
+ * titre + description + image.
+ * @returns {Promise<{title, description, image, siteName}>}
+ */
+export async function extractMeta(html, url) {
+  const { parseHTML } = await import('linkedom')
+  const { document } = parseHTML(html)
+  const get = (sel) => document.querySelector(sel)?.getAttribute('content')?.trim() || ''
+
+  let title = get('meta[property="og:title"]') || get('meta[name="twitter:title"]')
+    || (document.querySelector('title')?.textContent || '').trim()
+  let description = get('meta[property="og:description"]') || get('meta[name="description"]')
+    || get('meta[name="twitter:description"]')
+  let image = get('meta[property="og:image"]') || get('meta[name="twitter:image"]')
+  const siteName = get('meta[property="og:site_name"]')
+
+  // JSON-LD : headline / description si manquants
+  if (!title || !description) {
+    for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+      try {
+        const j = JSON.parse(s.textContent)
+        const arr = Array.isArray(j) ? j : (j['@graph'] || [j])
+        const node = arr.find((x) => x && (x.headline || x.description)) || {}
+        if (!title && node.headline) title = String(node.headline).trim()
+        if (!description && node.description) description = String(node.description).trim()
+        if (title && description) break
+      } catch { /* JSON-LD invalide, on ignore */ }
+    }
+  }
+
+  if (image) { try { image = new URL(image, url).href } catch { /* garde tel quel */ } }
+  return { title, description, image, siteName }
+}
+
+/**
  * @param {string} html  HTML rendu de la page (envoyé par le bookmarklet)
  * @param {string} url   URL source (base pour la résolution des liens)
  * @returns {Promise<null | {title, excerpt, content, byline, siteName, textContent}>}

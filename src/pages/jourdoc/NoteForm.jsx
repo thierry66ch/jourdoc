@@ -120,7 +120,10 @@ export default function NoteForm() {
       setMediaDetails(d => d.some(x => x.id === m.id) ? d : [...d, m])
       if (injectDesc) setEditorBump(b => b + 1) // remonte l'éditeur pour afficher la citation
       const img = data.images
-      setCaptureMsg(`✓ Capturé : ${m.nom_original}${img && (img.uploaded || img.failed) ? ` · ${img.uploaded} image(s)${img.failed ? `, ${img.failed} échec(s)` : ''}` : ''}. Joint en pièce jointe.`)
+      const prefix = data.partial
+        ? '⚠️ Capture partielle (titre + description, pas d’article exploitable)'
+        : `✓ Capturé : ${m.nom_original}`
+      setCaptureMsg(`${prefix}${img && (img.uploaded || img.failed) ? ` · ${img.uploaded} image(s)${img.failed ? `, ${img.failed} échec(s)` : ''}` : ''}. Joint en pièce jointe.`)
     } catch (e) {
       setError(`Capture impossible : ${e.message}`)
     } finally {

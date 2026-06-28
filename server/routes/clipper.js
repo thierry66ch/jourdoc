@@ -14,7 +14,7 @@ import jwt from 'jsonwebtoken'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import { putTextFile } from '../../packages/storage/index.js'
-import { extractArticle } from '../lib/clipper/readability.js'
+import { extractArticle, extractMeta } from '../lib/clipper/readability.js'
 import { htmlToMarkdown } from '../lib/clipper/turndown.js'
 import { downloadAndReplaceImages } from '../lib/clipper/images.js'
 import { fetchPage } from '../lib/clipper/fetchPage.js'
@@ -53,11 +53,26 @@ function buildMarkdown({ title, url, article, markdown }) {
 // Retourne { media (ligne complète), article, title, images } ou null si Readability
 // n'extrait rien. Peut throw (erreur Readability ou upload) — géré par l'appelant.
 async function captureToMd({ workspaceId, url, html, titleOverride }) {
-  const article = await extractArticle(html, url)
-  if (!article) return null
+  let article = await extractArticle(html, url)
+  let partial = false
+  let markdown
+
+  if (article) {
+    markdown = await htmlToMarkdown(article.content)
+  } else {
+    // Fallback : pas d'article exploitable → métadonnées (OG/meta/JSON-LD).
+    const meta = await extractMeta(html, url)
+    if (!meta.title && !meta.description) return null // vraiment rien à sauvegarder
+    partial = true
+    article = {
+      title: meta.title || '', excerpt: meta.description || '', description: meta.description || '',
+      siteName: meta.siteName || null, byline: null, textContent: meta.description || '',
+    }
+    markdown = [meta.description, meta.image ? `![](${meta.image})` : '']
+      .filter(Boolean).join('\n\n')
+  }
 
   const title = (titleOverride || article.title || 'Page web').trim()
-  let markdown = await htmlToMarkdown(article.content)
 
   // Chemin EXTDOCS : clipper/{domaine}/{slug}.md (suffixe timestamp si collision)
   const slug = slugify(title)
@@ -85,7 +100,7 @@ async function captureToMd({ workspaceId, url, html, titleOverride }) {
     VALUES (${workspaceId}, ${full}, ${name}, 'markdown', 'text/markdown', TRUE, ${today()})
     RETURNING *
   `
-  return { media, article, title, images: { uploaded: images.uploadedCount, failed: images.failedCount } }
+  return { media, article, title, partial, images: { uploaded: images.uploadedCount, failed: images.failedCount } }
 }
 
 // ── PUBLIC : mini-login intégré ──────────────────────────────
@@ -221,6 +236,7 @@ clip.post('/', async (c) => {
     title,
     noteUrl: `/jourdoc/${workspaceId}/notes/${noteId}`,
     images,
+    partial: cap.partial,
   }, 201)
 })
 
@@ -260,6 +276,7 @@ clip.post('/ws/:wsId/capture-url', async (c) => {
     excerpt: cap.article.excerpt,
     description: cap.article.description || cap.article.excerpt || '',
     images: cap.images,
+    partial: cap.partial,
   })
 })
 

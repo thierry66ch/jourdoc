@@ -120,6 +120,12 @@ bénéficier du CORS réflexif (cf. § Auth) :
 > (`server/lib/clipper/fetchPage.js` : UA navigateur, redirections, timeout, charset,
 > garde anti-SSRF). ⚠️ HTML **brut sans JS** → OK sites « article », échoue sur les SPA.
 > Ce même socle resservira pour la **cible de partage** (share-target) Android.
+>
+> **Fallback** : si Readability n'extrait pas d'article, `captureToMd` retombe sur
+> `extractMeta()` (OG `og:title`/`og:description`/`og:image`/`og:site_name`, `<meta>`,
+> JSON-LD `headline`/`description`) → note « **capture partielle** » (titre + description
+> + image, marquée `partial: true`). Si même les métadonnées sont absentes → 422 ;
+> la fiche conserve alors `source_url` (note-lien possible sans capture).
 
 > `/api/clip/login` doit être déclaré **avant** `clip.use('*', authMiddleware)` pour
 > rester public.
