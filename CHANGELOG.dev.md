@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 102 — 2026-06-29 — Tâches : fix CSS 1ère carte + cap « Traités » à 10
+
+- Fix cosmétique : la règle `.todoist-task-row` du panneau (phase 3) écrasait le padding
+  des cartes de la page Tâches (même nom de classe) → scopée en `.todoist-panel
+  .todoist-task-row`. Les cartes retrouvent leur marge haute.
+- Section **« Traités » plafonnée aux 10 plus récents** (tri `created_at` desc ; titre
+  « 10 derniers sur N »). `created_at` ajouté à l'endpoint tasks.
+
+---
+
 ## Build 101 — 2026-06-29 — Tâches : filtre d'urgence sur « En cours »
 
 - `computeUrgence` : **D sans date = 3** (au lieu de 0) → les tâches flottantes P1/P2

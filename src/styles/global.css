@@ -3510,9 +3510,10 @@ button, input, select, textarea { font: inherit; color: inherit }
 .todoist-link:hover { text-decoration: underline }
 .todoist-panel__actions { display: flex; gap: .375rem; flex-wrap: wrap }
 
-/* Une tâche dans la liste multi-tâches */
-.todoist-task-row { border-top: 1px solid var(--border); padding-top: .5rem; margin-top: .5rem }
-.todoist-task-row:first-of-type { border-top: 0; padding-top: 0; margin-top: .25rem }
+/* Une tâche dans la liste multi-tâches du PANNEAU (scopé pour ne pas affecter
+   les cartes .todoist-task-row de la page Tâches qui partagent le nom de classe). */
+.todoist-panel .todoist-task-row { border-top: 1px solid var(--border); padding-top: .5rem; margin-top: .5rem }
+.todoist-panel .todoist-task-row:first-of-type { border-top: 0; padding-top: 0; margin-top: .25rem }
 .todoist-task-head { display: flex; align-items: flex-start; gap: .4rem; margin-bottom: .3rem }
 .todoist-task-head .todoist-task-content { margin: 0 }
 

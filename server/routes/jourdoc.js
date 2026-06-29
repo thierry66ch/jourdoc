@@ -1583,7 +1583,7 @@ jourdoc.get('/:wsId/todoist/tasks', wsCheck, async (c) => {
     // 1 ligne par TÂCHE (libellée par content), triée par urgence décroissante.
     const rows = await sql`
       SELECT tt.id, tt.todoist_id, tt.content, tt.due, tt.priority,
-             tt.done, tt.recurrence_done, tt.consigne, tt.urgence,
+             tt.done, tt.recurrence_done, tt.consigne, tt.urgence, tt.created_at,
              n.id AS note_id, n.titre AS note_titre, n.titre_alt AS note_titre_alt,
              n.date AS note_date, n.type AS note_type, n.nature AS note_nature,
              t.nom AS theme_nom

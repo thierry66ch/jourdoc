@@ -106,7 +106,11 @@ export default function TodoistTasks() {
   // Déjà triées par urgence décroissante côté serveur.
   const toHandle = tasks.filter(t => (t.done && !t.consigne) || t.recurrence_done)
   const active   = tasks.filter(t => !t.done && !t.recurrence_done)
-  const done     = tasks.filter(t => t.done && t.consigne)
+  // Traités : on ne garde que les 10 plus récents (la liste grandit indéfiniment sinon).
+  const DONE_CAP = 10
+  const doneAll  = tasks.filter(t => t.done && t.consigne)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  const done     = doneAll.slice(0, DONE_CAP)
 
   // Filtre d'urgence sur « En cours » : on n'affiche que urgence > 7 (sauf « Voir tout »).
   const URGENCE_MIN = 7
@@ -198,7 +202,16 @@ export default function TodoistTasks() {
             </section>
           )}
 
-          <Section title="✅ Traités"   items={done} />
+          {done.length > 0 && (
+            <section className="todoist-tasks-section">
+              <h3 className="todoist-tasks-section__title">
+                ✅ Traités ({doneAll.length > DONE_CAP ? `${DONE_CAP} derniers sur ${doneAll.length}` : done.length})
+              </h3>
+              {done.map(t => (
+                <TaskRow key={t.id} task={t} onImport={handleImport} onFollowUp={handleFollowUp} importing={importing} />
+              ))}
+            </section>
+          )}
         </>
       )}
     </div>
