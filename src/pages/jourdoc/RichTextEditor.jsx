@@ -30,6 +30,7 @@ export default function RichTextEditor({
   const [sourceMode, setSourceMode] = useState(false)
   const [sourceText, setSourceText] = useState('')
   const [showImgPicker, setShowImgPicker] = useState(false)
+  const [uploadingImgs, setUploadingImgs] = useState(0)
   const [fullscreen, setFullscreen] = useState(false)
   const rootRef = useRef(null)
   const mentionRef = useRef(null)
@@ -105,13 +106,16 @@ export default function RichTextEditor({
   }).configure({ inline: false, allowBase64: true })
 
   // Upload des images collées/déposées → insertion avec le src stocké renvoyé par le parent.
+  // Indicateur d'activité pendant le traitement serveur (resize/conversion ~3-4 s).
   async function uploadAndInsert(files) {
     if (!editor || !onImageUpload) return
+    setUploadingImgs(n => n + files.length)
     for (const file of files) {
       try {
         const { src } = await onImageUpload(file)
         if (src) editor.chain().focus().setImage({ src }).run()
       } catch { /* upload échoué : on ignore */ }
+      finally { setUploadingImgs(n => Math.max(0, n - 1)) }
     }
   }
 
@@ -308,6 +312,14 @@ export default function RichTextEditor({
           {fullscreen ? '✕' : '⛶'}
         </button>
       </div>
+
+      {/* Indicateur d'upload d'image en cours */}
+      {uploadingImgs > 0 && (
+        <div className="rte-uploading">
+          <span className="rte-uploading__dot" />
+          Envoi de l'image{uploadingImgs > 1 ? `s (${uploadingImgs})` : ''}… traitement en cours
+        </div>
+      )}
 
       {/* Sélecteur d'images jointes */}
       {showImgPicker && !sourceMode && attachedImages.length > 0 && (

@@ -3001,6 +3001,19 @@ button, input, select, textarea { font: inherit; color: inherit }
 .milkdown .ProseMirror .math-block, .milkdown .ProseMirror math-block { display: block; text-align: center; margin: .5rem 0; overflow-x: auto }
 .milkdown .ProseMirror blockquote p { margin: .2rem 0 }
 
+/* Indicateur « upload d'image en cours » */
+.rte-uploading {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .4rem .7rem; font-size: .8125rem; font-weight: 500;
+  color: var(--accent); background: var(--accent-bg);
+  border-bottom: 1px solid var(--border);
+}
+.rte-uploading__dot {
+  width: 9px; height: 9px; border-radius: 50%; background: var(--accent);
+  animation: rte-pulse 1s ease-in-out infinite;
+}
+@keyframes rte-pulse { 0%, 100% { opacity: .3; transform: scale(.8) } 50% { opacity: 1; transform: scale(1.2) } }
+
 /* Sélecteur d'images jointes (bouton 🖼) */
 .rte-img-picker {
   display: flex; flex-wrap: wrap; gap: 6px;

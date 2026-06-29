@@ -271,6 +271,12 @@ import('./db/db.js').then(async ({ default: sql }) => {
 15. **Images Markdown encodées** → les liens d'images des exports (Notion…) encodent les
     espaces (`%20`). Décoder le `src` (`decodeURIComponent`) avant de bâtir le chemin du
     proxy `extdocs/file`, sinon double-encodage → 404.
+16. **En-tête HTTP non-ASCII → 500 sur Vercel** → mettre une valeur accentée (ex. un
+    `nom_original` « Mélèze ») dans un en-tête (`Content-Disposition`, etc.) fait planter
+    `res.setHeader` côté Node/Vercel (les valeurs d'en-tête doivent être ASCII), d'où une
+    **500** qui casse l'image/le téléchargement. Utiliser le helper `contentDisposition()`
+    de `jourdoc.js` (RFC 5987 : repli ASCII + `filename*=UTF-8''<percent-encodé>`). Piège
+    sournois : un test WebDAV en local passe (il ne construit pas l'en-tête).
 
 ## Pièges éditeur Markdown / Milkdown (session 2026-06-23/24)
 

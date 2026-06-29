@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 110 — 2026-06-29 — Éditeur : indicateur d'upload + piège en-tête documenté
+
+- `RichTextEditor` : indicateur **« Envoi de l'image… »** (point pulsant) sous la toolbar
+  pendant le traitement serveur du collage/dépôt (resize/conversion ~3-4 s), via un
+  compteur `uploadingImgs`.
+- `CLAUDE.md` : piège #16 documenté — **valeur d'en-tête HTTP non-ASCII (nom accentué)
+  → 500 sur Vercel** ; utiliser `contentDisposition()` (RFC 5987).
+
+---
+
+## Build 109 — 2026-06-29 — Content-Disposition accentué → 500 (images cassées)
+
+Voir commit `fix(media): Content-Disposition accentué`. Helper `contentDisposition()`
+(RFC 5987) appliqué au proxy média + exports JSON/ZIP.
+
+---
+
 ## Build 108 — 2026-06-29 — HEIC : le vrai bug = mime_type (icône cassée)
 
 **La conversion HEIC→JPEG a toujours fonctionné** (fichiers `.jpg` en base). Le souci :
