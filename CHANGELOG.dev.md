@@ -4,6 +4,18 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 106 — 2026-06-29 — HEIC : décodage par sharp (libheif présent sur Vercel)
+
+Diagnostic `_imgdiag` : le binaire sharp de Vercel **embarque libheif** (`heif 1.18.2`)
+et redimensionne (testé OK). Le bug venait de `heic-convert` (JS pur) qui échoue sur les
+gros HEIC iPhone (mémoire/temps Lambda).
+
+- `processImage` (upload) + inbox : **sharp en voie principale** — décode le HEIC
+  directement → resize ≤ 1600 → JPEG ; `heic-convert` seulement en secours. `failOn:'none'`
+  pour la tolérance.
+
+---
+
 ## Build 105 — 2026-06-29 — Images : fix resize HEIC + visualiseur responsive
 
 - **`processImage` (upload)** réécrit : **convertir PUIS redimensionner** (comme l'inbox).

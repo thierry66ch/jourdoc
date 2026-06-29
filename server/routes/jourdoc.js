@@ -1028,30 +1028,40 @@ async function processImage(buffer, ext) {
   let buf = buffer
   let outExt = ext === 'jpeg' ? 'jpg' : ext
 
-  // 1. HEIC → JPEG (sharp ne supporte pas HEIC sur Vercel — libheif absent) via heic-convert
+  // Voie principale : sharp. Le binaire Vercel embarque libheif → décode le HEIC
+  // directement (rapide, peu de mémoire) ; resize ≤ MAX_DIM ; HEIC → JPEG.
+  try {
+    const { default: sharp } = await import('sharp')
+    const meta = await sharp(buf, { failOn: 'none' }).metadata()
+    const needsResize = (meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM
+    if (isHeic || needsResize) {
+      let p = sharp(buf, { failOn: 'none' })
+      if (needsResize) p = p.resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
+      if (isHeic) { p = p.jpeg({ quality: 90 }); outExt = 'jpg' }
+      buf = await p.withMetadata().toBuffer()
+    }
+    return { buf, outExt, size: buf.length }
+  } catch (e) {
+    console.error('[processImage] sharp failed:', e?.message)
+  }
+
+  // Secours : heic-convert (si sharp n'a pas pu lire le HEIC) + resize éventuel.
   if (isHeic) {
     try {
       const { default: heicConvert } = await import('heic-convert')
       buf = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.9 }))
       outExt = 'jpg'
-    } catch (e) {
-      console.error('[processImage] heic-convert failed:', e?.message)
+      try {
+        const { default: sharp } = await import('sharp')
+        const m = await sharp(buf).metadata()
+        if ((m.width ?? 0) > MAX_DIM || (m.height ?? 0) > MAX_DIM) {
+          buf = await sharp(buf).resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true }).toBuffer()
+        }
+      } catch { /* resize optionnel */ }
+    } catch (e2) {
+      console.error('[processImage] heic-convert failed:', e2?.message)
     }
   }
-
-  // 2. Resize si trop grande — sur JPEG/PNG/WebP, y compris le JPEG issu du HEIC.
-  try {
-    const { default: sharp } = await import('sharp')
-    const meta = await sharp(buf).metadata()
-    if ((meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM) {
-      buf = await sharp(buf)
-        .resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
-        .withMetadata().toBuffer()
-    }
-  } catch (e) {
-    console.error('[processImage] sharp resize failed:', e?.message)
-  }
-
   return { buf, outExt, size: buf.length }
 }
 

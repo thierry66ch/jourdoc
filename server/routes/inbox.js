@@ -172,29 +172,30 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
       if (typeMedia === 'photo') {
         const isHeic = origExt === 'heic' || origExt === 'heif'
 
-        // 1. Conversion HEIC → JPEG via heic-convert (sharp ne supporte pas HEIC sur Vercel)
-        if (isHeic) {
-          try {
-            const { default: heicConvert } = await import('heic-convert')
-            buffer = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.85 }))
-            mimetype = 'image/jpeg'; outExt = 'jpg'; transformed = true
-          } catch (e) {
-            console.error('[inbox] heic-convert failed:', e.message)
-          }
-        }
-
-        // 2. Resize si nécessaire (fonctionne sur JPEG converti ou image native)
+        // Voie principale : sharp (libheif présent sur Vercel) → décode HEIC + resize.
         try {
           const { default: sharp } = await import('sharp')
-          const meta = await sharp(buffer).metadata()
+          const meta = await sharp(buffer, { failOn: 'none' }).metadata()
           const needsResize = (meta.width ?? 0) > 1600 || (meta.height ?? 0) > 1600
-          if (needsResize) {
-            buffer = await sharp(buffer)
-              .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
-              .jpeg({ quality: 85 }).withMetadata().toBuffer()
-            mimetype = 'image/jpeg'; outExt = 'jpg'; transformed = true
+          if (isHeic || needsResize) {
+            let p = sharp(buffer, { failOn: 'none' })
+            if (needsResize) p = p.resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+            if (isHeic) { p = p.jpeg({ quality: 85 }) }
+            buffer = await p.withMetadata().toBuffer()
+            if (isHeic) { mimetype = 'image/jpeg'; outExt = 'jpg' }
+            transformed = true
           }
-        } catch { /* pas de resize si sharp indisponible */ }
+        } catch (e) {
+          console.error('[inbox] sharp failed:', e.message)
+          // Secours HEIC : heic-convert
+          if (isHeic) {
+            try {
+              const { default: heicConvert } = await import('heic-convert')
+              buffer = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.85 }))
+              mimetype = 'image/jpeg'; outExt = 'jpg'; transformed = true
+            } catch (e2) { console.error('[inbox] heic-convert failed:', e2.message) }
+          }
+        }
       }
 
       const destName = importedFilename(file.filename, outExt, ts, idx, files.length)
