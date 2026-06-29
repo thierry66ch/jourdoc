@@ -164,8 +164,6 @@ export default function MediaGallery() {
         return
       }
       const data = await res.json()
-      const dbg = (data.medias ?? []).flatMap(m => m.debug ?? [])
-      if (dbg.length) alert(`Traitement image — détail :\n${dbg.join('\n')}`)
       const firstDate = data.medias?.[0]?.date_prise
       if (firstDate) setAnchor(firstDate)
       await loadMedias()

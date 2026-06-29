@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 108 — 2026-06-29 — HEIC : le vrai bug = mime_type (icône cassée)
+
+**La conversion HEIC→JPEG a toujours fonctionné** (fichiers `.jpg` en base). Le souci :
+le `mime_type` était stocké depuis `file.type` (`image/heic`) alors que le fichier est
+un JPEG → le proxy `/medias/:id/file` servait un `Content-Type: image/heic` → icône
+cassée dans le navigateur.
+
+- Upload : `mime = mimeForName(filename)` (d'après l'extension de **sortie**), plus
+  `file.type`.
+- Données : 17 médias photo corrigés en base (`mime_type` recalculé depuis `fichier`).
+- Nettoyage : endpoint `_imgdiag`, `debug[]` de réponse, alerte MediaGallery, et boost
+  mémoire `vercel.json` **retirés** (la conversion marchait au défaut). `processImage`
+  simplifié (sharp principal, heic-convert secours).
+
+---
+
 ## Build 106 — 2026-06-29 — HEIC : décodage par sharp (libheif présent sur Vercel)
 
 Diagnostic `_imgdiag` : le binaire sharp de Vercel **embarque libheif** (`heif 1.18.2`)
