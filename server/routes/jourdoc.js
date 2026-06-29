@@ -1021,48 +1021,45 @@ async function extractExifDate(buffer) {
 }
 
 async function processImage(buffer, ext) {
-  if (!IMAGE_EXTS.has(ext)) return { buf: buffer, outExt: ext, size: buffer.length }
+  if (!IMAGE_EXTS.has(ext)) return { buf: buffer, outExt: ext, size: buffer.length, errors: [] }
   const magic = detectMagicFormat(buffer)
   const isHeic = HEIC_EXTS.has(ext) && magic !== 'jpeg' && magic !== 'png' && magic !== 'webp'
 
   let buf = buffer
   let outExt = ext === 'jpeg' ? 'jpg' : ext
+  const errors = []
 
-  // Voie principale : sharp. Le binaire Vercel embarque libheif → décode le HEIC
-  // directement (rapide, peu de mémoire) ; resize ≤ MAX_DIM ; HEIC → JPEG.
+  // 1. HEIC → JPEG : sharp (libheif) si décodeur HEVC présent, sinon heic-convert (JS pur).
+  if (isHeic) {
+    let converted = false
+    try {
+      const { default: sharp } = await import('sharp')
+      buf = await sharp(buffer, { failOn: 'none' }).jpeg({ quality: 90 }).toBuffer()
+      outExt = 'jpg'; converted = true
+    } catch (e) { errors.push(`sharp-heic: ${e?.message}`) }
+    if (!converted) {
+      try {
+        const { default: heicConvert } = await import('heic-convert')
+        buf = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.9 }))
+        outExt = 'jpg'; converted = true
+      } catch (e) { errors.push(`heic-convert: ${e?.message}`) }
+    }
+    if (!converted) return { buf: buffer, outExt: ext, size: buffer.length, errors }
+  }
+
+  // 2. Resize ≤ MAX_DIM (sur JPEG/PNG/WebP — y compris le JPEG issu du HEIC).
   try {
     const { default: sharp } = await import('sharp')
-    const meta = await sharp(buf, { failOn: 'none' }).metadata()
-    const needsResize = (meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM
-    if (isHeic || needsResize) {
-      let p = sharp(buf, { failOn: 'none' })
-      if (needsResize) p = p.resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
-      if (isHeic) { p = p.jpeg({ quality: 90 }); outExt = 'jpg' }
-      buf = await p.withMetadata().toBuffer()
+    const meta = await sharp(buf).metadata()
+    if ((meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM) {
+      buf = await sharp(buf)
+        .resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
+        .withMetadata().toBuffer()
     }
-    return { buf, outExt, size: buf.length }
-  } catch (e) {
-    console.error('[processImage] sharp failed:', e?.message)
-  }
+  } catch (e) { errors.push(`sharp-resize: ${e?.message}`) }
 
-  // Secours : heic-convert (si sharp n'a pas pu lire le HEIC) + resize éventuel.
-  if (isHeic) {
-    try {
-      const { default: heicConvert } = await import('heic-convert')
-      buf = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.9 }))
-      outExt = 'jpg'
-      try {
-        const { default: sharp } = await import('sharp')
-        const m = await sharp(buf).metadata()
-        if ((m.width ?? 0) > MAX_DIM || (m.height ?? 0) > MAX_DIM) {
-          buf = await sharp(buf).resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true }).toBuffer()
-        }
-      } catch { /* resize optionnel */ }
-    } catch (e2) {
-      console.error('[processImage] heic-convert failed:', e2?.message)
-    }
-  }
-  return { buf, outExt, size: buf.length }
+  if (errors.length) console.error('[processImage]', errors.join(' | '))
+  return { buf, outExt, size: buf.length, errors }
 }
 
 jourdoc.post('/:wsId/medias', async (c) => {
@@ -1093,7 +1090,7 @@ jourdoc.post('/:wsId/medias', async (c) => {
       const exifDate = isMd ? null : await extractExifDate(rawBuf)
       const datePrise = exifDate ?? fallbackDate
 
-      const { buf, outExt, size } = isMd
+      const { buf, outExt, size, errors: procErrors = [] } = isMd
         ? { buf: rawBuf, outExt: 'md', size: rawBuf.length }
         : await processImage(rawBuf, ext)
       const mime = isMd ? 'text/markdown' : (file.type || null)
@@ -1109,7 +1106,7 @@ jourdoc.post('/:wsId/medias', async (c) => {
         VALUES (${wsId}, ${filepath}, ${nomOriginal}, ${typeMedia}, ${mime}, ${size}, ${datePrise})
         RETURNING id
       `
-      results.push({ id: r.id, fichier: filepath, nom_original: nomOriginal, type_media: typeMedia, date_prise: datePrise })
+      results.push({ id: r.id, fichier: filepath, nom_original: nomOriginal, type_media: typeMedia, date_prise: datePrise, ...(procErrors.length ? { debug: procErrors } : {}) })
     }
 
     if (results.length === 0) return c.json({ error: 'Aucun fichier valide' }, 400)
