@@ -278,7 +278,7 @@ async function refreshLie(mediaId) {
 // Plus élevé = plus pressant ; tri & badge = urgence décroissante.
 function computeUrgence(due, priority) {
   const P = Number(priority) || 1
-  let D = 0
+  let D = 3                        // PAS de date → niveau « demain » (tâche flottante : P1/P2 restent visibles)
   if (due) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     const d = new Date(String(due).slice(0, 10) + 'T00:00:00')
@@ -288,7 +288,7 @@ function computeUrgence(due, priority) {
     else if (days === 1) D = 3     // demain
     else if (days <= 7) D = 2      // 2–7 jours
     else if (days <= 14) D = 1     // 8–14 jours
-    else D = 0                     // > 14 jours
+    else D = 0                     // > 14 jours (daté mais lointain)
   }
   return 2 + P + D
 }

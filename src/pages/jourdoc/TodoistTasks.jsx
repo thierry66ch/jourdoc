@@ -87,6 +87,7 @@ export default function TodoistTasks() {
   const [loading, setLoading]     = useState(true)
   const [importing, setImporting] = useState(null)
   const [msg, setMsg]             = useState('')
+  const [showAllActive, setShowAllActive] = useState(false)  // lever le filtre d'urgence
 
   function load() {
     setLoading(true)
@@ -106,6 +107,12 @@ export default function TodoistTasks() {
   const toHandle = tasks.filter(t => (t.done && !t.consigne) || t.recurrence_done)
   const active   = tasks.filter(t => !t.done && !t.recurrence_done)
   const done     = tasks.filter(t => t.done && t.consigne)
+
+  // Filtre d'urgence sur « En cours » : on n'affiche que urgence > 7 (sauf « Voir tout »).
+  const URGENCE_MIN = 7
+  const activeVisible = active.filter(t => t.urgence > URGENCE_MIN)
+  const activeHidden  = active.length - activeVisible.length
+  const activeShown   = showAllActive ? active : activeVisible
 
   async function handleImport(task) {
     setImporting(task.id); setMsg('')
@@ -170,7 +177,27 @@ export default function TodoistTasks() {
       ) : (
         <>
           <Section title="🔔 À traiter" items={toHandle} />
-          <Section title="⏳ En cours"  items={active} />
+
+          {active.length > 0 && (
+            <section className="todoist-tasks-section">
+              <h3 className="todoist-tasks-section__title">
+                ⏳ En cours ({showAllActive ? active.length : activeVisible.length}
+                {activeHidden > 0 && !showAllActive ? ` · ${activeHidden} masquée${activeHidden > 1 ? 's' : ''}` : ''})
+              </h3>
+              {activeShown.map(t => (
+                <TaskRow key={t.id} task={t} onImport={handleImport} onFollowUp={handleFollowUp} importing={importing} />
+              ))}
+              {activeHidden > 0 && (
+                <button className="btn btn-ghost" style={{ fontSize: '.8rem', width: '100%', marginTop: '.4rem' }}
+                  onClick={() => setShowAllActive(v => !v)}>
+                  {showAllActive
+                    ? '▲ Masquer les moins urgentes'
+                    : `▼ Voir tout (${activeHidden} de plus, urgence ≤ 7)`}
+                </button>
+              )}
+            </section>
+          )}
+
           <Section title="✅ Traités"   items={done} />
         </>
       )}

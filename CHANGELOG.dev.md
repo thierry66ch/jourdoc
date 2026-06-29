@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 101 — 2026-06-29 — Tâches : filtre d'urgence sur « En cours »
+
+- `computeUrgence` : **D sans date = 3** (au lieu de 0) → les tâches flottantes P1/P2
+  (api 4/3) restent visibles, P3/P4 partent « à la corbeille ». `> 14 jours` garde D=0.
+  Urgence recalculée pour toutes les lignes + caches de notes.
+- `TodoistTasks` : section **« En cours » filtrée à urgence > 7** (les autres sections
+  intactes), avec compteur « N masquées » et bouton **« Voir tout »** pour lever le filtre.
+
+---
+
 ## Build 100 — 2026-06-28 — Multi-tâches Todoist — Phase 4 (page Tâches) ✅
 
 Dernière phase : la page Tâches passe en **1 ligne par tâche**.
