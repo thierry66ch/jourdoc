@@ -4,6 +4,26 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 112 — 2026-06-29 — Export complet scalable (HTML lisible, ZIP côté navigateur)
+
+Répond au risque d'export « énorme » : le mur n'est pas la taille mais le cap **30 s**
++ la **RAM** du serverless (téléchargement WebDAV en série + ZIP en mémoire).
+
+- Serveur : deux endpoints **légers** — `GET /:wsId/export/facets` (années journal +
+  compteurs) et `GET /:wsId/export/manifest?type=&year=` (notes + médias référencés,
+  **sans binaire**). Filtrage **type** (Journal/Documentation/Tout) + **année** (journal).
+- Navigateur : nouveau module `exportWorkspace.js` (ZIP via **fflate**) — télécharge les
+  médias un par un (**pool de concurrence 4**, barre de progression par fichier), puis
+  assemble le ZIP localement → **pas de limite serveur**, progression réelle.
+- Structure du ZIP : `index.html` (sommaire groupé Journal/année, Documentation/catégorie),
+  un **`notes/{id}-{slug}.html` par note** (métadonnées + contenu images réécrites en
+  `../medias/…` + annexes inline/liens), `style.css`, `data.json`.
+- UI `WorkspaceManager` : section « 📚 Export complet (HTML lisible + médias) » avec
+  sélecteur type/année et progression.
+- Dépendance ajoutée : `fflate` ^0.8.3.
+
+---
+
 ## Build 111 — 2026-06-29 — Export ZIP : `notes.html` autonome (images visibles hors-app)
 
 - Export workspace **avec médias** : ajout d'un fichier **`notes.html`** à la racine du ZIP,

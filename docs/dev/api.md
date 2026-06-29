@@ -51,6 +51,8 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | PATCH | `/jourdoc/:wsId/search-depth` | `{ depth }` (1–10) |
 | PATCH | `/jourdoc/:wsId/picker-mode` | `{ platform: 'mobile'\|'desktop', mode: 'filter'\|'scroll' }` |
 | GET | `/jourdoc/:wsId/export?format=json\|csv&medias=0\|1` | Export workspace (voir plus bas) |
+| GET | `/jourdoc/:wsId/export/facets` | Années journal + compteurs (sélecteur d'export) |
+| GET | `/jourdoc/:wsId/export/manifest?type=&year=` | Manifeste léger pour l'export complet côté navigateur |
 
 ### Objets / Thèmes (hiérarchies)
 
@@ -170,7 +172,28 @@ Filtre thème via `EXISTS (jd_note_theme)`. Exclut les notes `nature IS NULL`
 - **CSV (ZIP)** : référentiels `objets.csv`, `themes.csv`, `elements.csv`, `notes.csv`,
   `medias.csv` + liaisons `note_objets.csv`, `note_themes.csv`, `note_elements.csv`,
   `note_medias.csv`, `liens_notes.csv`. Avec `medias=1`, les fichiers binaires
-  (récupérés depuis WebDAV) sont inclus dans le ZIP.
+  (récupérés depuis WebDAV) sont inclus dans le ZIP, plus un **`notes.html`**
+  autonome (images du contenu réécrites vers les fichiers locaux).
+
+### Export complet (HTML lisible) — généré côté navigateur
+
+Pour passer à l'échelle sans buter sur le cap 30 s / la RAM serverless, l'export
+« complet » est assemblé **dans le navigateur** (module `src/pages/jourdoc/exportWorkspace.js`,
+ZIP via `fflate`). Deux endpoints **légers** côté serveur :
+
+- `GET /:wsId/export/facets` → `{ years:[…], counts:{ journal, documentation } }`
+  (alimente le sélecteur type/année).
+- `GET /:wsId/export/manifest?type=all|journal|documentation&year=YYYY` →
+  `{ workspace, filter, generatedAt, notes[], medias[] }`. Pas de binaire : chaque
+  note porte ses métadonnées résolues (catégorie, statut, objets/thèmes/éléments,
+  liens, médias) ; `medias[]` liste les médias référencés (`id`, `filename` physique,
+  `nom_original`, `type_media`).
+
+Le navigateur télécharge ensuite chaque média via `GET /:wsId/medias/:id/file`
+(pool de concurrence 4, progression par fichier), puis construit le ZIP :
+`index.html` (sommaire groupé Journal/année et Documentation/catégorie), un
+`notes/{id}-{slug}.html` par note (métadonnées + contenu images réécrites en
+`../medias/…` + annexes), `style.css`, `data.json`.
 
 > Référence des constantes de routes côté front : `packages/shared/src/index.js`
 > (objet `API_ROUTES`).

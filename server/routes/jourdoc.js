@@ -1922,6 +1922,85 @@ jourdoc.post('/:wsId/notes/:noteId/todoist/import', wsCheck, async (c) => {
   return r.error ? c.json({ error: r.error }, r.status) : c.json(r)
 })
 
+// ── EXPORT v2 — manifeste + génération côté navigateur ───────
+// Le navigateur télécharge les médias (petites requêtes individuelles) et
+// assemble le ZIP localement → contourne le cap 30 s + la RAM serverless, et
+// permet une vraie barre de progression. Ces endpoints restent légers.
+
+// Facettes pour le sélecteur d'export (années du journal + compteurs)
+jourdoc.get('/:wsId/export/facets', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const years = await sql`
+    SELECT DISTINCT EXTRACT(YEAR FROM date)::int AS y
+    FROM jd_notes
+    WHERE workspace_id=${wsId} AND type='journal' AND date IS NOT NULL
+    ORDER BY y DESC`
+  const [counts] = await sql`
+    SELECT
+      COUNT(*) FILTER (WHERE type='journal')       AS journal,
+      COUNT(*) FILTER (WHERE type='documentation') AS documentation
+    FROM jd_notes WHERE workspace_id=${wsId}`
+  return c.json({
+    years: years.map(r => r.y),
+    counts: { journal: Number(counts.journal), documentation: Number(counts.documentation) },
+  })
+})
+
+// Manifeste filtré : notes + médias référencés (sans télécharger les binaires)
+jourdoc.get('/:wsId/export/manifest', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const { type = 'all', year = '' } = c.req.query()
+
+  const conds = ['workspace_id = $1']; const params = [wsId]
+  if (type === 'journal' || type === 'documentation') { params.push(type); conds.push(`type = $${params.length}`) }
+  if (year) { params.push(Number(year)); conds.push(`EXTRACT(YEAR FROM date) = $${params.length}`) }
+  const rawNotes = await sql(
+    `SELECT * FROM jd_notes WHERE ${conds.join(' AND ')} ORDER BY date DESC NULLS LAST, id DESC`,
+    params,
+  )
+
+  const [cats, stats] = await Promise.all([
+    sql`SELECT id, nom FROM jd_doc_categorie WHERE workspace_id=${wsId}`,
+    sql`SELECT id, nom FROM jd_doc_statut    WHERE workspace_id=${wsId}`,
+  ])
+  const catName  = new Map(cats.map(r => [r.id, r.nom]))
+  const statName = new Map(stats.map(r => [r.id, r.nom]))
+
+  const mediaSet = new Map() // id → {id, filename, nom_original, type_media}
+  const notes = await Promise.all(rawNotes.map(async n => {
+    const [objets, themes, elements, medias, liens] = await Promise.all([
+      sql`SELECT o.nom FROM jd_note_objet   no JOIN jd_objets   o ON o.id=no.objet_id   WHERE no.note_id=${n.id}`,
+      sql`SELECT t.nom FROM jd_note_theme    nt JOIN jd_themes   t ON t.id=nt.theme_id   WHERE nt.note_id=${n.id}`,
+      sql`SELECT e.nom FROM jd_note_element  ne JOIN jd_elements e ON e.id=ne.element_id WHERE ne.note_id=${n.id}`,
+      sql`SELECT m.id, m.nom_original, m.fichier, m.type_media FROM jd_note_media nm JOIN jd_medias m ON m.id=nm.media_id WHERE nm.note_id=${n.id}`,
+      sql`SELECT nn.type_lien, nn.note_cible_id, c.titre AS cible_titre FROM jd_note_note nn JOIN jd_notes c ON c.id=nn.note_cible_id WHERE nn.note_source_id=${n.id}`,
+    ])
+    const mlist = medias.map(m => {
+      const filename = m.fichier.substring(m.fichier.lastIndexOf('/') + 1)
+      if (!mediaSet.has(m.id)) mediaSet.set(m.id, { id: m.id, filename, nom_original: m.nom_original, type_media: m.type_media })
+      return { id: m.id, filename, nom_original: m.nom_original, type_media: m.type_media }
+    })
+    return {
+      id: n.id, type: n.type, nature: n.nature, titre: n.titre, date: fmtDate(n.date),
+      contenu: n.contenu, doc_auteur: n.doc_auteur, doc_reference: n.doc_reference, source_url: n.source_url,
+      categorie: catName.get(n.doc_categorie_id) ?? null, statut: statName.get(n.doc_statut_id) ?? null,
+      objets: objets.map(r => r.nom), themes: themes.map(r => r.nom), elements: elements.map(r => r.nom),
+      medias: mlist,
+      liens: liens.map(l => ({ type_lien: l.type_lien, titre: l.cible_titre, id: l.note_cible_id })),
+    }
+  }))
+
+  const [wsRow] = await sql`SELECT name FROM workspaces WHERE id=${wsId}`
+  const wsName = wsRow?.name ?? `ws-${wsId}`
+  return c.json({
+    workspace: { id: wsId, name: wsName, slug: wsName.toLowerCase().replace(/[^a-z0-9]+/g, '-') },
+    filter: { type, year: year || null },
+    generatedAt: new Date().toISOString(),
+    notes,
+    medias: [...mediaSet.values()],
+  })
+})
+
 // ── EXPORT WORKSPACE ─────────────────────────────────────────
 
 jourdoc.get('/:wsId/export', wsCheck, async (c) => {

@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
+import { buildWorkspaceExport } from './exportWorkspace'
 import CsvImporter from './CsvImporter'
 import BadgeRefManager from './BadgeRefManager'
 
@@ -169,6 +170,41 @@ export default function WorkspaceManager() {
     } catch { setMsg('Erreur réseau') }
     finally { setExporting(false) }
   }
+
+  // ── Export complet (HTML + médias), généré côté navigateur ──
+  const [facets, setFacets] = useState(null)
+  const [expType, setExpType] = useState('all')
+  const [expYear, setExpYear] = useState('')
+  const [expProg, setExpProg] = useState(null) // { phase, done, total } | { error }
+
+  useEffect(() => {
+    fetch(API_ROUTES.JD_WS_EXPORT_FACETS(wsId), { headers: authHeader(token) })
+      .then(r => r.json()).then(setFacets).catch(() => {})
+  }, [wsId, token])
+
+  const expBusy = expProg && !expProg.error && expProg.phase !== 'done'
+
+  async function runRichExport() {
+    setExpProg({ phase: 'manifest' })
+    try {
+      const { blob, filename, count } = await buildWorkspaceExport({
+        wsId, token,
+        type: expType,
+        year: expType === 'journal' ? expYear : '',
+        onProgress: setExpProg,
+      })
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = filename
+      a.click()
+      URL.revokeObjectURL(a.href)
+      setExpProg({ phase: 'done', count })
+      setTimeout(() => setExpProg(p => (p && p.phase === 'done' ? null : p)), 5000)
+    } catch (e) {
+      setExpProg({ error: e.message || 'Erreur' })
+    }
+  }
+
   const [searchDepth, setSearchDepth] = useState(3)
   const [depthSaved, setDepthSaved] = useState(false)
   const [pickerModes, setPickerModes] = useState({ mobile: 'filter', desktop: 'scroll' })
@@ -498,6 +534,56 @@ export default function WorkspaceManager() {
             onClick={() => downloadExport('csv', true)} disabled={exporting}>
             {exporting ? '…' : '↓ CSV + médias (ZIP)'}
           </button>
+        </div>
+
+        {/* Export complet HTML + médias, généré côté navigateur */}
+        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border)' }}>
+          <h4 style={{ margin: '0 0 .35rem', fontSize: '.9rem' }}>📚 Export complet (HTML lisible + médias)</h4>
+          <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.6rem' }}>
+            Un fichier HTML par note (métadonnées + annexes) + un sommaire, visualisable hors-ligne.
+            Le ZIP est assemblé dans le navigateur (pas de limite de taille serveur).
+          </p>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '.4rem', alignItems: 'center', marginBottom: '.6rem' }}>
+            <div className="jd-segmented">
+              {[['all', 'Tout'], ['journal', 'Journal'], ['documentation', 'Documentation']].map(([v, lab]) => (
+                <button key={v} type="button"
+                  className={`jd-seg-btn${expType === v ? ' active' : ''}`}
+                  onClick={() => setExpType(v)} disabled={expBusy}>
+                  {lab}{facets && v !== 'all' ? ` (${facets.counts[v] ?? 0})` : ''}
+                </button>
+              ))}
+            </div>
+
+            {expType === 'journal' && facets?.years?.length > 0 && (
+              <select style={{ fontSize: '.8rem', maxWidth: '10rem', padding: '.35rem .5rem', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface, #fff)', color: 'var(--text)' }}
+                value={expYear} onChange={e => setExpYear(e.target.value)} disabled={expBusy}>
+                <option value="">Toutes les années</option>
+                {facets.years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            )}
+
+            <button className="btn btn-primary" style={{ fontSize: '.8rem' }}
+              onClick={runRichExport} disabled={expBusy}>
+              {expBusy ? 'Génération…' : '⬇ Générer le ZIP'}
+            </button>
+          </div>
+
+          {expProg && (
+            <div style={{ fontSize: '.8125rem', color: expProg.error ? 'var(--danger, #c0392b)' : 'var(--text-muted)' }}>
+              {expProg.error ? `❌ ${expProg.error}`
+                : expProg.phase === 'manifest' ? '⏳ Préparation du manifeste…'
+                : expProg.phase === 'download' ? `⏳ Téléchargement des médias ${expProg.done}/${expProg.total}…`
+                : expProg.phase === 'zip' ? '⏳ Compression du ZIP…'
+                : expProg.phase === 'done' ? `✅ Export terminé (${expProg.count} note${expProg.count > 1 ? 's' : ''})`
+                : '⏳…'}
+              {expProg.phase === 'download' && expProg.total > 0 && (
+                <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, marginTop: '.3rem', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.round(100 * expProg.done / expProg.total)}%`, background: 'var(--accent, #4f46e5)', transition: 'width .2s' }} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
