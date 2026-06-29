@@ -141,4 +141,12 @@ export function mediaUrl(wsId, id, token) {
   return `/api/jourdoc/${wsId}/medias/${id}/file?t=${token}`
 }
 
+// Réécrit les <img> média du contenu d'une note (src proxy stocké SANS token) vers le
+// proxy authentifié, pour le rendu en lecture (RichTextView). Les data:/http externes
+// ne sont pas touchés.
+export function resolveContentImages(html, token) {
+  if (!html) return html
+  return html.replace(/(\/api\/jourdoc\/\d+\/medias\/\d+\/file)(?=["'\s>])/g, (m, url) => `${url}?t=${token}`)
+}
+
 export { authHeader }

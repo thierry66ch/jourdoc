@@ -4,6 +4,23 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 104 — 2026-06-29 — Éditeur HTML : images collées → pièces jointes (phase B)
+
+L'éditeur des notes n'encode plus les images en base64 : elles deviennent des pièces
+jointes (comme Milkdown).
+
+- `RichTextEditor` : `MediaImage` (Image + **nodeView** qui réécrit le `src` affiché via
+  `resolveImg`, sans toucher au `src` stocké) ; `handlePaste`/`handleDrop` → `onImageUpload`
+  (upload + insertion) ; bouton **🖼** + sélecteur des images déjà jointes. base64 conservé
+  pour les anciennes notes.
+- `NoteForm` : `uploadPastedImage` (POST `/medias` avec `pasted=1` → réduction/JPG, lié
+  à la note), `resolveImg` (ajoute `?t=` aux `src` proxy), `attachedImages` (photos jointes).
+- `hooks.js` : `resolveContentImages(html, token)` ; appliqué dans `NoteView` avant
+  `RichTextView`. `src` stocké = `/medias/{id}/file` **sans token**.
+- CSS `.rte-img-picker`. Doc `jourdoc.md` mise à jour.
+
+---
+
 ## Build 103 — 2026-06-29 — Médias : noms de fichiers KDrive lisibles (phase A)
 
 Le fichier physique sur KDrive n'est plus un UUID opaque (le `nom_original` en base

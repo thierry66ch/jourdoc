@@ -36,6 +36,11 @@ montage et sur `visibilitychange` (throttle 1 min/workspace via `sessionStorage`
   titre alternatif (calendrier compact) = noms courts, **max 3** par groupe, au-delà
   les **3 premiers suivis de « … »** — pour objets et thèmes.
 - Contenu : `RichTextEditor` (Tiptap), zone **redimensionnable verticalement**.
+- **Images de l'éditeur HTML** : collage/dépôt → **upload en pièce jointe** (proxy média,
+  plus de base64) via `onImageUpload` ; bouton 🖼 pour insérer une image déjà jointe.
+  `src` stocké = `/api/jourdoc/{wsId}/medias/{id}/file` **sans token** ; affichage via le
+  proxy authentifié (nodeView `resolveImg` en édition, `resolveContentImages` en lecture).
+  Les anciennes images base64 restent affichées telles quelles.
 - Journal → sélecteur **Nature** (observation/activité) ; documentation → sélecteur
   **Catégorie** (liste `docCategories` du workspace, + lien « Gérer »).
 - MediaPicker filtré par date ; section Todoist si le workspace est configuré.

@@ -20,9 +20,16 @@ export default function RichTextEditor({
   htmlToSource = h => h, sourceToHtml = h => h,
   // Source des mentions « @ » : async (query) => [{ id:'objet:1', label, type, icon }]
   mentionItems = null,
+  // Images : upload des images collées/déposées → annexe ; resolveImg réécrit le src
+  // stocké (sans token) vers le proxy authentifié à l'affichage ; attachedImages =
+  // images déjà jointes, pour le bouton d'insertion.
+  onImageUpload = null,
+  resolveImg = s => s,
+  attachedImages = [],
 }) {
   const [sourceMode, setSourceMode] = useState(false)
   const [sourceText, setSourceText] = useState('')
+  const [showImgPicker, setShowImgPicker] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const rootRef = useRef(null)
   const mentionRef = useRef(null)
@@ -82,6 +89,32 @@ export default function RichTextEditor({
     else editor.chain().focus().liftListItem('listItem').run()
   }
 
+  // Image média : src stocké inchangé (sans token) ; affichage via le proxy authentifié
+  // grâce à resolveImg (nodeView). Les images base64 (anciennes notes) passent telles quelles.
+  const MediaImage = Image.extend({
+    addNodeView() {
+      return ({ node, HTMLAttributes }) => {
+        const dom = document.createElement('img')
+        for (const [k, v] of Object.entries(HTMLAttributes)) {
+          if (k !== 'src' && v != null) dom.setAttribute(k, v)
+        }
+        dom.setAttribute('src', resolveImg(node.attrs.src || ''))
+        return { dom }
+      }
+    },
+  }).configure({ inline: false, allowBase64: true })
+
+  // Upload des images collées/déposées → insertion avec le src stocké renvoyé par le parent.
+  async function uploadAndInsert(files) {
+    if (!editor || !onImageUpload) return
+    for (const file of files) {
+      try {
+        const { src } = await onImageUpload(file)
+        if (src) editor.chain().focus().setImage({ src }).run()
+      } catch { /* upload échoué : on ignore */ }
+    }
+  }
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -90,7 +123,7 @@ export default function RichTextEditor({
       TableKit.configure({ table: { resizable: true } }),
       TaskList,
       TaskItem.configure({ nested: true }),
-      Image.configure({ inline: false, allowBase64: true }),
+      MediaImage,
       Highlight,
       MathInline,
       MathBlock,
@@ -100,6 +133,20 @@ export default function RichTextEditor({
     ],
     content: initialContent || '',
     onUpdate: ({ editor }) => onChange?.(editor.getHTML()),
+    editorProps: {
+      handlePaste(view, event) {
+        if (!onImageUpload) return false
+        const files = Array.from(event.clipboardData?.files || []).filter(f => f.type?.startsWith('image/'))
+        if (!files.length) return false
+        event.preventDefault(); uploadAndInsert(files); return true
+      },
+      handleDrop(view, event) {
+        if (!onImageUpload) return false
+        const files = Array.from(event.dataTransfer?.files || []).filter(f => f.type?.startsWith('image/'))
+        if (!files.length) return false
+        event.preventDefault(); uploadAndInsert(files); return true
+      },
+    },
   })
 
   function addLink() {
@@ -227,6 +274,14 @@ export default function RichTextEditor({
           title="Lien" onMouseDown={e => { e.preventDefault(); addLink() }}
           disabled={sourceMode}>🔗</button>
 
+        {/* Insérer une image déjà jointe à la note */}
+        {attachedImages.length > 0 && (
+          <button type="button" className={`rte-btn${showImgPicker ? ' active' : ''}`}
+            title="Insérer une image jointe"
+            onMouseDown={e => { e.preventDefault(); setShowImgPicker(v => !v) }}
+            disabled={sourceMode}>🖼</button>
+        )}
+
         {/* Menu « / » — insertion (titres, listes, tableau, cases…) */}
         <button type="button" className="rte-btn rte-btn--slash"
           title="Insérer (titres, listes, tableau, cases à cocher…)"
@@ -253,6 +308,17 @@ export default function RichTextEditor({
           {fullscreen ? '✕' : '⛶'}
         </button>
       </div>
+
+      {/* Sélecteur d'images jointes */}
+      {showImgPicker && !sourceMode && attachedImages.length > 0 && (
+        <div className="rte-img-picker">
+          {attachedImages.map((img, i) => (
+            <img key={i} className="rte-img-picker__thumb" src={resolveImg(img.src)} alt={img.alt || ''}
+              title={img.alt || ''}
+              onMouseDown={e => { e.preventDefault(); editor.chain().focus().setImage({ src: img.src }).run(); setShowImgPicker(false) }} />
+          ))}
+        </div>
+      )}
 
       {/* Éditeur Tiptap ou textarea source */}
       {sourceMode ? (

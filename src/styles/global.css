@@ -3001,6 +3001,18 @@ button, input, select, textarea { font: inherit; color: inherit }
 .milkdown .ProseMirror .math-block, .milkdown .ProseMirror math-block { display: block; text-align: center; margin: .5rem 0; overflow-x: auto }
 .milkdown .ProseMirror blockquote p { margin: .2rem 0 }
 
+/* Sélecteur d'images jointes (bouton 🖼) */
+.rte-img-picker {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px; border-bottom: 1px solid var(--border); background: var(--surface);
+  max-height: 30dvh; overflow-y: auto;
+}
+.rte-img-picker__thumb {
+  width: 56px; height: 56px; object-fit: cover; border-radius: var(--r-sm);
+  border: 1px solid var(--border); cursor: pointer; transition: border-color .15s;
+}
+.rte-img-picker__thumb:hover { border-color: var(--accent) }
+
 .rte-content {
   resize: vertical;
   overflow: auto;

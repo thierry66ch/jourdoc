@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader, mediaUrl, docCategorieBadgeStyle, noteVisual, useSwipe } from './hooks'
+import { authHeader, mediaUrl, resolveContentImages, docCategorieBadgeStyle, noteVisual, useSwipe } from './hooks'
 import RichTextView from './RichTextView'
 import { buildToc } from './toc'
 import MediaCard from './MediaCard'
@@ -179,7 +179,7 @@ export default function NoteView() {
                       </ul>
                     </details>
                   )}
-                  <RichTextView content={contentHtml} />
+                  <RichTextView content={resolveContentImages(contentHtml, token)} />
                 </div>
               : <p style={{ color: 'var(--text-subtle)', fontStyle: 'italic' }}>Aucun contenu rédigé.</p>
             }

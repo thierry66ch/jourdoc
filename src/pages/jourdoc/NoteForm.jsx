@@ -248,6 +248,33 @@ export default function NoteForm() {
     setMediaDetails(d => d.filter(m => m.id !== id))
   }
 
+  // ── Images de l'éditeur HTML ──
+  const mediaSrc = id => `/api/jourdoc/${wsId}/medias/${id}/file`
+  // src stocké (sans token) → proxy authentifié à l'affichage
+  const resolveImg = src =>
+    (typeof src === 'string' && /\/medias\/\d+\/file$/.test(src) && !src.includes('?'))
+      ? `${src}?t=${token}` : src
+  // images jointes (photos) pour le bouton d'insertion
+  const attachedImages = mediaDetails
+    .filter(m => m.type_media === 'photo')
+    .map(m => ({ src: mediaSrc(m.id), alt: m.nom_original }))
+
+  // Image collée/déposée → upload en pièce jointe (réduction/JPG) + lien à la note.
+  async function uploadPastedImage(file) {
+    const fd = new FormData()
+    fd.append('files', file, file.name || 'image.png')
+    fd.append('pasted', '1')
+    const res = await fetch(API_ROUTES.JD_MEDIAS(wsId), {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok || !data.medias?.[0]) throw new Error(data.error || 'Upload échoué')
+    const m = data.medias[0]
+    setForm(f => f.media_ids.includes(m.id) ? f : { ...f, media_ids: [...f.media_ids, m.id] })
+    setMediaDetails(d => d.some(x => x.id === m.id) ? d : [...d, m])
+    return { src: mediaSrc(m.id) }
+  }
+
   // Source des mentions « @ » : objets + thèmes (locaux) + notes (recherche)
   async function mentionItems(query) {
     const q = query.toLowerCase()
@@ -480,6 +507,9 @@ export default function NoteForm() {
             initialContent={form.contenu}
             onChange={v => setForm(f => ({ ...f, contenu: v }))}
             mentionItems={mentionItems}
+            onImageUpload={uploadPastedImage}
+            resolveImg={resolveImg}
+            attachedImages={attachedImages}
             placeholder="Détails de la note… (@ pour mentionner, / pour insérer)"
           />
         </div>
