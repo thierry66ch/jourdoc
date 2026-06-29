@@ -4,6 +4,22 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 103 — 2026-06-29 — Médias : noms de fichiers KDrive lisibles (phase A)
+
+Le fichier physique sur KDrive n'est plus un UUID opaque (le `nom_original` en base
+était déjà conservé).
+
+- `server/lib/mediaName.js` : `tsStamp` (YYYYMMDDHHMMSS), `cleanBaseName`,
+  `importedFilename` (`<nom>_<ts>[_NN].<ext>`), `pastedFilename`
+  (`<YYYYMMDD>_Pasted_image_<HHMMSS>[_NN].<ext>`), `pastedOriginalName`.
+- Upload (`POST /:wsId/medias`) + inbox scan : noms lisibles ; indice `_NN` pour les lots
+  (anti-collision même seconde). Flag `pasted` géré (utilisé en phase B).
+- Fichiers déjà stockés inchangés (gardent leur UUID).
+
+À suivre — phase B : éditeur HTML, images collées → annexes + insertion d'annexe.
+
+---
+
 ## Build 102 — 2026-06-29 — Tâches : fix CSS 1ère carte + cap « Traités » à 10
 
 - Fix cosmétique : la règle `.todoist-task-row` du panneau (phase 3) écrasait le padding

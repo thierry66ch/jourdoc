@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import { uploadFile, downloadFile, deleteFile, listFiles, listDir, getTextFile, putTextFile } from '../../packages/storage/index.js'
+import { tsStamp, importedFilename, pastedFilename, pastedOriginalName } from '../lib/mediaName.js'
 
 const jourdoc = new Hono()
 
@@ -1047,8 +1048,12 @@ jourdoc.post('/:wsId/medias', async (c) => {
     const fallbackDate = (typeof body.date_prise === 'string' && body.date_prise)
       || new Date().toISOString().slice(0, 10)
 
+    const pasted = body.pasted === '1' || body.pasted === 'true'
+    const ts = tsStamp()
+
     const results = []
-    for (const file of files) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i]
       if (!file || typeof file === 'string') continue
       const ext = (file.name.split('.').pop() ?? '').toLowerCase()
       if (!ALLOWED_EXTS.has(ext)) continue
@@ -1063,16 +1068,19 @@ jourdoc.post('/:wsId/medias', async (c) => {
         ? { buf: rawBuf, outExt: 'md', size: rawBuf.length }
         : await processImage(rawBuf, ext)
       const mime = isMd ? 'text/markdown' : (file.type || null)
-      const filename = `${randomUUID()}.${outExt}`
+      const filename = pasted
+        ? pastedFilename(outExt, ts, i, files.length)
+        : importedFilename(file.name, outExt, ts, i, files.length)
+      const nomOriginal = pasted ? pastedOriginalName(ts) : file.name
 
       const filepath = await uploadFile(`${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`, filename, buf, mime)
 
       const [r] = await sql`
         INSERT INTO jd_medias (workspace_id, fichier, nom_original, type_media, mime_type, taille, date_prise)
-        VALUES (${wsId}, ${filepath}, ${file.name}, ${typeMedia}, ${mime}, ${size}, ${datePrise})
+        VALUES (${wsId}, ${filepath}, ${nomOriginal}, ${typeMedia}, ${mime}, ${size}, ${datePrise})
         RETURNING id
       `
-      results.push({ id: r.id, fichier: filepath, nom_original: file.name, type_media: typeMedia, date_prise: datePrise })
+      results.push({ id: r.id, fichier: filepath, nom_original: nomOriginal, type_media: typeMedia, date_prise: datePrise })
     }
 
     if (results.length === 0) return c.json({ error: 'Aucun fichier valide' }, 400)

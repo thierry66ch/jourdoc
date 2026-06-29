@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import sql from '../../db/db.js'
 import { listInbox, downloadFile, uploadFile, deleteFile, moveFromInbox } from '../../packages/storage/index.js'
+import { tsStamp, importedFilename } from '../lib/mediaName.js'
 
 const inbox = new Hono()
 
@@ -124,8 +125,10 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
 
   const integrated = []
   const errors = []
+  const ts = tsStamp()
 
-  for (const file of files) {
+  for (let idx = 0; idx < files.length; idx++) {
+    const file = files[idx]
     try {
       const ext0 = file.filename.includes('.') ? file.filename.split('.').pop().toLowerCase() : ''
 
@@ -137,7 +140,7 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
 
       // ── Markdown autonome → uploads (média géré, éditable in-app) ──
       if (ext0 === 'md' || ext0 === 'markdown') {
-        const destName = `${randomUUID()}.md`
+        const destName = importedFilename(file.filename, 'md', ts, idx, files.length)
         const destPath = `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`
         const fichier = await moveFromInbox(inboxPath, file.filename, destPath, destName)
         const [media] = await sql`
@@ -194,7 +197,7 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
         } catch { /* pas de resize si sharp indisponible */ }
       }
 
-      const destName = `${randomUUID()}.${outExt}`
+      const destName = importedFilename(file.filename, outExt, ts, idx, files.length)
       const destPath = `${process.env.WEBDAV_PATH_UPLOADS}/${wsId}`
       let fichier
       if (transformed) {
