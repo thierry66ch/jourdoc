@@ -9,6 +9,22 @@ const jourdoc = new Hono()
 
 jourdoc.use('*', authMiddleware)
 
+// Diagnostic temporaire : état de sharp / heic-convert sur le runtime (Vercel).
+jourdoc.get('/_imgdiag', async (c) => {
+  const out = { node: process.version, platform: `${process.platform}/${process.arch}` }
+  try {
+    const { default: sharp } = await import('sharp')
+    out.sharpVersions = sharp.versions
+    const buf = await sharp({ create: { width: 2000, height: 1500, channels: 3, background: { r: 10, g: 20, b: 30 } } }).jpeg().toBuffer()
+    const resized = await sharp(buf).resize({ width: 1600, height: 1600, fit: 'inside' }).toBuffer()
+    const m = await sharp(resized).metadata()
+    out.sharp = `ok ${m.width}x${m.height} (${resized.length}o)`
+  } catch (e) { out.sharp = `ERR: ${e?.message}` }
+  try { await import('heic-convert'); out.heic = 'module ok' }
+  catch (e) { out.heic = `ERR: ${e?.message}` }
+  return c.json(out)
+})
+
 // Vérifie que l'utilisateur a accès au workspace
 async function wsCheck(c, next) {
   const userId = c.get('userId')
