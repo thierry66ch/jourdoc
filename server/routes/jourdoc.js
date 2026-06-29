@@ -2035,15 +2035,42 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   ]
 
   if (withMedias) {
+    // Nom local = nom physique (déjà lisible + horodaté + unique → pas de collision).
+    const mediaPathById = new Map()
     for (const m of rawMedias) {
       try {
         const lastSlash = m.fichier.lastIndexOf('/')
         const dir = m.fichier.substring(0, lastSlash)
         const filename = m.fichier.substring(lastSlash + 1)
         const buf = await downloadFile(dir, filename)
-        zipFiles.push({ name: `medias/${m.nom_original ?? filename}`, data: buf })
+        zipFiles.push({ name: `medias/${filename}`, data: buf })
+        mediaPathById.set(m.id, `medias/${filename}`)
       } catch { /* fichier manquant */ }
     }
+
+    // notes.html autonome : contenu des notes avec les images média réécrites vers les
+    // fichiers locaux du ZIP (visualisable hors-app, sans token).
+    const escHtml = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const rewriteImgs = html => String(html || '').replace(
+      /\/api\/jourdoc\/\d+\/medias\/(\d+)\/file(?:\?[^"'\s)]*)?/g,
+      (full, id) => mediaPathById.get(Number(id)) || full,
+    )
+    const notesHtml = `<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${escHtml(wsName)} — notes</title>
+<style>body{font:16px/1.6 system-ui,-apple-system,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#222}
+img{max-width:100%;height:auto;border-radius:6px}article{border-bottom:1px solid #ddd;padding:1.5rem 0}
+h2{margin:0 0 .25rem}.meta{color:#888;font-size:.85rem;margin-bottom:.75rem}
+blockquote{border-left:3px solid #6366f1;margin:.5rem 0;padding:.25rem 0 .25rem .85rem;color:#555}</style>
+</head><body><h1>${escHtml(wsName)}</h1>
+${rawNotes
+  .slice()
+  .sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')))
+  .map(n => `<article><h2>${escHtml(n.titre || '(sans titre)')}</h2>`
+    + `<div class="meta">${escHtml(fmtDate(n.date) || '')} · ${escHtml(n.type || '')}</div>`
+    + `${rewriteImgs(n.contenu)}</article>`).join('\n')}
+</body></html>`
+    zipFiles.push({ name: 'notes.html', data: notesHtml })
   }
 
   const buffer = makeZip(zipFiles)

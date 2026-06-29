@@ -4,6 +4,20 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 111 — 2026-06-29 — Export ZIP : `notes.html` autonome (images visibles hors-app)
+
+- Export workspace **avec médias** : ajout d'un fichier **`notes.html`** à la racine du ZIP,
+  contenu des notes rendu en HTML autonome, avec les `<img>` du contenu **réécrits vers les
+  fichiers locaux** (`medias/…`) au lieu du proxy authentifié → les images s'affichent
+  hors-application (limite levée).
+- Médias du ZIP nommés d'après le **nom physique** (horodaté, unique) au lieu de
+  `nom_original` → plus de collision si deux médias ont le même nom d'origine, et permet la
+  réécriture déterministe des liens du `contenu` (map `id → medias/{fichier}`).
+- Nettoyage mémoire : note `md-image-links-strategy` supprimée (pistes toutes livrées :
+  éditeur Milkdown, proxy `relfile`, document lié EXTDOCS, import bundle Notion, collage HTML).
+
+---
+
 ## Build 110 — 2026-06-29 — Éditeur : indicateur d'upload + piège en-tête documenté
 
 - `RichTextEditor` : indicateur **« Envoi de l'image… »** (point pulsant) sous la toolbar
