@@ -125,24 +125,32 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 
 ### Todoist — workspace
 
+Modèle **N tâches par note** : table `jd_note_todoist` (source de vérité) ; les colonnes
+`jd_notes.tache_todoist_*` = cache de la tâche **la plus urgente** (badge + listes).
+`urgence = 2 + priorité + bucket de délai` (D sans date = 3 ; cf. `computeUrgence`).
+
 | Méthode | Route | Description |
 |---|---|---|
 | GET/PUT | `/jourdoc/:wsId/todoist` | Config + `last_sync_at` |
 | POST | `/jourdoc/:wsId/todoist/projects` | Tester token + lister projets |
-| POST | `/jourdoc/:wsId/todoist/sync` | Sync batch → `{ ok, synced, completed, errors }` |
-| GET | `/jourdoc/:wsId/todoist/tasks` | Notes avec tâche liée (+ `objets[]`, `themes[]`) |
+| POST | `/jourdoc/:wsId/todoist/sync` | Sync batch (boucle sur `jd_note_todoist`) → `{ ok, synced, completed, errors }` |
+| GET | `/jourdoc/:wsId/todoist/tasks` | **1 ligne/tâche** triée par urgence ↓ (+ note, `objets[]`, `themes[]`) → `{ tasks }` |
 
 ### Todoist — note
 
+`:taskRowId` = `jd_note_todoist.id`. Les routes **sans** `:taskRowId` (rétro-compat)
+agissent sur la tâche-cache (la plus urgente). Plafond **10 tâches/note**.
+
 | Méthode | Route | Description |
 |---|---|---|
-| POST | `/jourdoc/:wsId/notes/:id/todoist` | Créer tâche → `{ task_id, url }` |
+| POST | `/jourdoc/:wsId/notes/:id/todoist` | Créer une tâche (INSERT) → `{ id, task_id, url }` |
 | POST | `/jourdoc/:wsId/notes/:id/todoist/link` | Lier une tâche existante (URL/ID) |
-| GET | `/jourdoc/:wsId/notes/:id/todoist` | Statut (polling) |
-| POST | `/jourdoc/:wsId/notes/:id/todoist/close` | Terminer la tâche |
-| DELETE | `/jourdoc/:wsId/notes/:id/todoist` | Délier |
-| GET | `/jourdoc/:wsId/notes/:id/todoist/details` | Détails + commentaires |
-| POST | `/jourdoc/:wsId/notes/:id/todoist/import` | Consigner la résolution dans la note |
+| GET | `/jourdoc/:wsId/notes/:id/todoist` | Liste `{ tasks[] }` (+ forme mono rétro-compat) |
+| POST | `/jourdoc/:wsId/notes/:id/todoist/:taskRowId/close` | Terminer une tâche |
+| DELETE | `/jourdoc/:wsId/notes/:id/todoist/:taskRowId` | Détacher une tâche |
+| GET | `/jourdoc/:wsId/notes/:id/todoist/:taskRowId/details` | Détails + commentaires |
+| POST | `/jourdoc/:wsId/notes/:id/todoist/:taskRowId/import` | Consigner la résolution dans la note |
+| | `…/todoist/close`, `…/todoist` (DELETE), `…/todoist/details`, `…/todoist/import` | variantes rétro-compat (tâche-cache) |
 
 ### Analyse pluriannuelle
 

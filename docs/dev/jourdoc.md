@@ -217,17 +217,32 @@ rechargement, dans les deux sens).
 NB : les cases à cocher se sérialisent en GFM (`- [ ]`) ; côté documents Markdown,
 le rechargement md→html peut les rendre en listes simples (limite `marked`).
 
-## Todoist
+## Todoist — plusieurs tâches par note
 
-**`TodoistPanel.jsx`** (sidebar NoteView) — créer / lier (extraction d'ID depuis
-slug `nom-kebab-TASKID`), statut, terminer, consigner (import date + lien + commentaires).
+**Modèle.** Table de liaison `jd_note_todoist` (N tâches/note, **plafond 10**) = source
+de vérité. Les colonnes `jd_notes.tache_todoist_*` restent comme **cache de la tâche la
+plus urgente** (badge `NoteCard` + requêtes de liste **inchangées**). Helpers serveur
+(`server/routes/jourdoc.js`) : `computeUrgence(due, priority)` et `refreshNoteTaskCache(noteId)`
+appelés après chaque mutation/sync.
+
+**Urgence** = `2 + P + D`. P = priorité API (1–4, 4 = max). D = bucket de délai :
+dépassé 6, aujourd'hui 5, demain 3, 2–7 j 2, 8–14 j 1, > 14 j 0, **sans date 3** (les
+flottantes P1/P2 restent visibles, P3/P4 partent en corbeille). Tri / badge = urgence ↓.
+
+**`TodoistPanel.jsx`** (NoteView) — **liste** de tâches ; chacune : badge, priorité,
+échéance, lien Todoist, actions (Terminer / Importer / Note de suivi / Délier / Supprimer)
+via les routes `:taskRowId`. Bouton « + Ajouter une tâche » (créer / lier) tant que < 10.
 `onNoteUpdated` pour re-fetch sans reload.
 
-**`TodoistTasks.jsx`** (`/todoist-tasks`) — sections 🔔 À traiter / ⏳ En cours /
-✅ Traités. Consigner → `tache_todoist_consigne = TRUE`. Affiche `themes[]` + objets.
+**`TodoistTasks.jsx`** (`/todoist-tasks`) — **1 ligne/tâche** (libellé = `content`), note
+d'origine en contexte. Sections 🔔 À traiter / ⏳ En cours / ✅ Traités. « En cours » est
+**filtrée à urgence > 7** (bouton « Voir tout » ; autres sections intactes) ; « Traités »
+plafonnée aux **10 plus récents**.
 
-**Sync batch** (`POST /:wsId/todoist/sync`) — interroge les tâches non terminées,
-détecte terminées / récurrentes / actives, stocke `tache_todoist_content`.
+**Sync batch** (`POST /:wsId/todoist/sync`) — boucle sur `jd_note_todoist` (non terminées),
+détecte terminées / récurrentes / actives, recalcule l'urgence, rafraîchit le cache des
+notes touchées. Rétro-compat : les routes note **sans** `:taskRowId` agissent sur la
+tâche-cache.
 
 ## Référence
 

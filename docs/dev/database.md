@@ -105,7 +105,7 @@ Conseil/Descriptif/Manuel/Norme/Exemple ; statuts : Brouillon/Validé/Obsolète)
 | `contenu` | TEXT | HTML (Tiptap) |
 | `date` | DATE | NULL pour documentation |
 | `source_url` | TEXT | documentation |
-| `tache_todoist_*` | divers | id, due, priority, done, recurrence_done, consigne, content |
+| `tache_todoist_*` | divers | **cache** de la tâche Todoist la plus urgente (id, due, priority, done, recurrence_done, consigne, content) — source de vérité = `jd_note_todoist` |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
 ### Tables de liaison
@@ -116,6 +116,12 @@ Conseil/Descriptif/Manuel/Norme/Exemple ; statuts : Brouillon/Validé/Obsolète)
 | `jd_note_element` | `note_id` + `element_id` | N-N, CASCADE |
 | `jd_note_media` | `note_id` + `media_id` | N-N, CASCADE |
 | `jd_note_note` | `note_source_id` + `note_cible_id` + `type_lien` | fil documentaire, auto-réf |
+| `jd_note_todoist` | `id`, `note_id`, `workspace_id`, `todoist_id`, `content`, `due`, `priority`, `done`, `recurrence_done`, `consigne`, `urgence`, `created_at` | **N tâches Todoist par note** (plafond 10), `UNIQUE(note_id, todoist_id)` — migration `009` |
+
+> **Tâches Todoist** : `jd_note_todoist` est la source de vérité (plusieurs tâches par
+> note). `urgence = 2 + priorité + bucket de délai` (sans date = 3). Les colonnes
+> `jd_notes.tache_todoist_*` sont un **cache de la tâche la plus urgente** (badge +
+> listes), maintenu par `refreshNoteTaskCache()`.
 
 > **Thèmes multiples** : une note peut être liée à plusieurs thèmes via
 > `jd_note_theme`. `jd_notes.theme_id` est conservé (legacy/compat) et alimenté
@@ -154,6 +160,7 @@ import('./db/db.js').then(async ({ default: sql }) => {
 - `006_doc_fields.sql` — `jd_notes.doc_auteur` / `doc_statut` / `doc_reference`
 - `007_doc_statut_ref.sql` — table `jd_doc_statut` + `jd_notes.doc_statut_id` (remplace `doc_statut` texte)
 - `008_media_externe.sql` — `jd_medias.externe` (pièces jointes *liées*)
+- `009_jd_note_todoist.sql` — table `jd_note_todoist` (N tâches/note) + migration des liens 1:1 ; colonnes `jd_notes.tache_todoist_*` conservées en cache
 
 **Convention** : nouvelle évolution de schéma → fichier de migration numéroté
 **et** mise à jour de `schema.sql` (référence d'un schéma vierge).
