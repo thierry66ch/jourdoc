@@ -3078,6 +3078,8 @@ button, input, select, textarea { font: inherit; color: inherit }
 .rte-content .ProseMirror strong { font-weight: 700 }
 .rte-content .ProseMirror em { font-style: italic }
 .rte-content .ProseMirror u { text-decoration: underline }
+/* Images du visualiseur : adaptées à la largeur d'affichage */
+.rich-view img { max-width: 100%; height: auto; border-radius: var(--r-sm); margin: .375rem 0 }
 .rte-content .ProseMirror blockquote,
 .rich-view blockquote {
   border-left: 3px solid var(--accent);

@@ -4,6 +4,17 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 105 — 2026-06-29 — Images : fix resize HEIC + visualiseur responsive
+
+- **`processImage` (upload)** réécrit : **convertir PUIS redimensionner** (comme l'inbox).
+  L'ancien code rapatriait le JPEG issu de `heic-convert` **sans resize** ; désormais le
+  HEIC est converti (heic-convert) puis le JPEG passe par sharp (resize ≤ 1600). Logs
+  d'erreur ajoutés (`[processImage]`).
+- **`.rich-view img`** : `max-width: 100%; height: auto` → les images du visualiseur
+  s'adaptent à la largeur d'affichage (l'éditeur l'avait déjà).
+
+---
+
 ## Build 104 — 2026-06-29 — Éditeur HTML : images collées → pièces jointes (phase B)
 
 L'éditeur des notes n'encode plus les images en base64 : elles deviennent des pièces

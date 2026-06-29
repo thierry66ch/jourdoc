@@ -1007,33 +1007,36 @@ async function extractExifDate(buffer) {
 async function processImage(buffer, ext) {
   if (!IMAGE_EXTS.has(ext)) return { buf: buffer, outExt: ext, size: buffer.length }
   const magic = detectMagicFormat(buffer)
-  const isActuallyHeic = HEIC_EXTS.has(ext) && magic !== 'jpeg' && magic !== 'png' && magic !== 'webp'
-  const outExt = HEIC_EXTS.has(ext) ? 'jpg' : (ext === 'jpeg' ? 'jpg' : ext)
+  const isHeic = HEIC_EXTS.has(ext) && magic !== 'jpeg' && magic !== 'png' && magic !== 'webp'
+
+  let buf = buffer
+  let outExt = ext === 'jpeg' ? 'jpg' : ext
+
+  // 1. HEIC → JPEG (sharp ne supporte pas HEIC sur Vercel — libheif absent) via heic-convert
+  if (isHeic) {
+    try {
+      const { default: heicConvert } = await import('heic-convert')
+      buf = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.9 }))
+      outExt = 'jpg'
+    } catch (e) {
+      console.error('[processImage] heic-convert failed:', e?.message)
+    }
+  }
+
+  // 2. Resize si trop grande — sur JPEG/PNG/WebP, y compris le JPEG issu du HEIC.
   try {
     const { default: sharp } = await import('sharp')
-    const img = sharp(buffer)
-    const meta = await img.metadata()
-    const needsResize = (meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM
-    const needsConvert = isActuallyHeic
-    if (!needsResize && !needsConvert) return { buf: buffer, outExt, size: buffer.length }
-    let pipeline = needsResize
-      ? img.resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
-      : img
-    if (needsConvert) pipeline = pipeline.jpeg({ quality: 90 })
-    const out = await pipeline.withMetadata().toBuffer()
-    return { buf: out, outExt, size: out.length }
-  } catch {
-    if (isActuallyHeic) {
-      try {
-        const { default: heicConvert } = await import('heic-convert')
-        const jpegBuf = Buffer.from(await heicConvert({ buffer, format: 'JPEG', quality: 0.9 }))
-        return { buf: jpegBuf, outExt: 'jpg', size: jpegBuf.length }
-      } catch (e2) {
-        console.error('[HEIC] heic-convert failed:', e2?.message)
-      }
+    const meta = await sharp(buf).metadata()
+    if ((meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM) {
+      buf = await sharp(buf)
+        .resize({ width: MAX_DIM, height: MAX_DIM, fit: 'inside', withoutEnlargement: true })
+        .withMetadata().toBuffer()
     }
-    return { buf: buffer, outExt, size: buffer.length }
+  } catch (e) {
+    console.error('[processImage] sharp resize failed:', e?.message)
   }
+
+  return { buf, outExt, size: buf.length }
 }
 
 jourdoc.post('/:wsId/medias', async (c) => {
