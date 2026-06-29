@@ -1175,6 +1175,14 @@ function mimeForName(name) {
     md: 'text/markdown', markdown: 'text/markdown' })[ext] || 'application/octet-stream'
 }
 
+// En-tête Content-Disposition sûr : les valeurs HTTP doivent être ASCII. Un nom
+// accentué (ex. « Mélèze ») y casse `res.setHeader` → 500. RFC 5987 : repli ASCII +
+// `filename*=UTF-8''<percent-encodé>`.
+function contentDisposition(type, name) {
+  const ascii = String(name ?? 'fichier').replace(/[^\x20-\x7E]/g, '_').replace(/["\\]/g, '_')
+  return `${type}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name ?? 'fichier')}`
+}
+
 // Arborescence du dossier externe (dossiers + fichiers)
 jourdoc.get('/:wsId/extdocs/tree', async (c) => {
   if (!EXTDOCS()) return c.json({ error: 'EXTDOCS non configuré', entries: [] }, 200)
@@ -1344,7 +1352,7 @@ jourdoc.get('/:wsId/medias/:id/file', async (c) => {
 
     const mimeType = media.mime_type || (media.type_media === 'pdf' ? 'application/pdf' : media.type_media === 'markdown' ? 'text/markdown' : 'image/jpeg')
     c.header('Content-Type', mimeType)
-    c.header('Content-Disposition', `inline; filename="${media.nom_original ?? filename}"`)
+    c.header('Content-Disposition', contentDisposition('inline', media.nom_original ?? filename))
     c.header('Cache-Control', 'private, max-age=86400')
     return c.body(buf)
   } catch (err) {
@@ -1948,7 +1956,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   if (format === 'json') {
     const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, doc_categories: docCategories, doc_statuts: docStatuts, notes, medias: rawMedias }, null, 2)
     c.header('Content-Type', 'application/json')
-    c.header('Content-Disposition', `attachment; filename="${slug}-${date}.json"`)
+    c.header('Content-Disposition', contentDisposition('attachment', `${slug}-${date}.json`))
     return c.body(payload)
   }
 
@@ -2040,7 +2048,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
 
   const buffer = makeZip(zipFiles)
   c.header('Content-Type', 'application/zip')
-  c.header('Content-Disposition', `attachment; filename="${slug}-${date}.zip"`)
+  c.header('Content-Disposition', contentDisposition('attachment', `${slug}-${date}.zip`))
   return c.body(buffer)
 })
 
