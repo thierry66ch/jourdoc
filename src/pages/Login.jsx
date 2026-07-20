@@ -31,7 +31,9 @@ export default function Login() {
       if (!res.ok) throw new Error()
       const { token } = await res.json()
       login(token)
-      navigate('/')
+      // Retour à la page d'où l'expiration de session nous a éjectés (?next=), sinon accueil.
+      const next = new URLSearchParams(location.search).get('next')
+      navigate(next && next.startsWith('/') ? next : '/')
     } catch {
       setError(t('login.error'))
     } finally {

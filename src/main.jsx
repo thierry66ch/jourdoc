@@ -28,6 +28,10 @@ import ResetPassword from './pages/ResetPassword'
 import ShareTarget from './pages/ShareTarget'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { installAuthInterceptor } from './lib/authInterceptor'
+
+// Redirection automatique vers /login quand la session expire (401 global).
+installAuthInterceptor()
 
 function PrivateRoute({ children }) {
   const { token } = useAuth()

@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import NoteLinkPicker from './jourdoc/NoteLinkPicker'
+import { prepareUploadFiles } from '../lib/imageUpload'
 
 const SHARE_CACHE = 'jd-share'
 
@@ -87,8 +88,10 @@ export default function ShareTarget() {
 
   // Upload des fichiers partagés → renvoie les ids des médias créés (réduction/JPG côté serveur).
   async function uploadFiles() {
+    const asFiles = data.files.map(f => new File([f.blob], f.name, { type: f.blob.type }))
+    const { files: prepared, dates } = await prepareUploadFiles(asFiles)
     const fd = new FormData()
-    for (const f of data.files) fd.append('files', f.blob, f.name)
+    prepared.forEach((f, i) => { fd.append('files', f, f.name); fd.append('dates', dates[i] || '') })
     const res = await fetch(`/api/jourdoc/${wsId}/medias`, {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
     })

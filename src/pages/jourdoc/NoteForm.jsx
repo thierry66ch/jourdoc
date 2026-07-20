@@ -11,6 +11,7 @@ import NoteLinkPicker from './NoteLinkPicker'
 import RichTextEditor from './RichTextEditor'
 import MarkdownModal from './MarkdownModal'
 import ExtDocsBrowser from './ExtDocsBrowser'
+import { prepareUploadFiles } from '../../lib/imageUpload'
 
 function today() {
   const d = new Date()
@@ -261,8 +262,9 @@ export default function NoteForm() {
 
   // Image collée/déposée → upload en pièce jointe (réduction/JPG) + lien à la note.
   async function uploadPastedImage(file) {
+    const [prepared] = (await prepareUploadFiles([file])).files
     const fd = new FormData()
-    fd.append('files', file, file.name || 'image.png')
+    fd.append('files', prepared, prepared.name || 'image.png')
     fd.append('pasted', '1')
     const res = await fetch(API_ROUTES.JD_MEDIAS(wsId), {
       method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
@@ -273,6 +275,38 @@ export default function NoteForm() {
     setForm(f => f.media_ids.includes(m.id) ? f : { ...f, media_ids: [...f.media_ids, m.id] })
     setMediaDetails(d => d.some(x => x.id === m.id) ? d : [...d, m])
     return { src: mediaSrc(m.id) }
+  }
+
+  // Joindre des photos depuis la caméra ou la galerie (mobile surtout) → upload
+  // (resize + date EXIF côté client) puis lien à la note.
+  const [attaching, setAttaching] = useState(false)
+  const cameraInputRef = useRef(null)
+  const galleryInputRef = useRef(null)
+  async function attachPhotos(fileList) {
+    const list = [...fileList].filter(f => f.type?.startsWith('image/'))
+    if (!list.length) return
+    setAttaching(true)
+    try {
+      const { files, dates } = await prepareUploadFiles(list)
+      const fd = new FormData()
+      files.forEach((f, i) => { fd.append('files', f, f.name); fd.append('dates', dates[i] || '') })
+      // Repli de date : la date de la note pour un journal, sinon le jour même.
+      fd.append('date_prise', form.type === 'journal' ? form.date : today())
+      const res = await fetch(API_ROUTES.JD_MEDIAS(wsId), {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd,
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || `Upload échoué (${res.status})`)
+      const created = data.medias ?? []
+      if (created.length) {
+        setForm(f => ({ ...f, media_ids: [...f.media_ids, ...created.filter(m => !f.media_ids.includes(m.id)).map(m => m.id)] }))
+        setMediaDetails(d => [...d, ...created.filter(m => !d.some(x => x.id === m.id))])
+      }
+    } catch (e) {
+      alert(`Erreur lors de l'ajout de la photo : ${e.message}`)
+    } finally {
+      setAttaching(false)
+    }
   }
 
   // Source des mentions « @ » : objets + thèmes (locaux) + notes (recherche)
@@ -566,14 +600,30 @@ export default function NoteForm() {
                   {form.media_ids.length}
                 </span>
               )}
+              {attaching && (
+                <span style={{ marginLeft: '.5rem', color: 'var(--text-muted)', fontWeight: 400 }}>
+                  envoi…
+                </span>
+              )}
             </label>
             <div style={{ display: 'flex', gap: '.5rem', flexWrap: 'wrap' }}>
+              <button type="button" className="jd-auto-btn" disabled={attaching}
+                onClick={() => cameraInputRef.current?.click()}>📷 Photo</button>
+              <button type="button" className="jd-auto-btn" disabled={attaching}
+                onClick={() => galleryInputRef.current?.click()}>🖼️ Galerie</button>
               <button type="button" className="jd-auto-btn"
                 onClick={() => setExtBrowser(true)}>🔗 Lier un document</button>
               <button type="button" className="jd-auto-btn"
                 onClick={() => setShowPicker(o => !o)}>
                 {showPicker ? 'Fermer' : 'Choisir des médias'}
               </button>
+              {/* Caméra : capture directe. Galerie : sélection multiple (sans capture). */}
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment"
+                style={{ display: 'none' }}
+                onChange={e => { attachPhotos(e.target.files); e.target.value = '' }} />
+              <input ref={galleryInputRef} type="file" accept="image/*" multiple
+                style={{ display: 'none' }}
+                onChange={e => { attachPhotos(e.target.files); e.target.value = '' }} />
             </div>
           </div>
 

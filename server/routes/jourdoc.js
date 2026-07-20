@@ -1055,6 +1055,11 @@ jourdoc.post('/:wsId/medias', async (c) => {
     const fallbackDate = (typeof body.date_prise === 'string' && body.date_prise)
       || new Date().toISOString().slice(0, 10)
 
+    // Date EXIF lue côté client AVANT le resize (le resize canvas efface l'EXIF).
+    // Tableau aligné sur `files` par index ; '' quand inconnue. Rétrocompatible.
+    const rawDates = body['dates']
+    const clientDates = Array.isArray(rawDates) ? rawDates : rawDates != null ? [rawDates] : []
+
     const pasted = body.pasted === '1' || body.pasted === 'true'
     const ts = tsStamp()
 
@@ -1069,7 +1074,8 @@ jourdoc.post('/:wsId/medias', async (c) => {
       const typeMedia = ext === 'pdf' ? 'pdf' : isMd ? 'markdown' : 'photo'
       const rawBuf = Buffer.from(await file.arrayBuffer())
       const exifDate = isMd ? null : await extractExifDate(rawBuf)
-      const datePrise = exifDate ?? fallbackDate
+      const clientDate = (typeof clientDates[i] === 'string' && clientDates[i]) || null
+      const datePrise = exifDate ?? clientDate ?? fallbackDate
 
       const { buf, outExt, size } = isMd
         ? { buf: rawBuf, outExt: 'md', size: rawBuf.length }

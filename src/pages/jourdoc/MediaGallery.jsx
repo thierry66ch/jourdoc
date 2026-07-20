@@ -6,6 +6,7 @@ import { authHeader, mediaUrl } from './hooks'
 import MediaCard from './MediaCard'
 import Lightbox from './Lightbox'
 import MarkdownModal from './MarkdownModal'
+import { prepareUploadFiles } from '../../lib/imageUpload'
 
 // ── Utilitaires de période ────────────────────────────────────
 
@@ -149,8 +150,9 @@ export default function MediaGallery() {
     if (!files.length) return
     setUploading(true)
     try {
+      const { files: prepared, dates } = await prepareUploadFiles(files)
       const fd = new FormData()
-      for (const f of files) fd.append('files', f)
+      prepared.forEach((f, i) => { fd.append('files', f, f.name); fd.append('dates', dates[i] || '') })
       fd.append('date_prise', anchor)
       const res = await fetch(API_ROUTES.JD_MEDIAS(wsId), {
         method: 'POST',

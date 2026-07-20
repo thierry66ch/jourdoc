@@ -4,6 +4,34 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 113 — 2026-07-20 — Vague 1 : session expirée, upload 413, photos mobile
+
+Trois correctifs de robustesse (« Vague 1 » de la reprise post-été).
+
+**1a — Session expirée → redirection login.** Le JWT (7 j) expirait mais restait en
+localStorage : `PrivateRoute` rendait l'app alors que toute l'API renvoyait 401 → état
+indéterminé sans issue. Nouvel intercepteur global `src/lib/authInterceptor.js` : enveloppe
+`window.fetch`, et sur un 401 de l'API (hors endpoints d'auth) purge le token + redirige
+vers `/login?next=<page>`. `Login` honore `?next=` pour revenir où on était.
+
+**1b — Upload photo ≥ ~4,5 Mo → 413 FUNCTION_PAYLOAD_TOO_LARGE.** Limite dure de Vercel
+sur le corps d'une serverless function. Nouveau `src/lib/imageUpload.js` : redimensionne
+côté navigateur à la même cible que le serveur (1600 px, q0.9) **avant** l'envoi — évite le
+413 et la double compression. Point délicat traité : un resize canvas efface l'EXIF (donc la
+date de prise de vue, cruciale pour le journal) → on lit la date EXIF de l'original **avant**
+resize (via `exifreader`, déjà en dépendance, chargé en chunk lazy) et on la transmet en champ
+`dates` aligné sur `files`. Serveur (`POST /:wsId/medias`) : date par fichier `dates[i]` en
+repli après l'EXIF, rétrocompatible. HEIC (non décodable par canvas) et PDF/MD passent tels
+quels. Branché aux 3 points d'upload : `NoteForm` (image collée), `MediaGallery` (upload en
+masse), `ShareTarget` (partage Android).
+
+**1c — Mobile : joindre une photo depuis l'édition de note.** Boutons « 📷 Photo » (caméra,
+`capture=environment`) et « 🖼️ Galerie » (`multiple`) dans la barre Pièces jointes de
+`NoteForm`, branchés sur le même pipeline resize+date que 1b. Date de repli = date de la note
+(journal) sinon le jour même.
+
+---
+
 ## Build 112 — 2026-06-29 — Export complet scalable (HTML lisible, ZIP côté navigateur)
 
 Répond au risque d'export « énorme » : le mur n'est pas la taille mais le cap **30 s**
