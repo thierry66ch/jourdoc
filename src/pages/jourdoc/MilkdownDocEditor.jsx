@@ -6,6 +6,7 @@ import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { history } from '@milkdown/kit/plugin/history'
 import { math } from '@milkdown/plugin-math'
 import { upload, uploadConfig } from '@milkdown/kit/plugin/upload'
+import { clipboard } from '@milkdown/plugin-clipboard'
 import { getMarkdown } from '@milkdown/kit/utils'
 import { Milkdown, MilkdownProvider, useEditor } from '@milkdown/react'
 import { milkdownExtras } from './milkdownExtras'
@@ -165,6 +166,9 @@ function InnerEditor({ initialMarkdown, onChange, resolveSrc, getMarkdownRef, up
       .use(listener)
       .use(math)
       .use(upload)
+      // Colle interprété : markdown collé → nœuds Milkdown (pas de source brut),
+      // HTML collé (page web) → converti en markdown. Copie = markdown propre.
+      .use(clipboard)
       .use(milkdownExtras)
       .use(slash)
   )

@@ -11,7 +11,7 @@ function names(ids, items) {
 export default function ClipperPreview({
   origin, wsId, pageUrl, title, titreAlt, wsName, taxonomy,
   objetIds, themeIds, docCategorieId, existing = [],
-  status, result, error, onBack, onClip, onClose,
+  status, result, error, undoStatus = 'idle', onUndo, onBack, onClip, onClose,
 }) {
   if (status === 'clipping') {
     return <p style={{ margin: 0 }}>⏳ Extraction et enregistrement… (5–15 s)</p>
@@ -34,7 +34,14 @@ export default function ClipperPreview({
         >
           Ouvrir la note
         </a>
-        <Btn ghost onClick={onClose}>Fermer</Btn>
+        {error && <p style={S.err}>❌ {error}</p>}
+        <div style={S.row}>
+          <Btn ghost style={{ marginTop: 0 }} disabled={undoStatus === 'undoing'} onClick={onUndo}>
+            {undoStatus === 'undoing' ? 'Annulation…' : '↩︎ Annuler la capture'}
+          </Btn>
+          <Btn ghost style={{ marginTop: 0 }} disabled={undoStatus === 'undoing'} onClick={onClose}>Fermer</Btn>
+        </div>
+        <p style={S.note}>« Annuler » supprime la note et le .md joint (+ images) créés à l'instant.</p>
       </>
     )
   }

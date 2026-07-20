@@ -12,6 +12,7 @@ import { SlashCommand } from './slashMenu'
 import { buildMention } from './mention'
 import { Callout } from './callout'
 import { MathInline, MathBlock } from './math'
+import { looksLikeMarkdown, markdownToHtml } from '../../lib/markdownPaste'
 
 export default function RichTextEditor({
   initialContent, onChange, placeholder,
@@ -139,10 +140,21 @@ export default function RichTextEditor({
     onUpdate: ({ editor }) => onChange?.(editor.getHTML()),
     editorProps: {
       handlePaste(view, event) {
-        if (!onImageUpload) return false
-        const files = Array.from(event.clipboardData?.files || []).filter(f => f.type?.startsWith('image/'))
-        if (!files.length) return false
-        event.preventDefault(); uploadAndInsert(files); return true
+        // 1) Images collées → upload en pièce jointe.
+        if (onImageUpload) {
+          const files = Array.from(event.clipboardData?.files || []).filter(f => f.type?.startsWith('image/'))
+          if (files.length) { event.preventDefault(); uploadAndInsert(files); return true }
+        }
+        // 2) Source Markdown collé (text/plain sans HTML) → converti en HTML riche.
+        const cd = event.clipboardData
+        const html = cd?.getData('text/html')
+        const text = cd?.getData('text/plain')
+        if (!html && text && looksLikeMarkdown(text)) {
+          event.preventDefault()
+          editor?.chain().focus().insertContent(markdownToHtml(text)).run()
+          return true
+        }
+        return false
       },
       handleDrop(view, event) {
         if (!onImageUpload) return false

@@ -13,7 +13,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
-import { putTextFile } from '../../packages/storage/index.js'
+import { putTextFile, deletePath } from '../../packages/storage/index.js'
 import { extractArticle, extractMeta } from '../lib/clipper/readability.js'
 import { htmlToMarkdown } from '../lib/clipper/turndown.js'
 import { downloadAndReplaceImages } from '../lib/clipper/images.js'
@@ -238,6 +238,46 @@ clip.post('/', async (c) => {
     images,
     partial: cap.partial,
   }, 201)
+})
+
+// Annuler une capture fraîchement créée : supprime la note ET le(s) .md clipper
+// joint(s) + leur dossier d'assets sur KDrive (contrairement à la suppression normale
+// d'un média « externe » qui préserve les fichiers). Réservé aux médias sous /clipper/
+// pour ne jamais toucher un document lié par l'utilisateur.
+clip.delete('/ws/:wsId/note/:noteId', async (c) => {
+  const userId = c.get('userId')
+  const workspaceId = Number(c.req.param('wsId'))
+  const noteId = Number(c.req.param('noteId'))
+
+  const [ok] = await sql`SELECT 1 FROM user_workspace_access WHERE user_id = ${userId} AND workspace_id = ${workspaceId}`
+  if (!ok) return c.json({ error: 'Forbidden' }, 403)
+
+  const [note] = await sql`SELECT id FROM jd_notes WHERE id = ${noteId} AND workspace_id = ${workspaceId}`
+  if (!note) return c.json({ error: 'Not found' }, 404)
+
+  // Médias markdown liés à la note (candidats à suppression physique).
+  const medias = await sql`
+    SELECT m.id, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id
+    WHERE nm.note_id = ${noteId} AND m.workspace_id = ${workspaceId} AND m.type_media = 'markdown'
+  `
+
+  // Supprime la note d'abord (le cascade FK retire les liaisons jd_note_media…).
+  await sql`DELETE FROM jd_notes WHERE id = ${noteId} AND workspace_id = ${workspaceId}`
+
+  // Puis nettoie les .md clipper devenus orphelins (fichier + dossier d'assets).
+  for (const m of medias) {
+    if (!m.fichier || !m.fichier.includes('/clipper/')) continue
+    const [{ n }] = await sql`SELECT COUNT(*)::int AS n FROM jd_note_media WHERE media_id = ${m.id}`
+    if (n > 0) continue // encore lié à une autre note → on préserve
+    try { await deletePath(m.fichier) } catch (e) { console.error('[clip-undo] md:', e?.message) }
+    const lastSlash = m.fichier.lastIndexOf('/')
+    const dir = m.fichier.slice(0, lastSlash)
+    const base = m.fichier.slice(lastSlash + 1).replace(/\.md$/i, '')
+    try { await deletePath(`${dir}/_${base}.assets`) } catch { /* pas d'assets */ }
+    await sql`DELETE FROM jd_medias WHERE id = ${m.id}`
+  }
+
+  return c.json({ ok: true })
 })
 
 // Capture serveur d'un LIEN (bouton « Capturer » de la fiche, future cible de partage).

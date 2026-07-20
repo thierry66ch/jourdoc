@@ -40,6 +40,7 @@ export default function ClipperApp() {
 
   const [clipStatus, setClipStatus] = useState('idle')    // idle | clipping | done | error
   const [result, setResult] = useState(null)
+  const [undoStatus, setUndoStatus] = useState('idle')    // idle | undoing
   const [authNote, setAuthNote] = useState('')
   const [existing, setExisting] = useState([])            // notes déjà clippées (même URL)
 
@@ -141,6 +142,21 @@ export default function ClipperApp() {
     }
   }
 
+  // Annuler la capture qui vient d'être créée (note + .md + assets), tant qu'on est
+  // encore dans le clipper. Revient à l'aperçu pour permettre un nouvel essai.
+  async function undoClip() {
+    if (!result?.noteId) return
+    setUndoStatus('undoing'); setError('')
+    try {
+      await api(`/api/clip/ws/${wsId}/note/${result.noteId}`, { method: 'DELETE' })
+      setResult(null); setClipStatus('idle')
+    } catch (e) {
+      if (e.message !== '401') setError(`Annulation impossible (${e.message}).`)
+    } finally {
+      setUndoStatus('idle')
+    }
+  }
+
   function onToken(t) {
     try { localStorage.setItem('token', t) } catch { /* */ }
     setAuthNote(''); setToken(t)
@@ -185,6 +201,7 @@ export default function ClipperApp() {
             pageUrl={payload?.url || ''} title={title} titreAlt={titreAlt} wsName={wsName} taxonomy={taxonomy}
             objetIds={objetIds} themeIds={themeIds} docCategorieId={docCategorieId} existing={existing}
             status={clipStatus} result={result} error={error}
+            undoStatus={undoStatus} onUndo={undoClip}
             onBack={() => { setClipStatus('idle'); setStep('meta') }}
             onClip={doClip} onClose={() => window.close()}
           />

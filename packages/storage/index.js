@@ -124,6 +124,17 @@ export async function deleteFile(appPath, filename) {
 }
 
 /**
+ * Supprime un fichier OU un dossier (collection) par chemin complet.
+ * WebDAV DELETE sur une collection est récursif. Utilisé par l'annulation de
+ * capture clipper (suppression du .md et de son dossier d'assets).
+ * @param {string} fullPath - chemin complet du fichier ou dossier
+ */
+export async function deletePath(fullPath) {
+  const client = getClient()
+  await client.deleteFile(fullPath)
+}
+
+/**
  * Liste les fichiers dans l'inbox (dossier de dépôt).
  * Même que listFiles mais path inbox séparé pour clarté sémantique.
  * @param {string} inboxPath - chemin inbox (depuis env), ex: /Apps_data/JourDoc/inbox

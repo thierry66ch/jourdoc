@@ -17,6 +17,7 @@
   "dependencies": {
     "@hono/node-server": "^1.13.0",
     "@milkdown/kit": "^7.21.2",
+    "@milkdown/plugin-clipboard": "^7.21.2",
     "@milkdown/plugin-math": "^7.5.9",
     "@milkdown/react": "^7.21.2",
     "@mozilla/readability": "^0.6.0",

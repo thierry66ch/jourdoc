@@ -4,6 +4,27 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 114 — 2026-07-20 — Vague 2 : annuler une capture clipper + collage Markdown
+
+**2a — Annuler une capture clipper.** Nouveau bouton « ↩︎ Annuler la capture » dans l'écran
+de fin du clipper (`ClipperPreview`), tant qu'on n'a pas fermé. Endpoint dédié
+`DELETE /api/clip/ws/:wsId/note/:noteId` : supprime la note (cascade FK sur les liaisons)
+puis, pour les médias markdown **sous `/clipper/`** devenus orphelins, supprime réellement le
+`.md` ET son dossier `_<base>.assets` sur KDrive (contrairement à la suppression normale d'un
+média « externe » qui préserve les fichiers). Nouveau helper storage `deletePath(fullPath)`
+(DELETE WebDAV récursif). Après annulation, retour à l'aperçu pour re-clipper au besoin.
+
+**2b — Collage Markdown interprété.**
+- Éditeur de notes (Tiptap) : nouveau `src/lib/markdownPaste.js` — si le presse-papiers ne
+  contient que du text/plain qui *ressemble* à du Markdown (`looksLikeMarkdown`), on le
+  convertit en HTML riche via `marked` (GFM) et on l'insère via ProseMirror. Si du HTML est
+  présent (copie de page riche), on ne touche à rien (collage riche natif préservé).
+- Éditeur de documents (Milkdown) : ajout du plugin officiel `@milkdown/plugin-clipboard`
+  (promu de transitif à dépendance directe) → Markdown collé **interprété** en nœuds (plus de
+  source brut), HTML collé **converti** en markdown, et copie en markdown propre.
+
+---
+
 ## Build 113 — 2026-07-20 — Vague 1 : session expirée, upload 413, photos mobile
 
 Trois correctifs de robustesse (« Vague 1 » de la reprise post-été).
