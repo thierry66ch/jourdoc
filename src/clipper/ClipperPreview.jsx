@@ -28,8 +28,11 @@ export default function ClipperPreview({
             {img.failed > 0 ? ` · ${img.failed} échec${img.failed > 1 ? 's' : ''} (URL conservée)` : ''}
           </p>
         )}
+        {/* Navigation dans la MÊME fenêtre (pas de nouvel onglet) : le clipper devient
+            la note → évite une fenêtre clipper orpheline en arrière-plan (déroutant sur
+            mobile). L'annulation reste possible tant qu'on n'a pas ouvert la note. */}
         <a
-          href={`${origin}${result.noteUrl}`} target="_blank" rel="noreferrer"
+          href={`${origin}${result.noteUrl}`}
           style={{ ...S.btn, textAlign: 'center', textDecoration: 'none', boxSizing: 'border-box', paddingTop: '13px' }}
         >
           Ouvrir la note
@@ -41,7 +44,7 @@ export default function ClipperPreview({
           </Btn>
           <Btn ghost style={{ marginTop: 0 }} disabled={undoStatus === 'undoing'} onClick={onClose}>Fermer</Btn>
         </div>
-        <p style={S.note}>« Annuler » supprime la note et le .md joint (+ images) créés à l'instant.</p>
+        <p style={S.note}>« Ouvrir la note » remplace cette fenêtre. « Annuler » supprime la note et le .md joint (+ images) créés à l'instant.</p>
       </>
     )
   }

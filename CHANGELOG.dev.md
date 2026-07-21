@@ -4,6 +4,31 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 115 — 2026-07-21 — Correctifs Vagues 1‑2 (retours de test prod)
+
+**413 persistant → resize réécrit (le vrai correctif).** Le resize v1 gatait sur
+`RESIZABLE.has(file.type)` (sauté si `file.type` vide/inattendu — fréquent depuis la
+galerie Android) et utilisait `createImageBitmap({imageOrientation})` qui **échoue ou gèle**
+sur certains navigateurs mobiles (→ « aucune réaction » = promesse jamais résolue ; sinon
+original envoyé → 413). Réécrit avec `<img>` + `canvas` (support universel, ne gèle jamais,
+orientation EXIF native, indépendant de `file.type`). HEIC/HEIF restent indécodables côté
+navigateur → `prepareUploadFiles` renvoie désormais `undecodable[]` et les appelants
+(MediaGallery, NoteForm) affichent un message clair au lieu d'un 413 brut.
+
+**Galerie non rafraîchie après suppression.** `deleteMedia` ne mettait pas à jour la liste
+→ ajout d'un retrait immédiat `setMedias(...)` + vérif du statut HTTP.
+
+**Clipper : fenêtre orpheline après « Ouvrir la note ».** L'ouverture en nouvel onglet
+laissait la fenêtre clipper en arrière-plan (bouton retour de la note inopérant, déroutant
+sur mobile). « Ouvrir la note » navigue désormais **dans la même fenêtre** (le clipper devient
+la note). L'annulation reste dispo avant l'ouverture.
+
+**Connu / à faire :** collage Markdown non interprété **sur mobile** (les deux éditeurs) —
+l'événement `paste` Android ne transmet pas toujours `clipboardData` au gestionnaire.
+Prévu : bouton explicite « Coller le Markdown » (lecture via `navigator.clipboard.readText()`).
+
+---
+
 ## Build 114 — 2026-07-20 — Vague 2 : annuler une capture clipper + collage Markdown
 
 **2a — Annuler une capture clipper.** Nouveau bouton « ↩︎ Annuler la capture » dans l'écran

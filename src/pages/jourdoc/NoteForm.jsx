@@ -287,7 +287,11 @@ export default function NoteForm() {
     if (!list.length) return
     setAttaching(true)
     try {
-      const { files, dates } = await prepareUploadFiles(list)
+      const { files, dates, undecodable } = await prepareUploadFiles(list)
+      if (undecodable.length) {
+        const noms = undecodable.map(f => `${f.name} (${Math.round(f.size / 1048576)} Mo)`).join(', ')
+        alert(`Format non redimensionnable côté navigateur (HEIC ?) et trop lourd pour l'upload : ${noms}. Convertis-le en JPEG.`)
+      }
       const fd = new FormData()
       files.forEach((f, i) => { fd.append('files', f, f.name); fd.append('dates', dates[i] || '') })
       // Repli de date : la date de la note pour un journal, sinon le jour même.

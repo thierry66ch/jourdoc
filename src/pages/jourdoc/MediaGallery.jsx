@@ -150,7 +150,11 @@ export default function MediaGallery() {
     if (!files.length) return
     setUploading(true)
     try {
-      const { files: prepared, dates } = await prepareUploadFiles(files)
+      const { files: prepared, dates, undecodable } = await prepareUploadFiles(files)
+      if (undecodable.length) {
+        const noms = undecodable.map(f => `${f.name} (${Math.round(f.size / 1048576)} Mo)`).join(', ')
+        alert(`Format non redimensionnable côté navigateur (HEIC ?) et trop lourd pour l'upload : ${noms}. Convertis-le en JPEG ou passe par l'inbox.`)
+      }
       const fd = new FormData()
       prepared.forEach((f, i) => { fd.append('files', f, f.name); fd.append('dates', dates[i] || '') })
       fd.append('date_prise', anchor)
@@ -179,8 +183,10 @@ export default function MediaGallery() {
 
   async function deleteMedia(id, skipConfirm = false) {
     if (!skipConfirm && !confirm('Supprimer ce média ?')) return
-    await fetch(API_ROUTES.JD_MEDIA(wsId, id), { method: 'DELETE', headers: authHeader(token) })
+    const res = await fetch(API_ROUTES.JD_MEDIA(wsId, id), { method: 'DELETE', headers: authHeader(token) })
+    if (!res.ok) { alert(`Suppression impossible (${res.status}).`); return }
     setSelected(s => { const n = new Set(s); n.delete(id); return n })
+    setMedias(ms => ms.filter(m => m.id !== id))   // retrait immédiat de la vue
   }
 
   function toggleSelect(id) {
