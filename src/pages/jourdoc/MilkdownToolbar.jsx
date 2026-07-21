@@ -1,4 +1,4 @@
-import { callCommand } from '@milkdown/kit/utils'
+import { callCommand, insert } from '@milkdown/kit/utils'
 import { useInstance } from '@milkdown/react'
 import {
   toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand,
@@ -38,6 +38,21 @@ export default function MilkdownToolbar() {
     }
     ed.action(callCommand(clearFormattingCommand.key))
   }
+  // Coller du Markdown de façon fiable (surtout mobile, où l'événement `paste` ne
+  // transmet pas toujours le presse-papiers) : lecture explicite via l'API Clipboard,
+  // puis insertion INTERPRÉTÉE (insert parse le markdown en nœuds Milkdown).
+  const pasteMarkdown = async e => {
+    e.preventDefault()
+    if (loading) return
+    const ed = getEditor()
+    if (!ed) return
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text) ed.action(insert(text))
+    } catch (err) {
+      alert(`Lecture du presse-papiers impossible : ${err.message}`)
+    }
+  }
   const Btn = (props) => <button type="button" className="rte-btn" {...props} />
 
   return (
@@ -71,6 +86,7 @@ export default function MilkdownToolbar() {
       <Btn title="Bloc de code" onMouseDown={run(createCodeBlockCommand)}>{'{ }'}</Btn>
       <Btn title="Ligne horizontale" onMouseDown={run(insertHrCommand)}>―</Btn>
       <Btn title="Insérer une ligne vide (espacement)" onMouseDown={run(insertBlankLineCommand)}>⏎</Btn>
+      <Btn title="Coller du Markdown (interprété)" onMouseDown={pasteMarkdown}>📋<sub>md</sub></Btn>
 
       <span className="rte-sep" />
 

@@ -174,6 +174,19 @@ export default function RichTextEditor({
     editor.chain().focus().setLink({ href: url, target: '_blank' }).run()
   }
 
+  // Coller du Markdown de façon FIABLE (surtout mobile, où l'événement `paste` ne
+  // transmet pas toujours le presse-papiers) : lecture explicite via l'API Clipboard,
+  // puis conversion Markdown → HTML riche.
+  async function pasteMarkdown() {
+    if (!editor) return
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text) editor.chain().focus().insertContent(markdownToHtml(text)).run()
+    } catch (e) {
+      alert(`Lecture du presse-papiers impossible : ${e.message}`)
+    }
+  }
+
   function toggleSource() {
     if (!editor) return
     if (!sourceMode) {
@@ -307,6 +320,12 @@ export default function RichTextEditor({
             editor.chain().focus().setTextSelection(editor.state.selection.to).insertContent('/').run()
           }}
           disabled={sourceMode}>＋</button>
+
+        {/* Coller du Markdown (interprété) — fiable sur mobile */}
+        <button type="button" className="rte-btn rte-btn--adv"
+          title="Coller du Markdown (interprété en texte riche)"
+          onMouseDown={e => { e.preventDefault(); pasteMarkdown() }}
+          disabled={sourceMode}>📋<sub>md</sub></button>
 
         <span className="rte-sep" />
 

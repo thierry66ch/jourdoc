@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 117 — 2026-07-21 — Bouton « Coller le Markdown » (fiable sur mobile)
+
+Le collage Markdown via l'événement `paste` échoue sur mobile (Android ne transmet pas
+toujours `clipboardData` au gestionnaire). Ajout d'un bouton explicite dans les deux barres
+d'outils, qui lit le presse-papiers via `navigator.clipboard.readText()` (fiable, gesture
+utilisateur) :
+- **Tiptap (notes)** : `📋md` → `markdownToHtml` (marked) → insertion en HTML riche.
+- **Milkdown (docs)** : `📋md` → `insert()` de `@milkdown/kit/utils` → markdown **interprété**
+  en nœuds. Bouton désactivé en mode source (Tiptap).
+
+Le collage automatique (event paste) reste en place sur desktop ; le bouton est le repli
+fiable, utile surtout sur mobile.
+
+---
+
 ## Build 116 — 2026-07-21 — HEIC côté navigateur + clipper : retour restauré
 
 **Conversion HEIC→JPEG côté navigateur (le vrai correctif du 413).** La caméra du user
