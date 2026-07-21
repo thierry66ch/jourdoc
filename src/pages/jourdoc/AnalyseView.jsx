@@ -6,9 +6,10 @@ import { API_ROUTES } from '@pogil/shared'
 import { authHeader, useJdData } from './hooks'
 import { weekBucket, monthSpansFor52 } from './calUtils'
 import HierarchyPicker from './HierarchyPicker'
+import ExportListModal from './ExportListModal'
 
 const MONTHS_FR_SHORT = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
-const NATURE_COLOR = { observation: 'var(--success)', activite: 'var(--accent)', documentation: '#f59e0b', journal: 'var(--text-muted)' }
+const NATURE_COLOR = { observation: 'var(--success)', activite: 'var(--accent)', mixte: '#8b5cf6', documentation: '#f59e0b', journal: 'var(--text-muted)' }
 const DIR_OPTS = [['both','↕'],['down','↓'],['up','↑']]
 
 export default function AnalyseView() {
@@ -24,6 +25,7 @@ export default function AnalyseView() {
   const [nature,         setNature]         = useState('both')
   const [notes,          setNotes]          = useState([])
   const [loading,        setLoading]        = useState(false)
+  const [exportOpen,     setExportOpen]     = useState(false)
 
   // Popup via portal (position fixed pour échapper à overflow-x:auto)
   const [popup, setPopup]       = useState(null)  // { notes, x, y, year, bucket }
@@ -144,6 +146,14 @@ export default function AnalyseView() {
             ))}
           </div>
         </div>
+
+        {hasFilter && notes.length > 0 && (
+          <div className="jd-analyse__filter-row">
+            <button type="button" className="jd-auto-btn" onClick={() => setExportOpen(true)}>
+              📤 Exporter la liste ({notes.length})
+            </button>
+          </div>
+        )}
       </div>
 
       {!hasFilter && (
@@ -251,6 +261,15 @@ export default function AnalyseView() {
           {popup.notes.length > 6 && <span className="jd-analyse__popup-more">+{popup.notes.length - 6} autres</span>}
         </div>,
         document.body
+      )}
+
+      {exportOpen && (
+        <ExportListModal
+          wsId={wsId} token={token}
+          ids={notes.map(n => n.id)} count={notes.length}
+          defaultDir="desc"
+          onClose={() => setExportOpen(false)}
+        />
       )}
     </div>
   )

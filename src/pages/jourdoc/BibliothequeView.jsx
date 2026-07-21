@@ -6,6 +6,7 @@ import { useJdData, authHeader, docCategorieBadgeStyle } from './hooks'
 import { getRelated } from './calUtils'
 import HierarchyPicker from './HierarchyPicker'
 import NoteCard from './NoteCard'
+import ExportListModal from './ExportListModal'
 
 const DIR_OPTS = [['both', '↕ Les deux'], ['down', '↓ Descendants'], ['up', '↑ Ancêtres']]
 
@@ -37,6 +38,7 @@ export default function BibliothequeView() {
   })
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [density, setDensity] = useState(() => localStorage.getItem('biblio_density') || 'cards')
+  const [exportOpen, setExportOpen] = useState(false)
 
   const [objetFilter, setObjetFilter] = useState(() => { const v = params.get('of'); return v ? Number(v) : null })
   const [objetDir, setObjetDir]       = useState(() => params.get('od') || 'both')
@@ -216,6 +218,9 @@ export default function BibliothequeView() {
                 onClick={() => setDensity(v)}>{l}</button>
             ))}
           </div>
+          <button type="button" className="jd-auto-btn" disabled={flatIds.length === 0}
+            title="Exporter la liste filtrée (Markdown + HTML imprimable)"
+            onClick={() => setExportOpen(true)}>📤 Exporter ({flatIds.length})</button>
         </div>
       </div>
 
@@ -329,6 +334,15 @@ export default function BibliothequeView() {
             </section>
           )
         })
+      )}
+
+      {exportOpen && (
+        <ExportListModal
+          wsId={wsId} token={token}
+          ids={flatIds} count={flatIds.length}
+          defaultDir="desc"
+          onClose={() => setExportOpen(false)}
+        />
       )}
     </div>
   )

@@ -18,7 +18,7 @@ function today() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
 }
 
-const NATURE_ICO = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
+const NATURE_ICO = { observation: '👁', activite: '⚡', mixte: '🔀', documentation: '📄', journal: '📔' }
 
 // Titre de repli dérivé du slug de l'URL (quand la capture échoue, p. ex. 403).
 function slugTitle(url) {
@@ -424,7 +424,7 @@ export default function NoteForm() {
             <div className="form-field">
               <label className="form-label">Nature</label>
               <div className="jd-segmented">
-                {[['observation', '👁 Observation'], ['activite', '⚡ Activité']].map(([v, l]) => (
+                {[['observation', '👁 Observation'], ['activite', '⚡ Activité'], ['mixte', '🔀 Obs.→Act.']].map(([v, l]) => (
                   <button key={v} type="button"
                     className={`jd-seg-btn${form.nature === v ? ' active' : ''}`}
                     onClick={() => setForm(f => ({ ...f, nature: v }))}>

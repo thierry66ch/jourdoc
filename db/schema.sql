@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS jd_notes (
   id              SERIAL PRIMARY KEY,
   workspace_id    INTEGER REFERENCES workspaces(id) ON DELETE CASCADE,
   type            TEXT NOT NULL CHECK (type IN ('journal', 'documentation')),
-  nature          TEXT CHECK (nature IN ('observation', 'activite')),
+  nature          TEXT CHECK (nature IN ('observation', 'activite', 'mixte')),
   theme_id        INTEGER REFERENCES jd_themes(id),
   doc_categorie_id INTEGER REFERENCES jd_doc_categorie(id) ON DELETE SET NULL,
   doc_statut_id   INTEGER REFERENCES jd_doc_statut(id) ON DELETE SET NULL,

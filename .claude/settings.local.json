@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(chmod +x node_modules/.bin/* node_modules/@esbuild/darwin-arm64/bin/esbuild)",
+      "Bash(npm run *)",
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const b=JSON.parse\\(require\\('fs'\\).readFileSync\\('build.json'\\)\\);b.build++;b.date=new Date\\(\\).toISOString\\(\\);require\\('fs'\\).writeFileSync\\('build.json',JSON.stringify\\(b,null,2\\)\\);console.log\\('Build',b.build\\)\")",
+      "Bash(node --env-file=.env.local -e ' *)",
+      "Bash(WEBDAV_USER=apps@pogil.ch WEBDAV_PASSWORD=92203qRQpCHn25zq node -e ' *)",
+      "Bash(node -e \"const d=require\\('./package.json'\\).dependencies; for\\(const k of ['katex','@tiptap/extension-highlight','marked-katex-extension']\\) console.log\\(k, d[k]||'MISSING'\\)\")",
+      "Bash(node -e \"const d=require\\('./package.json'\\).dependencies; console.log\\('marked',d.marked,'turndown',d.turndown,'tiptap/core',require\\('./node_modules/@tiptap/core/package.json'\\).version\\)\")",
+      "Read(//Users/portmannt/.claude/projects/**)",
+      "Bash(python3 -)",
+      "Bash(cat .claude/settings.json)",
+      "Bash(ls -la .claude)"
+    ]
+  }
+}

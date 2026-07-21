@@ -4,6 +4,28 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 119 — 2026-07-21 — Vague 3 : export de liste filtrée + nature mixte
+
+**D — Export d'une liste filtrée (vue en l'état).** Bouton « 📤 Exporter » dans la
+**Bibliothèque** (documentation) et l'**AnalyseView** (journal filtré objet/thème/nature).
+Produit un ZIP contenant la liste **agrégée** en deux formats : `liste.md` (Markdown via
+turndown) et `liste.html` (HTML imprimable → « Enregistrer en PDF »), + dossier `medias/`
+optionnel. Modale d'options : tri par date ↑/↓ (référence pour le journal, création pour la
+doc), pièces jointes oui/non, notes liées oui/non. Serveur : `POST /:wsId/export/manifest`
+(ids en corps, évite une URL trop longue) via un helper `buildExportManifest` partagé avec le
+GET existant ; ajout de `created_at` au manifeste. Client : `exportList.js` + `ExportListModal.jsx`.
+
+**A — Nature mixte « Observ.→Activité ».** Nouvelle valeur `nature='mixte'` : une note mixte
+apparaît dans les listes filtrées **Observations ET Activités** (serveur : `nature IN
+(filtre,'mixte')` dans /notes et /analyse). Bouton « 🔀 Obs.→Act. » dans NoteForm ; visuel
+dédié (icône 🔀, violet #8b5cf6) dans noteVisual/AnalyseView ; compteurs CalendarView incluent
+mixte dans obs. et act. Pas de filtre « mixte seul » (sans intérêt). Migration
+`010_nature_mixte.sql` (CHECK élargi) — **à appliquer sur Neon avant usage**.
+
+(Build 118 : correctif visibilité du bouton Coller-MD sur mobile — retrait de la classe `--adv`.)
+
+---
+
 ## Build 117 — 2026-07-21 — Bouton « Coller le Markdown » (fiable sur mobile)
 
 Le collage Markdown via l'événement `paste` échoue sur mobile (Android ne transmet pas

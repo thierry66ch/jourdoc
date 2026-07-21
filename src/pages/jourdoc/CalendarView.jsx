@@ -161,9 +161,9 @@ export default function CalendarView() {
         <div className="cal-view__summary">
           <span>{filteredNotes.length} note{filteredNotes.length > 1 ? 's' : ''} sur la période</span>
           <span>·</span>
-          <span>{filteredNotes.filter(n => n.nature === 'observation').length} obs.</span>
+          <span>{filteredNotes.filter(n => n.nature === 'observation' || n.nature === 'mixte').length} obs.</span>
           <span>·</span>
-          <span>{filteredNotes.filter(n => n.nature === 'activite').length} act.</span>
+          <span>{filteredNotes.filter(n => n.nature === 'activite' || n.nature === 'mixte').length} act.</span>
           {filteredNotes.some(n => n.medias?.length) && (
             <><span>·</span><span>{filteredNotes.reduce((s, n) => s + (n.medias?.length ?? 0), 0)} médias</span></>
           )}

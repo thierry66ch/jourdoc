@@ -818,7 +818,12 @@ jourdoc.get('/:wsId/notes', async (c) => {
   if (objet_id) { query += ' JOIN jd_note_objet no ON no.note_id = n.id'; }
   query += ` WHERE n.workspace_id = $1`
   if (type)      { query += ` AND n.type = $${pi++}`;      params.push(type) }
-  if (nature)    { query += ` AND n.nature = $${pi++}`;    params.push(nature) }
+  // Nature mixte : une note 'mixte' apparaît dans les filtres Observations ET Activités.
+  if (nature === 'observation' || nature === 'activite') {
+    query += ` AND n.nature IN ($${pi++}, 'mixte')`; params.push(nature)
+  } else if (nature) {
+    query += ` AND n.nature = $${pi++}`; params.push(nature)
+  }
   if (date_from) { query += ` AND n.date >= $${pi++}`;     params.push(date_from) }
   if (date_to)   { query += ` AND n.date <= $${pi++}`;     params.push(date_to) }
   if (objet_id)  { query += ` AND no.objet_id = $${pi++}`; params.push(Number(objet_id)) }
@@ -1952,12 +1957,11 @@ jourdoc.get('/:wsId/export/facets', wsCheck, async (c) => {
   })
 })
 
-// Manifeste filtré : notes + médias référencés (sans télécharger les binaires)
-jourdoc.get('/:wsId/export/manifest', wsCheck, async (c) => {
-  const wsId = c.get('wsId')
-  const { type = 'all', year = '' } = c.req.query()
-
+// Construit le manifeste d'export (notes enrichies + médias référencés, sans binaires).
+// Filtrage par type/année (export complet) OU par liste d'ids (export d'une liste filtrée).
+async function buildExportManifest(wsId, { idList = null, type = 'all', year = '' } = {}) {
   const conds = ['workspace_id = $1']; const params = [wsId]
+  if (Array.isArray(idList) && idList.length) { params.push(idList); conds.push(`id = ANY($${params.length})`) }
   if (type === 'journal' || type === 'documentation') { params.push(type); conds.push(`type = $${params.length}`) }
   if (year) { params.push(Number(year)); conds.push(`EXTRACT(YEAR FROM date) = $${params.length}`) }
   const rawNotes = await sql(
@@ -1988,6 +1992,7 @@ jourdoc.get('/:wsId/export/manifest', wsCheck, async (c) => {
     })
     return {
       id: n.id, type: n.type, nature: n.nature, titre: n.titre, date: fmtDate(n.date),
+      created_at: n.created_at ? new Date(n.created_at).toISOString() : null,
       contenu: n.contenu, doc_auteur: n.doc_auteur, doc_reference: n.doc_reference, source_url: n.source_url,
       categorie: catName.get(n.doc_categorie_id) ?? null, statut: statName.get(n.doc_statut_id) ?? null,
       objets: objets.map(r => r.nom), themes: themes.map(r => r.nom), elements: elements.map(r => r.nom),
@@ -1998,13 +2003,31 @@ jourdoc.get('/:wsId/export/manifest', wsCheck, async (c) => {
 
   const [wsRow] = await sql`SELECT name FROM workspaces WHERE id=${wsId}`
   const wsName = wsRow?.name ?? `ws-${wsId}`
-  return c.json({
+  return {
     workspace: { id: wsId, name: wsName, slug: wsName.toLowerCase().replace(/[^a-z0-9]+/g, '-') },
-    filter: { type, year: year || null },
+    filter: { type, year: year || null, ids: Array.isArray(idList) ? idList.length : null },
     generatedAt: new Date().toISOString(),
     notes,
     medias: [...mediaSet.values()],
-  })
+  }
+}
+
+// Manifeste filtré par type/année (export complet) — GET léger.
+jourdoc.get('/:wsId/export/manifest', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const { type = 'all', year = '' } = c.req.query()
+  return c.json(await buildExportManifest(wsId, { type, year }))
+})
+
+// Manifeste d'une liste filtrée (ids en corps POST — évite une URL trop longue).
+jourdoc.post('/:wsId/export/manifest', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const body = await c.req.json().catch(() => ({}))
+  const idList = Array.isArray(body.ids)
+    ? body.ids.map(Number).filter(n => Number.isInteger(n) && n > 0)
+    : []
+  if (idList.length === 0) return c.json({ error: 'Aucune note (ids requis)' }, 400)
+  return c.json(await buildExportManifest(wsId, { idList }))
 })
 
 // ── EXPORT WORKSPACE ─────────────────────────────────────────
@@ -2202,7 +2225,10 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
     query += ` AND EXISTS (SELECT 1 FROM jd_note_theme nt WHERE nt.note_id=n.id AND nt.theme_id = ANY($${pi++}))`
     params.push(ids)
   }
-  if (nature && nature !== 'both') {
+  // Nature mixte : une note 'mixte' compte à la fois comme Observation et Activité.
+  if (nature === 'observation' || nature === 'activite') {
+    query += ` AND n.nature IN ($${pi++}, 'mixte')`; params.push(nature)
+  } else if (nature && nature !== 'both') {
     query += ` AND n.nature = $${pi++}`; params.push(nature)
   } else {
     query += ` AND n.nature IS NOT NULL`

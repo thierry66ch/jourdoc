@@ -64,6 +64,7 @@ export const API_ROUTES = {
   JD_WS_EXPORT:            (wsId, fmt, medias) => `/api/jourdoc/${wsId}/export?format=${fmt}&medias=${medias?1:0}`,
   JD_WS_EXPORT_FACETS:     (wsId) => `/api/jourdoc/${wsId}/export/facets`,
   JD_WS_EXPORT_MANIFEST:   (wsId, type, year) => `/api/jourdoc/${wsId}/export/manifest?type=${type}&year=${year||''}`,
+  JD_WS_EXPORT_MANIFEST_IDS: (wsId) => `/api/jourdoc/${wsId}/export/manifest`,
   JD_MEDIA_FILE:           (wsId, id) => `/api/jourdoc/${wsId}/medias/${id}/file`,
   JD_ELEMENTS:             (wsId) => `/api/jourdoc/${wsId}/elements`,
   JD_ELEMENT:              (wsId, id) => `/api/jourdoc/${wsId}/elements/${id}`,
