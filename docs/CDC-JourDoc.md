@@ -22,7 +22,8 @@ L'idée centrale n'est pas seulement de savoir « qu'ai-je fait tel jour ? », m
 | **Notes** | Élément central : enregistrement d'événements ou d'informations. |
 | **Objets** | Élément pilier : ce sur quoi portent les notes (hiérarchie groupes → individus). |
 | **Thèmes** | Classification hiérarchique de la nature/sujet d'une note. |
-| **Médias** | Photos, captures d'écran, PDF rattachés aux notes. |
+| **Éléments** | Étiquettes **plates** (non hiérarchiques) : 3e axe de marquage transversal des notes. |
+| **Médias** | Photos, captures d'écran, PDF, documents Markdown rattachés aux notes. |
 | **Tâches** | Rappels d'actions à faire, synchronisés avec Todoist. |
 
 ### Workspaces (cloisonnement des contextes)
@@ -180,6 +181,35 @@ Comme les objets, les thèmes sont **hiérarchiques** (notion de parent/enfant).
 
 ---
 
+## 4 bis. Les Éléments (étiquettes plates)
+
+*(Fonctionnalité développée en V1 — build 87 — non couverte par la spécification initiale.)*
+
+### Rôle
+
+En plus des **objets** (ce sur quoi porte la note) et des **thèmes** (nature/sujet,
+hiérarchique), une note peut porter des **éléments** : des **étiquettes libres et plates**
+(sans parent/enfant), servant de **3e axe de marquage transversal**.
+
+Cas d'usage : regrouper des notes selon un critère qui n'est ni un objet ni un thème —
+par exemple une **campagne**, un **lieu**, une **saison particulière**, un **fournisseur**,
+un **état**… puis retrouver toutes les notes portant cette étiquette.
+
+### Caractéristiques
+
+- **Plats** : pas de hiérarchie (contrairement aux objets et thèmes).
+- **Création inline rapide** pendant la saisie d'une note (taper le nom → créer si absent).
+- **Réutilisables** : partagés entre notes du workspace, affichés en **chips**.
+- **Fusion** : deux étiquettes équivalentes peuvent être fusionnées en une seule (report des
+  liaisons sur l'étiquette cible).
+- **Administration** : liste des éléments avec compteur d'utilisation, renommage inline,
+  suppression (si plus utilisé).
+
+> Les éléments participent au **titre auto-généré** ? Non : le titre reste composé des
+> objets et thèmes ; les éléments servent au marquage/regroupement, pas au titre.
+
+---
+
 ## 5. Les Médias (photos, captures, PDF)
 
 ### 5.1 Besoin
@@ -305,6 +335,16 @@ Modèle relationnel déduit des besoins ci-dessus. À affiner lors de la concept
 | `parent_id` | référence → `themes.id` | Thème parent (hiérarchie) |
 | `workspace_id` | référence → `workspaces.id` | Workspace de rattachement. |
 
+### 9.2 bis Table `elements` (étiquettes plates)
+
+| Champ | Type | Description |
+|---|---|---|
+| `id` | identifiant | Clé primaire |
+| `nom` | texte | Libellé de l'étiquette |
+| `workspace_id` | référence → `workspaces.id` | Workspace de rattachement |
+
+> **Pas de `parent_id`** : les éléments sont plats (aucune hiérarchie).
+
 ### 9.3 Table `notes`
 
 | Champ | Type | Description |
@@ -329,6 +369,13 @@ Modèle relationnel déduit des besoins ci-dessus. À affiner lors de la concept
 |---|---|---|
 | `note_id` | référence → `notes.id` | |
 | `objet_id` | référence → `objets.id` | Une note ↔ plusieurs objets/groupes |
+
+### 9.4 bis Table de liaison `note_element` (relation N–N)
+
+| Champ | Type | Description |
+|---|---|---|
+| `note_id` | référence → `notes.id` | |
+| `element_id` | référence → `elements.id` | Une note ↔ plusieurs étiquettes plates |
 
 ### 9.5 Table de liaison `note_note` (relations entre notes)
 
@@ -360,18 +407,21 @@ Modèle relationnel déduit des besoins ci-dessus. À affiner lors de la concept
 
 ```
 workspaces (cloisonnement des contextes)
- └─ objets   (auto-référence parent_id, flag est_individu)
- └─ themes   (auto-référence parent_id)
- └─ notes / médias (via objets & themes du workspace)
+ └─ objets    (auto-référence parent_id, flag est_individu)
+ └─ themes    (auto-référence parent_id)
+ └─ elements  (plats, sans hiérarchie)
+ └─ notes / médias (via objets, themes & elements du workspace)
 
-objets (auto-référence parent_id, flag est_individu, nom_court)
-themes (auto-référence parent_id, nom_court)
+objets  (auto-référence parent_id, flag est_individu, nom_court)
+themes  (auto-référence parent_id, nom_court)
+elements (plats)
 
 notes ──< note_objet >── objets
+notes ──< note_theme >── themes    (thèmes multiples ; theme_id = 1er thème, cache)
+notes ──< note_element >── elements (étiquettes plates)
 notes ──< note_media >── medias
-notes ──< note_note >── notes   (liaisons entre notes)
-notes ──> themes                (theme_id)
-notes ──> Todoist               (tache_todoist_id, lien bidirectionnel + synchro)
+notes ──< note_note >── notes      (liaisons entre notes)
+notes ──> Todoist                  (N tâches via note_todoist ; cache tache_todoist_*)
 ```
 
 ---

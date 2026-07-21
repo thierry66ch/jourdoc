@@ -16,6 +16,9 @@ Mise à jour de toute la doc, périmée depuis ~build 112 :
   /export/manifest par ids, dates[] upload, nature IN mixte), `database.md` (migration 010),
   `architecture.md` (src/lib, deps front), `auth.md` (intercepteur 401), `clipper.md`
   (annulation de capture + navigation in-place). Copie racine `docs/` synchronisée.
+- **CdC — Éléments** (tags plats, dév. V1 build 87, jamais spécifié) : ajout au concept
+  (§1), nouvelle **§4 bis**, modèle de données (tables `elements` §9.2 bis + `note_element`
+  §9.4 bis, schéma relationnel). Comblé une lacune ancienne du Cahier des Charges.
 
 ---
 
