@@ -321,8 +321,8 @@ export default function RichTextEditor({
           }}
           disabled={sourceMode}>＋</button>
 
-        {/* Coller du Markdown (interprété) — fiable sur mobile */}
-        <button type="button" className="rte-btn rte-btn--adv"
+        {/* Coller du Markdown (interprété) — surtout utile sur mobile → jamais masqué */}
+        <button type="button" className="rte-btn"
           title="Coller du Markdown (interprété en texte riche)"
           onMouseDown={e => { e.preventDefault(); pasteMarkdown() }}
           disabled={sourceMode}>📋<sub>md</sub></button>
