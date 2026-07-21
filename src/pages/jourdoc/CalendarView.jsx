@@ -26,26 +26,24 @@ export default function CalendarView() {
   const { objets, themes, searchDepth, pickerMode } = useJdData(wsId, token)
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const [mode,   setModeState]   = useState(searchParams.get('mode')   ?? 'month')
-  const [anchor, setAnchorState] = useState(searchParams.get('anchor') ?? todayISO())
+  const [mode,   setMode]   = useState(() => searchParams.get('mode')   ?? 'month')
+  const [anchor, setAnchor] = useState(() => searchParams.get('anchor') ?? todayISO())
   const [notes,  setNotes]  = useState([])
   const [loading, setLoading] = useState(true)
 
-  // Filtres
-  const [objetFilter,    setObjetFilter]    = useState(null)
-  const [objetDirection, setObjetDirection] = useState('both')
-  const [themeFilter,    setThemeFilter]    = useState(null)
-  const [themeDirection, setThemeDirection] = useState('both')
+  // Filtres persistés dans l'URL → restaurés au retour depuis une note (comme la biblio).
+  const [objetFilter,    setObjetFilter]    = useState(() => { const v = searchParams.get('of'); return v ? Number(v) : null })
+  const [objetDirection, setObjetDirection] = useState(() => searchParams.get('od') || 'both')
+  const [themeFilter,    setThemeFilter]    = useState(() => { const v = searchParams.get('tf'); return v ? Number(v) : null })
+  const [themeDirection, setThemeDirection] = useState(() => searchParams.get('td') || 'both')
 
-  function setMode(m) {
-    setModeState(m)
-    setSearchParams({ mode: m, anchor }, { replace: true })
-  }
-  function setAnchor(a) {
-    const val = typeof a === 'function' ? a(anchor) : a
-    setAnchorState(val)
-    setSearchParams({ mode, anchor: val }, { replace: true })
-  }
+  // Synchro unique de tout l'état de vue vers l'URL (mode + période + filtres).
+  useEffect(() => {
+    const p = { mode, anchor }
+    if (objetFilter) { p.of = String(objetFilter); if (objetDirection !== 'both') p.od = objetDirection }
+    if (themeFilter) { p.tf = String(themeFilter); if (themeDirection !== 'both') p.td = themeDirection }
+    setSearchParams(p, { replace: true })
+  }, [mode, anchor, objetFilter, objetDirection, themeFilter, themeDirection, setSearchParams])
 
   const currentMode = MODES.find(m => m.key === mode) ?? MODES[0]
   const { from, to } = useMemo(() => getRange(anchor, currentMode.period), [anchor, currentMode])

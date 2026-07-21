@@ -112,6 +112,7 @@ export default function CalendarMonth({ notes, year, month }) {
       <div className="cal-legend">
         <span className="cal-legend__item"><span className="cal-dot cal-dot--obs" />Observation</span>
         <span className="cal-legend__item"><span className="cal-dot cal-dot--act" />Activité</span>
+        <span className="cal-legend__item"><span className="cal-dot cal-dot--mix" />Obs.→Act.</span>
         <span className="cal-legend__item"><span className="cal-dot cal-dot--doc" />Documentation</span>
       </div>
     </div>

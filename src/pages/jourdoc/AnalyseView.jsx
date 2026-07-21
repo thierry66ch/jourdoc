@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
 import { authHeader, useJdData } from './hooks'
@@ -9,7 +9,7 @@ import HierarchyPicker from './HierarchyPicker'
 import ExportListModal from './ExportListModal'
 
 const MONTHS_FR_SHORT = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
-const NATURE_COLOR = { observation: 'var(--success)', activite: 'var(--accent)', mixte: '#8b5cf6', documentation: '#f59e0b', journal: 'var(--text-muted)' }
+const NATURE_COLOR = { observation: 'var(--success)', activite: 'var(--accent)', mixte: '#db2777', documentation: '#f59e0b', journal: 'var(--text-muted)' }
 const DIR_OPTS = [['both','↕'],['down','↓'],['up','↑']]
 
 export default function AnalyseView() {
@@ -17,12 +17,22 @@ export default function AnalyseView() {
   const { token } = useAuth()
   const navigate  = useNavigate()
   const { objets, themes, pickerMode } = useJdData(wsId, token)
+  const [params, setParams] = useSearchParams()
 
-  const [objetFilter,    setObjetFilter]    = useState(null)
-  const [objetDir,       setObjetDir]       = useState('both')
-  const [themeFilter,    setThemeFilter]    = useState(null)
-  const [themeDir,       setThemeDir]       = useState('both')
-  const [nature,         setNature]         = useState('both')
+  // Filtres persistés dans l'URL → restaurés au retour depuis une note (comme la biblio).
+  const [objetFilter,    setObjetFilter]    = useState(() => { const v = params.get('of'); return v ? Number(v) : null })
+  const [objetDir,       setObjetDir]       = useState(() => params.get('od') || 'both')
+  const [themeFilter,    setThemeFilter]    = useState(() => { const v = params.get('tf'); return v ? Number(v) : null })
+  const [themeDir,       setThemeDir]       = useState(() => params.get('td') || 'both')
+  const [nature,         setNature]         = useState(() => params.get('nat') || 'both')
+
+  useEffect(() => {
+    const p = {}
+    if (objetFilter) { p.of = String(objetFilter); if (objetDir !== 'both') p.od = objetDir }
+    if (themeFilter) { p.tf = String(themeFilter); if (themeDir !== 'both') p.td = themeDir }
+    if (nature !== 'both') p.nat = nature
+    setParams(p, { replace: true })
+  }, [objetFilter, objetDir, themeFilter, themeDir, nature, setParams])
   const [notes,          setNotes]          = useState([])
   const [loading,        setLoading]        = useState(false)
   const [exportOpen,     setExportOpen]     = useState(false)
@@ -208,7 +218,14 @@ export default function AnalyseView() {
                         ].filter(Boolean).join(' ')}
                         onMouseEnter={cellNotes.length ? e => showPopup(e, cellNotes, year, b) : undefined}
                         onMouseLeave={cellNotes.length ? hidePopup : undefined}
-                        onClick={() => setHighlightCol(highlightCol === b ? null : b)}
+                        onClick={cellNotes.length
+                          ? e => {
+                              setHighlightCol(b)
+                              // Clic = ouvre la liste des notes (indispensable sur mobile, sans survol).
+                              if (popup && popup.year === year && popup.bucket === b) setPopup(null)
+                              else showPopup(e, cellNotes, year, b)
+                            }
+                          : () => setHighlightCol(null)}
                       >
                         {cellNotes.length > 0 && (
                           <div className="jd-analyse__dots">
@@ -246,6 +263,7 @@ export default function AnalyseView() {
               return `${fmt(ws)} – ${fmt(we)} ${popup.year}`
             })()}
             {' · '}{popup.notes.length} note{popup.notes.length > 1 ? 's' : ''}
+            <button type="button" className="jd-analyse__popup-close" onClick={() => setPopup(null)} title="Fermer">✕</button>
           </div>
           {popup.notes.slice(0, 6).map(n => (
             <button key={n.id} className="jd-analyse__popup-item"

@@ -1077,6 +1077,7 @@ button, input, select, textarea { font: inherit; color: inherit }
 }
 .jd-badge-observation { background: rgba(16,185,129,.12); color: var(--success) }
 .jd-badge-activite    { background: rgba(99,102,241,.12); color: var(--accent) }
+.jd-badge-mixte       { background: rgba(219,39,119,.12); color: #db2777 }
 .jd-badge-journal     { background: var(--accent-bg); color: var(--accent) }
 .jd-badge-documentation { background: rgba(245,158,11,.12); color: #d97706 }
 /* Catégorie de documentation : couleurs portées par le style inline (hex du référentiel) */
@@ -2100,6 +2101,7 @@ button, input, select, textarea { font: inherit; color: inherit }
 }
 .cal-dot--obs { background: var(--success) }
 .cal-dot--act { background: var(--accent) }
+.cal-dot--mix { background: #db2777 }
 .cal-dot--doc { background: #f59e0b }
 .cal-dot--jrn { background: var(--text-muted) }
 .cal-dot-more { font-size: .6rem; color: var(--text-muted); line-height: 8px }
@@ -2839,6 +2841,7 @@ button, input, select, textarea { font: inherit; color: inherit }
 .note-view__chain-chip:hover { background: var(--accent-bg); border-color: var(--accent) }
 .note-view__chain-chip--observation { border-left-color: var(--success) }
 .note-view__chain-chip--activite    { border-left-color: var(--accent) }
+.note-view__chain-chip--mixte       { border-left-color: #db2777 }
 .note-view__chain-chip--documentation { border-left-color: #f59e0b }
 .note-view__chain-chip--journal     { border-left-color: var(--border) }
 .note-view__chain-chip__icon { flex-shrink: 0 }
@@ -3787,6 +3790,10 @@ button, input, select, textarea { font: inherit; color: inherit }
 .jd-analyse__popup-head {
   font-size: .7rem; font-weight: 700; color: var(--text-muted);
   margin-bottom: .25rem;
+}
+.jd-analyse__popup-close {
+  float: right; border: none; background: transparent; color: var(--text-muted);
+  cursor: pointer; font-size: .8rem; line-height: 1; padding: 0 0 0 .5rem;
 }
 .jd-analyse__popup-dot {
   display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-right: .25rem;

@@ -103,7 +103,7 @@ export function docCategorieBadgeStyle(couleur) {
 const NOTE_VISUAL = {
   observation:   { icon: '👁', couleur: 'var(--success)',    label: 'Observation' },
   activite:      { icon: '⚡', couleur: 'var(--accent)',     label: 'Activité' },
-  mixte:         { icon: '🔀', couleur: '#8b5cf6',           label: 'Observ.→Activité' },
+  mixte:         { icon: '🔀', couleur: '#db2777',           label: 'Observ.→Activité' },
   documentation: { icon: '📄', couleur: '#d97706',           label: 'Documentation' },
   journal:       { icon: '📔', couleur: 'var(--text-muted)', label: 'Journal' },
 }

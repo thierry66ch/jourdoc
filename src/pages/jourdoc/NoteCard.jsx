@@ -6,7 +6,7 @@ import { mediaUrl, docCategorieBadgeStyle } from './hooks'
 import Lightbox from './Lightbox'
 import MarkdownModal from './MarkdownModal'
 
-const NATURE_ICON = { observation: '👁', activite: '⚡' }
+const NATURE_ICON = { observation: '👁', activite: '⚡', mixte: '🔀' }
 const TYPE_ICON   = { journal: '📔', documentation: '📄' }
 
 const PRIO_COLOR = { 4: '#db4035', 3: '#ff9933', 2: '#4073ff', 1: '#aaa' }

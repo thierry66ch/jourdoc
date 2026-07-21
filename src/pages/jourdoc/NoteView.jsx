@@ -10,8 +10,8 @@ import Lightbox from './Lightbox'
 import MarkdownModal from './MarkdownModal'
 import TodoistPanel from './TodoistPanel'
 
-const NATURE_ICON = { observation: '👁', activite: '⚡', documentation: '📄', journal: '📔' }
-const NATURE_LABEL = { observation: 'Observation', activite: 'Activité', documentation: 'Documentation', journal: 'Journal' }
+const NATURE_ICON = { observation: '👁', activite: '⚡', mixte: '🔀', documentation: '📄', journal: '📔' }
+const NATURE_LABEL = { observation: 'Observation', activite: 'Activité', mixte: 'Observ.→Activité', documentation: 'Documentation', journal: 'Journal' }
 
 function fmtDateLong(iso) {
   if (!iso) return ''

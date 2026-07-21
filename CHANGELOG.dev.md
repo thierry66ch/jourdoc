@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 123 — 2026-07-21 — Finitions nature mixte + navigation Analyse/Calendrier
+
+- **Couleur mixte dédiée** `#db2777` (rose, distincte de l'indigo « activité »), appliquée
+  partout : noteVisual, AnalyseView (dots), CalendarMonth/Year (dots + légende), badges
+  liste (`jd-badge-mixte`) et chip NoteView (`chain-chip--mixte`).
+- **Chip nature d'une note mixte** complétée : icône 🔀 + libellé « Observ.→Activité » + couleur
+  (les maps locales NATURE_ICON/LABEL de NoteView & NoteCard incluent `mixte`).
+- **AnalyseView — clic sur une case liste les notes** (popup ouvert au clic, pas seulement au
+  survol → indispensable sur mobile) + bouton ✕ pour fermer.
+- **Retour propre depuis une note** (Analyse **et** Calendrier) : les filtres (objet/thème/
+  nature, + mode/période pour le calendrier) sont désormais persistés dans l'URL comme la
+  biblio → le back restaure la vue filtrée au lieu de repartir à zéro.
+
+---
+
 ## Build 122 — 2026-07-21 — Export liste : annexes .md/PDF liées + assets des .md
 
 Retours de test (WebDAV réparé) :
