@@ -53,6 +53,7 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | GET | `/jourdoc/:wsId/export?format=json\|csv&medias=0\|1` | Export workspace (voir plus bas) |
 | GET | `/jourdoc/:wsId/export/facets` | Années journal + compteurs (sélecteur d'export) |
 | GET | `/jourdoc/:wsId/export/manifest?type=&year=` | Manifeste léger pour l'export complet côté navigateur |
+| POST | `/jourdoc/:wsId/export/manifest` | Manifeste d'une **liste filtrée** : body `{ ids:[…] }` (évite une URL trop longue). Même forme que le GET, notes filtrées par ces ids ; expose aussi `created_at` (tri doc). Helper serveur `buildExportManifest` partagé |
 
 ### Objets / Thèmes (hiérarchies)
 
@@ -88,7 +89,7 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/jourdoc/:wsId/notes` | Liste filtrée : `?type= &nature= &date_from= &date_to= &objet_id= &theme_id=` |
+| GET | `/jourdoc/:wsId/notes` | Liste filtrée : `?type= &nature= &date_from= &date_to= &objet_id= &theme_id=`. `nature=observation\|activite` inclut aussi les notes `mixte` (`nature IN (filtre,'mixte')`) |
 | POST | `/jourdoc/:wsId/notes` | Créer — body `theme_ids[]`, `objet_ids[]`, `element_ids[]`, `media_ids[]`, `doc_categorie_id` (documentation) |
 | GET | `/jourdoc/:wsId/notes/search?q=` | Recherche titre (NoteLinkPicker) |
 | GET | `/jourdoc/:wsId/notes/:id` | Détail : `objets[]`, `themes[]`, `elements[]`, `medias[]`, `doc_categorie`, liens entrants/sortants |
@@ -105,7 +106,7 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 
 | Méthode | Route | Description |
 |---|---|---|
-| POST | `/jourdoc/:wsId/medias` | Upload multipart → EXIF + HEIC→JPEG + resize → WebDAV (accepte aussi `.md`) |
+| POST | `/jourdoc/:wsId/medias` | Upload multipart → EXIF + HEIC→JPEG + resize → WebDAV (accepte aussi `.md`). Champ `dates[]` **aligné sur `files[]`** = date EXIF lue côté client **avant** resize (le re-encodage efface l'EXIF) ; repli après l'EXIF serveur. `date_prise` = repli global |
 | POST | `/jourdoc/:wsId/medias/markdown` | Créer un document Markdown `{ nom, content }` → média `type_media='markdown'` |
 | GET | `/jourdoc/:wsId/medias/:id/content` | Lire le texte d'un markdown → `{ content, nom_original, base, externe }` |
 | GET | `/jourdoc/:wsId/extdocs/tree?path=` | Arborescence du dossier externe (`WEBDAV_PATH_EXTDOCS`) → `{ path, entries:[{name,dir}] }` |
@@ -161,7 +162,7 @@ agissent sur la tâche-cache (la plus urgente). Plafond **10 tâches/note**.
 | GET | `/jourdoc/:wsId/analyse` | `?objet_id= &objet_dir= &theme_id= &theme_dir= &nature=` |
 
 Filtre thème via `EXISTS (jd_note_theme)`. Exclut les notes `nature IS NULL`
-(documentation intemporelle).
+(documentation intemporelle). `nature=observation|activite` inclut les notes `mixte`.
 
 ## Export workspace
 
@@ -194,6 +195,17 @@ Le navigateur télécharge ensuite chaque média via `GET /:wsId/medias/:id/file
 `index.html` (sommaire groupé Journal/année et Documentation/catégorie), un
 `notes/{id}-{slug}.html` par note (métadonnées + contenu images réécrites en
 `../medias/…` + annexes), `style.css`, `data.json`.
+
+### Export d'une liste filtrée (vue en l'état) — généré côté navigateur
+
+Module `src/pages/jourdoc/exportList.js` + modale `ExportListModal.jsx`. Déclenché
+depuis la **Bibliothèque** et l'**AnalyseView** (bouton 📤) sur les ids des notes
+filtrées de la vue. Appelle `POST /:wsId/export/manifest` (ids en corps), trie par date
+(**création** pour la documentation, **référence** pour le journal, ↑/↓), puis assemble
+un **ZIP** contenant la liste **agrégée** en deux formats : `liste.md` (Markdown via
+`turndown`) et `liste.html` (HTML imprimable → « Enregistrer en PDF »). Options : pièces
+jointes (dossier `medias/`) et notes liées. Les **images internes des `.md` joints** sont
+rapatriées via `GET /:wsId/medias/:id/relfile` au même chemin relatif (assets autonomes).
 
 > Référence des constantes de routes côté front : `packages/shared/src/index.js`
 > (objet `API_ROUTES`).

@@ -7,10 +7,16 @@ Bloc-notes de terrain liant des **notes** (journal / documentation) à des **obj
 par note) et des **éléments** (étiquettes plates), avec médias (KDrive WebDAV),
 tâches Todoist et vues comparatives pluriannuelles.
 
-Le champ **nature** sépare deux espaces : le **journal** a deux natures fixes
-(`observation` / `activite`) ; la **documentation** a une **catégorie** ouverte et
-gérable par workspace (référentiel `jd_doc_categorie` : nom + emoji + couleur),
+Le champ **nature** sépare deux espaces : le **journal** a trois natures
+(`observation` / `activite` / `mixte`) ; la **documentation** a une **catégorie** ouverte
+et gérable par workspace (référentiel `jd_doc_categorie` : nom + emoji + couleur),
 affichée en badge coloré. Stockée via `jd_notes.doc_categorie_id` (FK `SET NULL`).
+
+La nature **`mixte`** (« Observ.→Activité », icône 🔀, couleur dédiée `#db2777`) apparaît
+à la fois dans les listes filtrées **Observations** et **Activités** (serveur :
+`nature IN (filtre,'mixte')` sur `/notes` et `/analyse`). Le rendu couleur/icône passe
+partout par `noteVisual()` (`hooks.js`) et les classes `jd-badge-mixte` / `cal-dot--mix`.
+Pas de filtre « mixte seul ».
 
 ## Shell et hooks
 
@@ -41,9 +47,15 @@ montage et sur `visibilitychange` (throttle 1 min/workspace via `sessionStorage`
   `src` stocké = `/api/jourdoc/{wsId}/medias/{id}/file` **sans token** ; affichage via le
   proxy authentifié (nodeView `resolveImg` en édition, `resolveContentImages` en lecture).
   Les anciennes images base64 restent affichées telles quelles.
-- Journal → sélecteur **Nature** (observation/activité) ; documentation → sélecteur
-  **Catégorie** (liste `docCategories` du workspace, + lien « Gérer »).
+- Journal → sélecteur **Nature** (observation / activité / **🔀 mixte**) ; documentation
+  → sélecteur **Catégorie** (liste `docCategories` du workspace, + lien « Gérer »).
 - MediaPicker filtré par date ; section Todoist si le workspace est configuré.
+- **Joindre une photo (mobile)** : boutons **📷 Photo** (`capture="environment"`) et
+  **🖼️ Galerie** (`multiple`) → pipeline `prepareUploadFiles` (resize + HEIC + date EXIF,
+  cf. `src/lib/imageUpload.js`) puis `POST /medias` et liaison à la note.
+- **Coller du Markdown** : bouton **📋md** (barre d'outils) → lit le presse-papiers via
+  `navigator.clipboard.readText()` (fiable sur mobile, contrairement à l'événement `paste`)
+  et l'insère interprété. Voir `RichTextEditor` / `MilkdownToolbar` plus bas.
 
 **`NoteView.jsx`** — vue lecture 2 colonnes (principale + sidebar : médias, thèmes,
 éléments, fil de notes, Todoist). `refreshNote()` évite `window.location.reload()`.
@@ -80,12 +92,17 @@ catégorie » ; masqué si le type est restreint au journal).
 ## Calendrier & analyse
 
 **`CalendarView.jsx`** — container des modes `year | month | week | last7 | matrix`.
-État en URL (`?mode=&anchor=`). Filtres objet + thème (`HierarchyPicker` + direction)
-sur mois et année ; le filtre thème teste `note.themes.some(...)`. Swipe tactile.
+**Tout l'état de vue** (mode, période `anchor`, filtres objet/thème + direction) persisté
+en URL via une synchro unique (`useSearchParams`, `replace`) → **retour propre** depuis une
+note. Le filtre thème teste `note.themes.some(...)`. Swipe tactile. Le panneau « jour
+sélectionné » liste les `NoteCard` du jour sous la grille.
 
 **`AnalyseView.jsx`** — 52 buckets hebdomadaires × N années. Filtres objet + thème +
-nature. Surlignage cross-année, marqueur semaine courante, popup via `createPortal`.
-Pleine largeur (`jd-main--wide`).
+nature, **persistés en URL** (retour propre). Surlignage cross-année, marqueur semaine
+courante. **Clic sur une case** → popup d'aperçu (`createPortal`) **+ panneau de fiches
+`NoteCard` sous la grille** (comme le calendrier) : `/analyse` ne renvoyant que des notes
+minimales, les notes **enrichies** de la semaine sont récupérées à la volée via `/notes`
+(bornées sur les dates du bucket, filtrées par ids). Pleine largeur (`jd-main--wide`).
 
 ## Bibliothèque
 
@@ -99,13 +116,28 @@ ancêtres/descendants (`getRelated` avec `searchDepth`). Chaque étagère a un b
 coloré repliable + une grille de `NoteCard` (ou liste compacte). Tout est calculé
 côté client (`useMemo`). **Filtres persistés en query params** (`useSearchParams`,
 `replace`) → restaurés au retour depuis une note ; **position de défilement**
-sauvegardée/restaurée via `sessionStorage` (conteneur `.jd-main`).
+sauvegardée/restaurée via `sessionStorage` (conteneur `.jd-main`). Bouton **📤 Exporter**
+→ export de la liste filtrée (`ExportListModal` / `exportList.js`, cf. `api.md`).
 
 ## Médias & stockage
 
-Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamiques) :
+**Préparation côté client** (`src/lib/imageUpload.js`, `prepareUploadFiles`) — *avant*
+l'upload, pour contourner la limite de corps ~4,5 Mo de Vercel (`413
+FUNCTION_PAYLOAD_TOO_LARGE`) :
+- **HEIC/HEIF** (caméras récentes, indécodables par `<canvas>`) → conversion en JPEG via
+  **`heic2any`** (chargé en **lazy chunk** ~1,3 Mo) ;
+- **resize** `<img>`+canvas à 1600 px / q0.9 (même cible que le serveur → pas de double
+  compression ; méthode `<img>` retenue car `createImageBitmap` gèle sur certains mobiles) ;
+- la **date EXIF** est lue sur l'original (`exifreader`) **avant** re-encodage (qui efface
+  l'EXIF) et transmise via le champ `dates[]` aligné sur `files[]`.
+Branché sur les 3 points d'upload : NoteForm (collage + boutons 📷/🖼️), MediaGallery,
+ShareTarget. Un HEIC non convertible (échec) est signalé (`undecodable[]`).
+
+Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamiques,
+défense en profondeur) :
 - **HEIC** → `heic-convert` d'abord (sharp ne supporte pas HEIC sur Vercel Lambda),
-- resize via **sharp**, date EXIF via **exifreader** (`await`).
+- resize via **sharp**, date EXIF via **exifreader** (`await`) — repli sur `dates[i]` puis
+  `date_prise` si l'EXIF a été effacé côté client.
 - Fichier envoyé sur **KDrive WebDAV** ; `jd_medias.fichier` = chemin WebDAV complet.
 
 **Module storage** (`packages/storage/index.js`) : `uploadFile`, `downloadFile`,
@@ -154,6 +186,10 @@ markdown-natif**. État unique = `md` (source).
   les divergences de dialecte). Composé `@milkdown/kit` (commonmark + gfm + history +
   listener) + `@milkdown/plugin-math` (KaTeX). Save = `getMarkdown()` (lecture directe).
   Chargé en **lazy chunk** (React.lazy) car lourd (~500 KB).
+- **Collage** (`@milkdown/plugin-clipboard`) : Markdown collé → **interprété** en nœuds
+  (plus de source brut), HTML collé → **converti** en markdown ; copie = markdown propre.
+  Bouton **📋md** dans `MilkdownToolbar` (`insert()` de `@milkdown/kit/utils` après
+  `navigator.clipboard.readText()`) — repli fiable sur mobile.
 - **Vue lecture** = `mdToHtmlView(md)` de `mdConvert.js` (marked + KaTeX rendu + callouts +
   surlignage) → `RichTextView`. `mdConvert.js` ne sert plus QUE la vue (les fonctions
   `mdToHtmlEdit`/`htmlToMd`/`math.js` ne sont plus dans le chemin d'édition des docs).
@@ -198,8 +234,8 @@ markdown-natif**. État unique = `md` (source).
 Contenu lu/écrit sur WebDAV (`GET`/`PUT /medias/:id/content`). Lecture/édition depuis
 NoteView, MediaGallery et NoteCard ; exclu des lightbox/vignettes photo. Fermeture protégée
 (confirmation si `dirty`). **Sommaire** repliable en vue lecture (`toc.js`). Dépendances :
-`@milkdown/kit`, `@milkdown/react`, `@milkdown/plugin-math`, `katex` ; vue : `marked`,
-`marked-katex-extension`, `turndown` (collage HTML, sens unique).
+`@milkdown/kit`, `@milkdown/react`, `@milkdown/plugin-math`, `@milkdown/plugin-clipboard`,
+`katex` ; vue : `marked`, `marked-katex-extension`, `turndown` (collage HTML, sens unique).
 
 `RichTextEditor` (éditeur des **notes** ; les docs `.md` utilisent Milkdown) : Tiptap
 StarterKit (H1–H3), Underline, Link,
@@ -209,8 +245,14 @@ supprimées à l'édition), **Highlight** (`@tiptap/extension-highlight` — bou
 en Markdown), **MathInline/MathBlock** (`math.js`, formules KaTeX), **slash-menu**
 (`/`, extension `slashMenu.js` via `@tiptap/suggestion`),
 mode source paramétrable (`htmlToSource`/`sourceToHtml` → Markdown dans le modal).
+**Collage Markdown** : à la volée, si le presse-papiers ne contient que du `text/plain`
+qui *ressemble* à du Markdown (`looksLikeMarkdown`, `src/lib/markdownPaste.js`), il est
+converti en HTML riche (`marked`, GFM) et inséré ; si du HTML est présent, collage riche
+natif préservé. Bouton explicite **📋md** (repli fiable sur mobile où l'événement `paste`
+ne transmet pas toujours `clipboardData` → lecture via `navigator.clipboard.readText()`).
 Barre d'outils **allégée sur mobile** (`<768px`) : les fonctions avancées
-(`.rte-btn--adv`) sont masquées et accessibles via le slash-menu (bouton `＋`).
+(`.rte-btn--adv`) sont masquées et accessibles via le slash-menu (bouton `＋`) — le bouton
+📋md n'est **pas** `--adv` (visible sur mobile, là où il sert).
 **Mentions `@`** (`mention.js`, `@tiptap/extension-mention`) : objets / thèmes / notes,
 source fournie par la prop `mentionItems` (async, lue via une ref) ; l'`id` encode le
 type (`objet:123`) ; clic sur une mention → navigation interne (géré dans NoteView).

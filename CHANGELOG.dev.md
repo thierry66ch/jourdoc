@@ -4,6 +4,21 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Doc — 2026-07-21 — Actualisation CdC + docs développeur (build 124)
+
+Mise à jour de toute la doc, périmée depuis ~build 112 :
+- **CDC-JourDoc.md** : nature mixte (§2.2), Markdown/docs (§2.5), médias HEIC/resize/mobile
+  (§5), modèle de données (nature+mixte, champs doc, media externe), §10 réécrit
+  (builds 79→124 : catégories doc, Bibliothèque, Milkdown, clipper, share Android, export
+  complet + liste filtrée, session 401, nature mixte). Daté build 124.
+- **dev/** : `jourdoc.md` (lib/imageUpload, markdownPaste, collage MD, boutons photo mobile,
+  nature mixte, panneau Analyse, persistance URL Calendrier/Analyse), `api.md` (POST
+  /export/manifest par ids, dates[] upload, nature IN mixte), `database.md` (migration 010),
+  `architecture.md` (src/lib, deps front), `auth.md` (intercepteur 401), `clipper.md`
+  (annulation de capture + navigation in-place). Copie racine `docs/` synchronisée.
+
+---
+
 ## Build 124 — 2026-07-21 — Analyse : panneau liste des fiches sous la grille
 
 Le clic sur une case de la heatmap affiche désormais, EN PLUS du popup d'aperçu, un

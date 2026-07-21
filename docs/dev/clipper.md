@@ -114,6 +114,7 @@ bénéficier du CORS réflexif (cf. § Auth) :
 | `GET` | `/api/clip/ws/:wsId/exists?url=` | JWT | notes du workspace au même `source_url` (avertissement « déjà clippé ») |
 | `POST` | `/api/clip` | JWT | capture depuis le **HTML fourni** (bookmarklet) → .md + note |
 | `POST` | `/api/clip/ws/:wsId/capture-url` | JWT | capture **serveur d'un lien** : télécharge l'URL → .md, **sans** créer de note (retourne le média à attacher). Utilisé par le bouton « Capturer » de la fiche. |
+| `DELETE` | `/api/clip/ws/:wsId/note/:noteId` | JWT | **annuler une capture** : supprime la note + le `.md` clipper orphelin **et son dossier `_<base>.assets`** sur KDrive (helper storage `deletePath`, DELETE WebDAV récursif ; restreint aux médias sous `/clipper/`). Utilisé par le bouton « ↩︎ Annuler la capture » |
 
 > **Cœur partagé** : `captureToMd()` (HTML → markdown → images → .md → média) est commun
 > au bookmarklet et à la capture serveur. La capture serveur ajoute `fetchPage()`
@@ -129,6 +130,13 @@ bénéficier du CORS réflexif (cf. § Auth) :
 
 > `/api/clip/login` doit être déclaré **avant** `clip.use('*', authMiddleware)` pour
 > rester public.
+
+> **Après capture** (`ClipperPreview`, écran « done ») : « Ouvrir la note » navigue
+> **dans la même fenêtre** (le clipper devient la note → pas de fenêtre orpheline) ;
+> « ↩︎ Annuler la capture » appelle le `DELETE` ci-dessus. Le résultat de capture est
+> mémorisé dans le `sessionStorage` de la fenêtre → le **retour arrière** restaure
+> l'écran final (avec « Annuler ») au lieu de repartir à l'étape 1
+> (`ClipperApp` : `readClipDone`/`writeClipDone`, re-handshake `JD_CLIP_PAGE` ignoré).
 
 - Router dédié `server/routes/clipper.js`, monté `app.route('/api/clip', …)`.
 - **CORS propre** : `origin: '*'`, **sans** `credentials` (le token transite en

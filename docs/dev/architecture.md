@@ -22,7 +22,9 @@ jourdoc-v2-scaffold/
 │   ├── pages/jourdoc/      composants métier JourDoc
 │   ├── pages/admin/        dashboard admin
 │   ├── context/            AuthContext
-│   └── main.jsx            router React
+│   ├── lib/                utilitaires transverses (voir ci-dessous)
+│   ├── clipper/            fenêtre first-party du web-clipper
+│   └── main.jsx            router React + installAuthInterceptor()
 ├── api/index.js            adaptateur Vercel → Hono (voir ci-dessous)
 ├── server/
 │   ├── app.js              montage des routes Hono
@@ -68,7 +70,10 @@ export default async function handler(req, res) {
 ## Frontend (`src/`)
 
 **Dépendances principales :** React 18, react-router-dom v6 (BrowserRouter, Outlet),
-Tiptap (rich text : starter-kit, link, underline), vite-plugin-pwa (injectManifest).
+Tiptap (notes : starter-kit, link, underline, table, task-list, image, highlight, mention),
+Milkdown (`@milkdown/kit` + `plugin-math` + `plugin-clipboard`, éditeur des docs `.md`),
+`marked` + `turndown` (conversions Markdown↔HTML), `heic2any` (HEIC→JPEG navigateur, lazy),
+`exifreader` (date EXIF client), `fflate` (ZIP des exports), vite-plugin-pwa (injectManifest).
 
 **Routes React** (`main.jsx`) :
 ```
@@ -92,7 +97,19 @@ Tiptap (rich text : starter-kit, link, underline), vite-plugin-pwa (injectManife
 ```
 
 **State :** local React (useState/useEffect). Données workspace (objets, thèmes,
-réglages) via le hook `useJdData(wsId, token)`. État calendrier persisté en URL.
+réglages) via le hook `useJdData(wsId, token)`. État de vue (filtres, mode, période)
+persisté en **URL query params** (`useSearchParams`, `replace`) pour Calendar, Analyse
+et Bibliothèque → restauré au retour depuis une note.
+
+**Utilitaires `src/lib/` :**
+- `authInterceptor.js` — wrapper `window.fetch` : 401 → purge token + redirige `/login`
+  (session expirée, cf. `auth.md`).
+- `imageUpload.js` — préparation des images **avant upload** : conversion HEIC→JPEG
+  (`heic2any`, lazy) et resize `<img>`+canvas à 1600 px (contourne la limite ~4,5 Mo de
+  Vercel) ; lit la date EXIF de l'original (`exifreader`) **avant** re-encodage, transmise
+  au serveur (champ `dates[]`).
+- `markdownPaste.js` — détection + conversion Markdown→HTML (`marked`) pour le collage
+  dans l'éditeur de notes (Tiptap).
 
 **Auth client :** `AuthContext` → token user en `localStorage`, token admin en
 `sessionStorage`. `<PrivateRoute>` / `<AdminRoute>` dans `main.jsx`.

@@ -95,7 +95,7 @@ Conseil/Descriptif/Manuel/Norme/Exemple ; statuts : Brouillon/Validé/Obsolète)
 | `id` | SERIAL PK | |
 | `workspace_id` | → `workspaces.id` | CASCADE |
 | `type` | TEXT CHECK | `journal` \| `documentation` |
-| `nature` | TEXT CHECK | `observation` \| `activite` \| NULL (documentation) |
+| `nature` | TEXT CHECK | `observation` \| `activite` \| `mixte` \| NULL (documentation). `mixte` = « Observ.→Activité » : apparaît dans les filtres Observations **et** Activités (migration `010`) |
 | `theme_id` | → `jd_themes.id` | **legacy** — conservé, = 1er thème (voir liaison `jd_note_theme`) |
 | `doc_categorie_id` | → `jd_doc_categorie.id` | `ON DELETE SET NULL` — catégorie (documentation) |
 | `doc_statut_id` | → `jd_doc_statut.id` | `ON DELETE SET NULL` — statut (documentation) |
@@ -161,6 +161,7 @@ import('./db/db.js').then(async ({ default: sql }) => {
 - `007_doc_statut_ref.sql` — table `jd_doc_statut` + `jd_notes.doc_statut_id` (remplace `doc_statut` texte)
 - `008_media_externe.sql` — `jd_medias.externe` (pièces jointes *liées*)
 - `009_jd_note_todoist.sql` — table `jd_note_todoist` (N tâches/note) + migration des liens 1:1 ; colonnes `jd_notes.tache_todoist_*` conservées en cache
+- `010_nature_mixte.sql` — élargit `CHECK (nature IN (…))` avec `'mixte'` (nature « Observ.→Activité »)
 
 **Convention** : nouvelle évolution de schéma → fichier de migration numéroté
 **et** mise à jour de `schema.sql` (référence d'un schéma vierge).

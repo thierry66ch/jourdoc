@@ -1,8 +1,8 @@
 # Cahier des charges — Projet « Jourdoc »
 
 > Document de spécification fonctionnelle et modèle de données
-> Auteur : Thierry · Date : 2 juin 2026
-> Statut : version initiale, à itérer
+> Auteur : Thierry · Créé le 2 juin 2026 · Mis à jour le 21 juillet 2026 (build 124)
+> Statut : en production, itéré au fil des développements
 
 ---
 
@@ -50,6 +50,12 @@ L'application intègre un système de **Workspaces** permettant de **séparer co
 
 - **Observation** : simple constat, sans action (ex. « ce pommier a une maladie »).
 - **Activité** : action réalisée par l'utilisateur (ex. « traitement contre les ravageurs »).
+- **Mixte « Observ.→Activité »** (🔀) : note qui relève des deux à la fois. Elle apparaît
+  dans les listes filtrées **Observations** *et* **Activités** (pas de filtre « mixte seul »).
+
+> La **documentation** n'a pas de nature mais une **catégorie** ouverte, gérable par
+> workspace (nom + emoji + couleur), ainsi que des champs facultatifs *statut*, *auteur*,
+> *référence* (voir §10). C'est cette catégorie qui structure la **Bibliothèque**.
 
 ### 2.3 Liaison entre notes
 
@@ -64,9 +70,16 @@ Une note doit pouvoir être **liée à d'autres notes**, afin de constituer un f
 - Chaque note est liée à **un ou plusieurs objets** (individus et/ou groupes).
 - La liaison doit être **souple** : exemple, un traitement appliqué spécifiquement au pommier et au prunier sera lié à ces deux objets seulement — pas à « tous les arbres » ni à « tous les arbres fruitiers », car d'autres arbres fruitiers n'ont pas reçu le traitement.
 
-### 2.5 Texte enrichi
+### 2.5 Texte enrichi et Markdown
 
-Les notes (notamment de type Documentation) doivent supporter le **texte enrichi** (rich text).
+Les notes supportent le **texte enrichi** (éditeur Tiptap). En complément :
+
+- **Documents Markdown** (`.md`) joints/liés à une note, éditables in-app via un éditeur
+  **markdown-natif** (Milkdown) : titres, listes à cocher, tableaux, encadrés, surlignage,
+  formules KaTeX, images collées → assets.
+- **Collage de Markdown interprété** : coller du source Markdown le convertit
+  automatiquement (rendu riche dans l'éditeur de notes, nœuds dans l'éditeur `.md`). Un
+  bouton **« Coller le Markdown »** assure ce comportement de façon fiable sur mobile.
 
 ### 2.6 Titre des notes
 
@@ -172,6 +185,11 @@ Comme les objets, les thèmes sont **hiérarchiques** (notion de parent/enfant).
 ### 5.1 Besoin
 
 Sur le terrain, prendre une **photo** est plus rapide que rédiger une note. L'application doit donc stocker des **photos, captures d'écran et PDF**, puis permettre de les transformer/rattacher en notes.
+
+**Prise/import de photos** : depuis l'édition d'une note (boutons **caméra** et **galerie**),
+depuis la médiathèque, ou par **partage natif Android**. Les images sont **converties
+(HEIC→JPEG) et redimensionnées côté navigateur** avant l'envoi (compatibilité + contourne
+la limite de taille serverless), tout en **préservant la date de prise de vue** (EXIF).
 
 ### 5.2 Vue média → note
 
@@ -293,8 +311,11 @@ Modèle relationnel déduit des besoins ci-dessus. À affiner lors de la concept
 |---|---|---|
 | `id` | identifiant | Clé primaire |
 | `type` | énumération | `journal` \| `documentation` |
-| `nature` | énumération | `observation` \| `activite` (pour les notes journal) |
+| `nature` | énumération | `observation` \| `activite` \| `mixte` (notes journal ; NULL pour la documentation) |
 | `theme_id` | référence → `themes.id` | Thème de la note |
+| `doc_categorie_id` | référence → `jd_doc_categorie.id` | Catégorie (documentation), FK `SET NULL` |
+| `doc_statut_id` | référence → `jd_doc_statut.id` | Statut (documentation) |
+| `doc_auteur`, `doc_reference` | texte | Métadonnées de documentation (facultatives) |
 | `titre` | texte | **Obligatoire**. Générable automatiquement à partir des noms des objets/thèmes liés (ex. `Pommier Golden, Prunier → Traitement antifongique`). |
 | `titre_alternatif` | texte | Composition avec les **noms courts** (ex. `Pom/Gol, Pru → TrAntif`). Utilisé dans les vues calendrier compactes. |
 | `contenu` | texte enrichi | Corps de la note |
@@ -323,9 +344,10 @@ Modèle relationnel déduit des besoins ci-dessus. À affiner lors de la concept
 |---|---|---|
 | `id` | identifiant | Clé primaire |
 | `fichier` | fichier/URL | Photo, capture, PDF stocké sur le serveur |
-| `type_media` | énumération | `photo` \| `capture` \| `pdf` |
+| `type_media` | énumération | `photo` \| `pdf` \| `markdown` |
 | `date_prise` | date/heure | Date de prise (sert au filtre « pris ce jour ») |
 | `lie` | booléen | Indique si le média est déjà rattaché à une note |
+| `externe` | booléen | Média *lié par référence* (fichier hors uploads, jamais copié/déplacé) |
 
 ### 9.7 Table de liaison `note_media` (relation N–N)
 
@@ -354,35 +376,47 @@ notes ──> Todoist               (tache_todoist_id, lien bidirectionnel + syn
 
 ---
 
-## 10. Phasage — état d'avancement (build 78, juin 2026)
+## 10. Phasage — état d'avancement (build 124, juillet 2026)
 
 | Phase | Contenu | Statut |
 |---|---|---|
 | **MVP** | Objets hiérarchiques + notes (journal/doc, nature, thèmes) + liaison notes↔objets + fiche objet avec recherche récursive (±3 niveaux) | ✅ Complet |
 | **Phase 2** | Médias (vue média↔note, vignettes, filtres), portail calendrier (jour/semaine/7j/matrice/année), grille/calendrier | ✅ Complet |
 | **Phase 3** | Intégration Todoist (création, liaison tâche existante, sync batch, récurrentes, page tâches), import CSV, éditeur inline arbres | ✅ Complet |
-| **Phase 4** | Analyses comparatives pluriannuelles (vue semaine × année, filtres hiérarchiques, surlignade colonne), PDF viewer inline | ✅ Complet |
+| **Phase 4** | Analyses comparatives pluriannuelles (vue semaine × année, filtres hiérarchiques, surlignage colonne), PDF viewer inline | ✅ Complet |
 
-### Fonctionnalités hors CDC ajoutées en cours de développement
+### Fonctionnalités ajoutées depuis la Phase 4 (builds 79 → 124)
 
-- **Vue annuelle** du calendrier (52 cellules/semaine par mois)
-- **Filtres hiérarchiques** objet + thème + direction sur calendrier mois/année et fiches objet/thème
-- **Filtre type** (Journal/Documentation) sur fiches objet et thème
-- **Lier une tâche Todoist existante** via son URL (extraction ID depuis slug moderne)
-- **Page Tâches Todoist** centralisée : sections À traiter / En cours / Traités, détection récurrences
-- **Détection tâches récurrentes** : comparaison de la date d'échéance pour détecter une exécution
-- **Swipe tactile** sur journal et toutes les vues calendrier
-- **PWA installable** : icône maskable, manifest MIME correct, clientsClaim/skipWaiting
-- **Popup au survol** avec plage dates et notes dans les vues calendrier et analyse
+**Documentation enrichie**
+- **Catégories de documentation** ouvertes par workspace (nom + emoji + couleur) + **statuts**, **auteur**, **référence** ; vue **Bibliothèque** (documentation groupée par catégorie, recherche, tri, densité, filtres objet/thème).
+- **Documents Markdown** (`.md`) joints ou **liés par référence** (sans copie) à des fichiers sur KDrive ; éditeur **markdown-natif** (Milkdown : encadrés, surlignage, tableaux, cases à cocher, formules KaTeX, images collées → assets). Import de **bundles Notion** (zip imbriqués) via l'inbox.
+- **Collage de Markdown interprété** dans les deux éditeurs (+ bouton dédié, fiable sur mobile).
+
+**Capture web**
+- **Web-clipper** : capture d'une page web → note documentation + `.md` joint (images rapatriées sur KDrive). Bookmarklet → fenêtre first-party (insensible à la CSP des sites). Détection « déjà clippé », capture partielle (métadonnées OG) en repli, **annulation** d'une capture non convaincante.
+- **Capture in-app d'un lien** (bouton « Capturer » dans la fiche) et **partage natif Android** (« Partager → JourDoc » d'un lien ou de photos/PDF).
+
+**Médias**
+- **Conversion HEIC→JPEG + redimensionnement côté navigateur** avant l'envoi (compatibilité mobile + contourne la limite de taille serverless), **date de prise de vue préservée**.
+- **Prise/ajout de photos depuis l'édition d'une note** (caméra + galerie, mobile).
+
+**Nature mixte** « Observ.→Activité » (voir §2.2).
+
+**Export**
+- Export **complet** d'un workspace (JSON / CSV+médias / **HTML lisible** en ZIP).
+- Export d'une **liste filtrée** (vue en l'état) : ZIP agrégé en **Markdown** + **HTML imprimable** (→ PDF), tri par date, options pièces jointes (avec assets des `.md`) et notes liées.
+
+**Robustesse & confort**
+- **Redirection automatique vers la connexion** quand la session expire (intercepteur 401 global).
+- **Retour de navigation propre** (filtres/vue restaurés) pour Bibliothèque, Calendrier et Analyse.
+- Vue annuelle du calendrier, filtres hiérarchiques (objet/thème + direction) partout, popup **et panneau-liste** de fiches au clic dans l'analyse, swipe tactile, PWA installable.
 
 ### Idées d'évolution (non encore spécifiées)
 
-- Analyses comparatives entre workspaces différents
-- Notifications push (PWA) pour les tâches Todoist dues
-- Export des données (CSV, JSON)
-- Recherche globale dans les notes
-- Synchronisation des objets/thèmes entre workspaces
+- **Modèles de contenu HTML** (+ placeholders) et champ **« données étendues »** (JSON éditable, table dans la fiche).
+- Extension de navigateur pour le clipper (desktop).
+- Analyses comparatives entre workspaces ; notifications push (PWA) pour les tâches Todoist dues ; recherche globale dans les notes.
 
 ---
 
-*Document mis à jour le 10 juin 2026 — build 78.*
+*Document mis à jour le 21 juillet 2026 — build 124.*

@@ -14,6 +14,16 @@ Le token est stocké en `localStorage` et envoyé via `Authorization: Bearer <to
 Côté front, `AuthContext` (`src/context/AuthContext.jsx`) expose `login()` /
 `logout()` / `token`. `<PrivateRoute>` redirige vers `/login` si le token est absent.
 
+### Intercepteur 401 global (session expirée)
+
+Le JWT expire (7 j) mais reste en `localStorage` → `<PrivateRoute>` le voit encore
+présent et rend l'app, alors que toute l'API renvoie 401 → workspaces/notes vides,
+état bloqué. `src/lib/authInterceptor.js` (installé dans `main.jsx`) **enveloppe
+`window.fetch`** : sur un 401 d'une route `/api/` (hors endpoints d'auth), si un token
+utilisateur est présent, il le purge et redirige vers `/login?next=<page>`. `Login`
+honore `?next=` pour revenir où l'utilisateur était. Approche par wrapper global →
+couvre d'un coup tous les `fetch` bruts sans les réécrire.
+
 ### Token en query `?t=` (médias)
 
 `<img src>` et `<iframe src>` ne peuvent pas envoyer de header `Authorization`.
