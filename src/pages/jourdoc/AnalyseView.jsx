@@ -147,14 +147,15 @@ export default function AnalyseView() {
           </div>
         </div>
 
-        {hasFilter && notes.length > 0 && (
-          <div className="jd-analyse__filter-row">
-            <button type="button" className="jd-auto-btn" onClick={() => setExportOpen(true)}>
-              📤 Exporter la liste ({notes.length})
-            </button>
-          </div>
-        )}
       </div>
+
+      {notes.length > 0 && (
+        <div style={{ margin: '.75rem 0', textAlign: 'right' }}>
+          <button type="button" className="btn btn-primary" onClick={() => setExportOpen(true)}>
+            📤 Exporter la liste ({notes.length})
+          </button>
+        </div>
+      )}
 
       {!hasFilter && (
         <div className="empty-state" style={{ marginTop: '2rem' }}>

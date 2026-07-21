@@ -68,7 +68,8 @@ export default function ExportListModal({ wsId, token, ids, count, defaultDir = 
               : prog.phase === 'manifest' ? '⏳ Préparation…'
               : prog.phase === 'download' ? `⏳ Téléchargement des pièces ${prog.done}/${prog.total}…`
               : prog.phase === 'zip' ? '⏳ Compression du ZIP…'
-              : prog.phase === 'done' ? `✅ Export terminé (${prog.count} fiche${prog.count > 1 ? 's' : ''})`
+              : prog.phase === 'done' ? `✅ Export terminé : ${prog.count} fiche${prog.count > 1 ? 's' : ''}`
+                + (withAttachments ? ` · ${prog.mediaOk ?? 0}/${prog.mediaTotal ?? 0} pièce(s) jointe(s)` : '')
               : ''}
           </p>
         )}

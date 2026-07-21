@@ -146,20 +146,23 @@ function documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }) {
 // Télécharge les médias avec un petit pool de concurrence + progression par fichier.
 async function downloadMedias({ wsId, token, medias, files, onProgress }) {
   const total = medias.length
-  let done = 0
+  let done = 0, ok = 0
   const queue = [...medias]
   async function worker() {
     while (queue.length) {
       const m = queue.shift()
       try {
-        const res = await fetch(API_ROUTES.JD_MEDIA_FILE(wsId, m.id), { headers: authHeader(token) })
-        if (res.ok) files[`medias/${m.filename}`] = [new Uint8Array(await res.arrayBuffer()), { level: 0 }]
+        // Token en query (?t=) : le proxy média l'accepte, et pas d'en-tête Content-Type
+        // JSON parasite sur un GET binaire.
+        const res = await fetch(`${API_ROUTES.JD_MEDIA_FILE(wsId, m.id)}?t=${encodeURIComponent(token)}`)
+        if (res.ok) { files[`medias/${m.filename}`] = [new Uint8Array(await res.arrayBuffer()), { level: 0 }]; ok++ }
       } catch { /* média manquant → ignoré */ }
       done++
       onProgress?.({ phase: 'download', done, total })
     }
   }
   await Promise.all(Array.from({ length: Math.min(4, total || 1) }, worker))
+  return ok
 }
 
 function zipAsync(files) {
@@ -192,9 +195,11 @@ export async function buildListExport({ wsId, token, ids, opts, onProgress }) {
   files['liste.html'] = strToU8(documentHtml({ wsName, notes, mediaById, opts, generatedAt }))
   files['liste.md']   = strToU8(documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }))
 
+  let mediaTotal = 0, mediaOk = 0
   if (opts.withAttachments) {
     // On ne télécharge que les médias effectivement référencés par les notes exportées.
-    await downloadMedias({ wsId, token, medias: manifest.medias, files, onProgress })
+    mediaTotal = manifest.medias.length
+    mediaOk = await downloadMedias({ wsId, token, medias: manifest.medias, files, onProgress })
   }
 
   onProgress?.({ phase: 'zip' })
@@ -202,6 +207,6 @@ export async function buildListExport({ wsId, token, ids, opts, onProgress }) {
   const blob = new Blob([data], { type: 'application/zip' })
   const filename = `${manifest.workspace.slug}-liste-${generatedAt.slice(0, 10)}.zip`
 
-  onProgress?.({ phase: 'done', count: notes.length })
-  return { blob, filename, count: notes.length }
+  onProgress?.({ phase: 'done', count: notes.length, mediaOk, mediaTotal })
+  return { blob, filename, count: notes.length, mediaOk, mediaTotal }
 }
