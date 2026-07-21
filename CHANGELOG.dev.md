@@ -4,6 +4,16 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 124 — 2026-07-21 — Analyse : panneau liste des fiches sous la grille
+
+Le clic sur une case de la heatmap affiche désormais, EN PLUS du popup d'aperçu, un
+**panneau liste des fiches** sous la grille (comme le panneau « jour » du calendrier) :
+fiches `NoteCard` complètes (objets/thèmes/médias). Comme `/analyse` renvoie des notes
+minimales, on récupère à la volée les notes ENRICHIES de la semaine via `/notes`
+(date_from/to bornées sur les dates du bucket, filtrées par ids). Bouton ✕ pour fermer.
+
+---
+
 ## Build 123 — 2026-07-21 — Finitions nature mixte + navigation Analyse/Calendrier
 
 - **Couleur mixte dédiée** `#db2777` (rose, distincte de l'indigo « activité »), appliquée

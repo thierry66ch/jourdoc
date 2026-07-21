@@ -7,6 +7,7 @@ import { authHeader, useJdData } from './hooks'
 import { weekBucket, monthSpansFor52 } from './calUtils'
 import HierarchyPicker from './HierarchyPicker'
 import ExportListModal from './ExportListModal'
+import NoteCard from './NoteCard'
 
 const MONTHS_FR_SHORT = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc']
 const NATURE_COLOR = { observation: 'var(--success)', activite: 'var(--accent)', mixte: '#db2777', documentation: '#f59e0b', journal: 'var(--text-muted)' }
@@ -37,10 +38,31 @@ export default function AnalyseView() {
   const [loading,        setLoading]        = useState(false)
   const [exportOpen,     setExportOpen]     = useState(false)
 
-  // Popup via portal (position fixed pour échapper à overflow-x:auto)
+  // Popup via portal (position fixed pour échapper à overflow-x:auto) — aperçu au survol (desktop)
   const [popup, setPopup]       = useState(null)  // { notes, x, y, year, bucket }
   const [highlightCol, setHighlightCol] = useState(null)  // bucket index surligné
+  const [selectedBucket, setSelectedBucket] = useState(null)  // { year, bucket, notes } — panneau liste sous la grille
+  const [bucketLoading, setBucketLoading] = useState(false)
   const hideTimer               = useRef(null)
+
+  // Clic sur une case → récupère les notes ENRICHIES de la semaine (objets/thèmes/médias,
+  // absents de /analyse) pour afficher des fiches complètes comme le calendrier.
+  async function openBucket(year, bucket, cellNotes) {
+    setSelectedBucket({ year, bucket, notes: [] })
+    setBucketLoading(true)
+    try {
+      const dates = cellNotes.map(n => n.date).filter(Boolean).sort()
+      const from = dates[0], to = dates[dates.length - 1]
+      const ids = new Set(cellNotes.map(n => n.id))
+      const data = await fetch(`${API_ROUTES.JD_NOTES(wsId)}?date_from=${from}&date_to=${to}`, { headers: authHeader(token) }).then(r => r.json())
+      const enriched = (data.notes ?? []).filter(n => ids.has(n.id))
+      setSelectedBucket({ year, bucket, notes: enriched.length ? enriched : cellNotes })
+    } catch {
+      setSelectedBucket({ year, bucket, notes: cellNotes })  // repli : cartes minimales
+    } finally {
+      setBucketLoading(false)
+    }
+  }
 
   // Semaine courante (marqueur visuel)
   const todayBucket = useMemo(() => weekBucket(new Date().toISOString().slice(0, 10)).bucket, [])
@@ -220,12 +242,13 @@ export default function AnalyseView() {
                         onMouseLeave={cellNotes.length ? hidePopup : undefined}
                         onClick={cellNotes.length
                           ? e => {
+                              // Clic = popup (aperçu rapide, utile sur mobile) + liste des fiches
+                              // sous la grille (complément, comme le calendrier).
                               setHighlightCol(b)
-                              // Clic = ouvre la liste des notes (indispensable sur mobile, sans survol).
-                              if (popup && popup.year === year && popup.bucket === b) setPopup(null)
-                              else showPopup(e, cellNotes, year, b)
+                              showPopup(e, cellNotes, year, b)
+                              openBucket(year, b, cellNotes)
                             }
-                          : () => setHighlightCol(null)}
+                          : () => { setHighlightCol(null); setSelectedBucket(null) }}
                       >
                         {cellNotes.length > 0 && (
                           <div className="jd-analyse__dots">
@@ -243,6 +266,31 @@ export default function AnalyseView() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Panneau liste des fiches de la semaine cliquée (complément du popup, comme le calendrier) */}
+      {selectedBucket && (
+        <div className="cal-day-panel">
+          <div className="cal-day-panel__header">
+            <h3>{(() => {
+              const jan1 = new Date(selectedBucket.year, 0, 1)
+              const ws = new Date(jan1.getTime() + selectedBucket.bucket * 7 * 86400000)
+              const we = new Date(ws.getTime() + 6 * 86400000)
+              const fmt = d => d.toLocaleDateString('fr-CH', { day: 'numeric', month: 'short' })
+              return `Semaine du ${fmt(ws)} – ${fmt(we)} ${selectedBucket.year}`
+            })()}</h3>
+            <button type="button" className="jd-auto-btn" onClick={() => setSelectedBucket(null)}>✕ Fermer</button>
+          </div>
+          {bucketLoading ? (
+            <p style={{ color: 'var(--text-muted)', padding: '1rem 0' }}>Chargement…</p>
+          ) : (
+            <div className="jd-notes-list">
+              {selectedBucket.notes.map(n => (
+                <NoteCard key={n.id} note={n} contextNoteIds={selectedBucket.notes.map(x => x.id)} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
