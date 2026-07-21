@@ -4,6 +4,18 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Doc — 2026-07-21 — Guide utilisateur
+
+Nouveau **`docs/GUIDE-UTILISATEUR.md`** : documentation orientée utilisateur (non
+technique) couvrant concept, structure des données (workspaces, notes journal/doc, les 3
+axes objets/thèmes/éléments, médias, liens, tâches), les pages, la création de note, la
+consultation & les filtres hiérarchiques (direction ↕↓↑ + profondeur, éléments, catégorie),
+le principe des médias, l'import (photos, inbox/Notion, web-clipper, partage Android, CSV,
+fichiers externes liés), l'export (complet + liste filtrée), Todoist, et les astuces mobile.
+Copie racine `docs/` synchronisée.
+
+---
+
 ## Doc — 2026-07-21 — Actualisation CdC + docs développeur (build 124)
 
 Mise à jour de toute la doc, périmée depuis ~build 112 :
