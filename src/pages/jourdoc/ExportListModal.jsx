@@ -15,7 +15,7 @@ export default function ExportListModal({ wsId, token, ids, count, defaultDir = 
   async function run() {
     setProg({ phase: 'manifest' })
     try {
-      const { blob, filename, count: done } = await buildListExport({
+      const { blob, filename, count: done, mediaOk, mediaTotal } = await buildListExport({
         wsId, token, ids,
         opts: { dir, withAttachments, withLinks },
         onProgress: setProg,
@@ -25,7 +25,7 @@ export default function ExportListModal({ wsId, token, ids, count, defaultDir = 
       a.download = filename
       a.click()
       URL.revokeObjectURL(a.href)
-      setProg({ phase: 'done', count: done })
+      setProg({ phase: 'done', count: done, mediaOk, mediaTotal })
     } catch (e) {
       setProg({ error: e.message })
     }
