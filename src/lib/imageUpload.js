@@ -29,11 +29,26 @@ function extOf(file) {
   return (file?.name?.split('.').pop() || '').toLowerCase()
 }
 
-// true si le navigateur ne pourra pas décoder ce fichier (HEIC/HEIF) → resize impossible.
-export function isUndecodable(file) {
+// true si le format n'est pas décodable nativement par le navigateur (HEIC/HEIF).
+export function isHeic(file) {
   const ext = extOf(file)
   const type = (file?.type || '').toLowerCase()
   return UNDECODABLE_EXT.has(ext) || type.includes('heic') || type.includes('heif')
+}
+
+// Convertit un HEIC/HEIF en JPEG plein format via heic2any (chargé à la demande, gros
+// wasm libheif → jamais dans le bundle principal). Renvoie un File JPEG, ou null si échec.
+async function heicToJpeg(file) {
+  try {
+    const { default: heic2any } = await import('heic2any')
+    const out = await heic2any({ blob: file, toType: 'image/jpeg', quality: JPEG_QUALITY })
+    const blob = Array.isArray(out) ? out[0] : out
+    const name = (file.name || 'photo').replace(/\.(heic|heif)$/i, '') + '.jpg'
+    return new File([blob], name, { type: 'image/jpeg', lastModified: file.lastModified || Date.now() })
+  } catch (e) {
+    console.error('[heic] conversion échouée:', e?.message)
+    return null
+  }
 }
 
 // Lit la date de prise de vue EXIF d'un fichier image → 'YYYY-MM-DD' ou null.
@@ -72,25 +87,33 @@ function loadImage(file) {
 // Ne redimensionne que si utile : trop grand en pixels OU trop lourd pour la limite.
 export async function resizeImageFile(file, { maxDim = MAX_DIM, quality = JPEG_QUALITY } = {}) {
   if (!file) return file
+  let work = file
   const ext = extOf(file)
   const type = (file.type || '').toLowerCase()
   if (SKIP_EXT.has(ext)) return file
-  if (type && !type.startsWith('image/')) return file  // non-image typé explicitement
-  if (isUndecodable(file)) return file                  // HEIC/HEIF : le serveur convertira
+  if (type && !type.startsWith('image/') && !isHeic(file)) return file  // non-image explicite
+
+  // HEIC/HEIF : conversion en JPEG plein format d'abord (le canvas ne les décode pas),
+  // puis on redimensionne le JPEG ci-dessous. Échec de conversion → on renvoie l'original.
+  if (isHeic(file)) {
+    const jpeg = await heicToJpeg(file)
+    if (!jpeg) return file
+    work = jpeg
+  }
 
   let loaded
   try {
-    loaded = await loadImage(file)
+    loaded = await loadImage(work)
   } catch {
-    return file  // indécodable → on laisse l'original (le serveur tentera sa chance)
+    return work  // indécodable → on laisse tel quel (le serveur tentera sa chance)
   }
   const { img, url } = loaded
   const w0 = img.naturalWidth, h0 = img.naturalHeight
   const cleanup = () => URL.revokeObjectURL(url)
 
-  if (!w0 || !h0) { cleanup(); return file }
-  const tooBig = w0 > maxDim || h0 > maxDim || file.size > SIZE_THRESHOLD
-  if (!tooBig) { cleanup(); return file }
+  if (!w0 || !h0) { cleanup(); return work }
+  const tooBig = w0 > maxDim || h0 > maxDim || work.size > SIZE_THRESHOLD
+  if (!tooBig) { cleanup(); return work }
 
   const scale = Math.min(1, maxDim / Math.max(w0, h0))
   const w = Math.max(1, Math.round(w0 * scale))
@@ -102,16 +125,16 @@ export async function resizeImageFile(file, { maxDim = MAX_DIM, quality = JPEG_Q
   ctx.drawImage(img, 0, 0, w, h)
   cleanup()
 
-  const isPng = ext === 'png' || type === 'image/png'
+  const isPng = (work.type || '').includes('png')
   const outType = isPng ? 'image/png' : 'image/jpeg'
   const outExt = isPng ? 'png' : 'jpg'
 
   const blob = await new Promise(resolve =>
     canvas.toBlob(resolve, outType, isPng ? undefined : quality)
   )
-  if (!blob) return file  // échec toBlob → repli sur l'original
+  if (!blob) return work  // échec toBlob → repli sur le format décodable
 
-  const baseName = (file.name || 'image').replace(/\.[^.]+$/, '')
+  const baseName = (work.name || 'image').replace(/\.[^.]+$/, '')
   return new File([blob], `${baseName}.${outExt}`, { type: outType, lastModified: Date.now() })
 }
 

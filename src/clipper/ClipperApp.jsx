@@ -5,8 +5,8 @@
 // directe, on est first-party) ou mini-login. Tous les appels API sont same-origin
 // → insensibles à la CSP du site clippé. Cf. docs/dev/clipper.md.
 
-import React, { useEffect, useState } from 'react'
-import { authHeader, buildTitreAlt } from './ui.jsx'
+import React, { useEffect, useState, useRef } from 'react'
+import { authHeader, buildTitreAlt, Btn } from './ui.jsx'
 import ClipperAuth from './ClipperAuth.jsx'
 import ClipperWorkspace from './ClipperWorkspace.jsx'
 import ClipperMeta from './ClipperMeta.jsx'
@@ -22,15 +22,27 @@ const APP = {
 }
 const STEP_LABEL = { workspace: '1/3', meta: '2/3', preview: '3/3' }
 
+// On mémorise le résultat d'une capture réussie dans le sessionStorage de la fenêtre
+// clipper. Ainsi, après « Ouvrir la note » (qui navigue dans la même fenêtre), le retour
+// arrière restaure l'écran final AVEC le bouton « Annuler », au lieu de repartir à zéro.
+// sessionStorage est propre à chaque fenêtre → un nouveau lancement du clipper repart neuf.
+const CLIP_DONE_KEY = 'jd_clip_done'
+const readClipDone  = () => { try { return JSON.parse(sessionStorage.getItem(CLIP_DONE_KEY) || 'null') } catch { return null } }
+const writeClipDone = (v) => { try { sessionStorage.setItem(CLIP_DONE_KEY, JSON.stringify(v)) } catch { /* */ } }
+const clearClipDone = () => { try { sessionStorage.removeItem(CLIP_DONE_KEY) } catch { /* */ } }
+
 export default function ClipperApp() {
+  const restored = readClipDone()
   const [payload, setPayload] = useState(null)            // { url, title, html }
   const [token, setToken] = useState(() => { try { return localStorage.getItem('token') } catch { return null } })
-  const [step, setStep] = useState('workspace')           // workspace | meta | preview
+  const [step, setStep] = useState(restored ? 'preview' : 'workspace')  // workspace | meta | preview
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [undone, setUndone] = useState(false)             // capture annulée depuis un retour arrière
+  const restoredRef = useRef(!!restored)                  // fenêtre revenue sur un écran final restauré
 
   const [workspaces, setWorkspaces] = useState([])
-  const [wsId, setWsId] = useState(null)
+  const [wsId, setWsId] = useState(restored?.wsId ?? null)
   const [taxonomy, setTaxonomy] = useState({ objets: [], themes: [], docCategories: [] })
 
   const [title, setTitle] = useState('')
@@ -38,8 +50,8 @@ export default function ClipperApp() {
   const [themeIds, setThemeIds] = useState([])
   const [docCategorieId, setDocCategorieId] = useState(null)
 
-  const [clipStatus, setClipStatus] = useState('idle')    // idle | clipping | done | error
-  const [result, setResult] = useState(null)
+  const [clipStatus, setClipStatus] = useState(restored ? 'done' : 'idle')  // idle | clipping | done | error
+  const [result, setResult] = useState(restored?.result ?? null)
   const [undoStatus, setUndoStatus] = useState('idle')    // idle | undoing
   const [authNote, setAuthNote] = useState('')
   const [existing, setExisting] = useState([])            // notes déjà clippées (même URL)
@@ -48,6 +60,9 @@ export default function ClipperApp() {
   useEffect(() => {
     const onMsg = (e) => {
       if (e.data && e.data.type === 'JD_CLIP_PAGE') {
+        // Retour arrière sur un écran final restauré : le re-handshake de la page hôte
+        // ne doit pas réinitialiser le stepper (sinon on perd le bouton « Annuler »).
+        if (restoredRef.current) return
         setPayload({ url: e.data.url, html: e.data.html, title: e.data.title })
         setTitle((t) => t || e.data.title || '')
       }
@@ -57,9 +72,9 @@ export default function ClipperApp() {
     return () => window.removeEventListener('message', onMsg)
   }, [])
 
-  // Charge les workspaces dès qu'on a un token.
+  // Charge les workspaces dès qu'on a un token (sauf écran final restauré : inutile).
   useEffect(() => {
-    if (token && workspaces.length === 0) loadWorkspaces()
+    if (token && workspaces.length === 0 && !restoredRef.current) loadWorkspaces()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
 
@@ -136,6 +151,7 @@ export default function ClipperApp() {
         }),
       })
       setResult(data); setClipStatus('done')
+      writeClipDone({ result: data, wsId })   // pour restaurer l'écran final au retour arrière
     } catch (e) {
       if (e.message === '401') setClipStatus('idle')
       else { setError(e.message); setClipStatus('error') }
@@ -149,7 +165,12 @@ export default function ClipperApp() {
     setUndoStatus('undoing'); setError('')
     try {
       await api(`/api/clip/ws/${wsId}/note/${result.noteId}`, { method: 'DELETE' })
+      clearClipDone()
       setResult(null); setClipStatus('idle')
+      // Écran restauré (retour arrière) : plus de payload/taxonomie → état terminal « annulée ».
+      // Flux normal (annulation juste après le clip) : on revient à l'aperçu pour re-clipper.
+      if (restoredRef.current) setUndone(true)
+      else setStep('preview')
     } catch (e) {
       if (e.message !== '401') setError(`Annulation impossible (${e.message}).`)
     } finally {
@@ -173,7 +194,15 @@ export default function ClipperApp() {
       </div>
 
       <div style={APP.body}>
-        {!payload && <p style={{ margin: '0 0 12px', opacity: .7 }}>Réception de la page…</p>}
+        {undone ? (
+          <>
+            <p style={{ margin: '0 0 12px' }}>↩︎ Capture annulée (note et .md supprimés).</p>
+            <Btn onClick={() => window.close()}>Fermer</Btn>
+          </>
+        ) : (
+        <>
+        {!payload && !restoredRef.current && clipStatus !== 'done' &&
+          <p style={{ margin: '0 0 12px', opacity: .7 }}>Réception de la page…</p>}
 
         {!authed && <ClipperAuth onToken={onToken} note={authNote} />}
 
@@ -203,11 +232,13 @@ export default function ClipperApp() {
             status={clipStatus} result={result} error={error}
             undoStatus={undoStatus} onUndo={undoClip}
             onBack={() => { setClipStatus('idle'); setStep('meta') }}
-            onClip={doClip} onClose={() => window.close()}
+            onClip={doClip} onClose={() => { clearClipDone(); window.close() }}
           />
         )}
 
         {authed && step !== 'preview' && error && <p style={APP.err}>{error}</p>}
+        </>
+        )}
       </div>
     </div>
   )

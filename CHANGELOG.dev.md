@@ -4,6 +4,25 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 116 — 2026-07-21 — HEIC côté navigateur + clipper : retour restauré
+
+**Conversion HEIC→JPEG côté navigateur (le vrai correctif du 413).** La caméra du user
+produit des **HEIC**, indécodables par `<canvas>` → le resize était sauté → 413. Ajout de
+`heic2any` (chargé en **chunk lazy** ~1,35 Mo, jamais dans le bundle principal) : dans
+`resizeImageFile`, un HEIC/HEIF est d'abord converti en JPEG plein format, puis redimensionné
+comme les autres. La date EXIF est toujours lue sur l'original HEIC **avant** conversion
+(exifreader gère le HEIC). Échec de conversion → `undecodable[]` → message clair.
+
+**Clipper : retour arrière restaure l'écran final (avec « Annuler »).** Depuis le passage à
+la navigation in-place (« Ouvrir la note » remplace la fenêtre), le retour arrière rechargeait
+le clipper à l'étape 1. On mémorise désormais le résultat de capture dans le `sessionStorage`
+de la fenêtre → au retour, l'écran final est restauré avec le bouton « Annuler ». Le
+re-handshake `JD_CLIP_PAGE` de la page hôte est ignoré dans cet état. Annuler depuis un écran
+restauré → état terminal « Capture annulée ». `sessionStorage` étant propre à chaque fenêtre,
+un nouveau lancement repart neuf.
+
+---
+
 ## Build 115 — 2026-07-21 — Correctifs Vagues 1‑2 (retours de test prod)
 
 **413 persistant → resize réécrit (le vrai correctif).** Le resize v1 gatait sur
