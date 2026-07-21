@@ -4,6 +4,20 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 122 — 2026-07-21 — Export liste : annexes .md/PDF liées + assets des .md
+
+Retours de test (WebDAV réparé) :
+- Les pièces jointes **.md** (et PDF) étaient dans `medias/` mais **pas listées** dans
+  `liste.html`/`liste.md` : le filtre d'annexes excluait le type `markdown`. Désormais
+  toutes les pièces sont listées (images en figures, PDF/.md en lien, icône par type).
+- **Images internes des .md rapatriées** : `downloadMdAssets` télécharge le contenu de
+  chaque .md joint, extrait ses refs d'images relatives (MD + `<img>`), et les rapatrie via
+  le proxy `/relfile` au **même chemin relatif** (à côté du .md dans `medias/`) → les liens
+  du .md restent valides hors-ligne. Décodage `%20` (piège #15).
+- (Builds 120-121 : bouton Analyse + correctif message « X/Y pièces jointes ».)
+
+---
+
 ## Build 119 — 2026-07-21 — Vague 3 : export de liste filtrée + nature mixte
 
 **D — Export d'une liste filtrée (vue en l'état).** Bouton « 📤 Exporter » dans la

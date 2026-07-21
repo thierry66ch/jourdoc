@@ -85,13 +85,16 @@ article{border-top:1px solid #e3e5ec;padding-top:1.4rem;margin-top:1.4rem}
 .annexes figcaption{font-size:.8rem;color:#888;margin-top:.25rem}
 @media print{body{max-width:none}article{break-before:page;border-top:none}.toc{break-after:page}a{color:#1f2430;text-decoration:none}}`
 
+const attachIcon = t => t === 'pdf' ? '📄' : t === 'markdown' ? '📝' : '📎'
+
 function articleHtml(n, mediaById, withAttachments) {
   const meta = metaLines(n, true) // en HTML on montre toujours les liens si demandés en amont
-  const annexes = withAttachments ? (n.medias || []).filter(m => m.type_media !== 'markdown') : []
+  // Toutes les pièces jointes sont listées : images en figures, le reste (PDF, .md…) en lien.
+  const annexes = withAttachments ? (n.medias || []) : []
   const annexHtml = annexes.length ? `<section class="annexes"><h3>Annexes</h3>\n${
     annexes.map(m => IMG_EXT.test(m.filename)
       ? `<figure><img src="medias/${esc(m.filename)}" alt="${esc(m.nom_original || '')}"><figcaption>${esc(m.nom_original || m.filename)}</figcaption></figure>`
-      : `<p><a href="medias/${esc(m.filename)}">📎 ${esc(m.nom_original || m.filename)}</a></p>`,
+      : `<p><a href="medias/${esc(m.filename)}">${attachIcon(m.type_media)} ${esc(m.nom_original || m.filename)}</a></p>`,
     ).join('\n')}</section>` : ''
   return `<article id="note-${n.id}"><h2>${esc(n.titre || '(sans titre)')}</h2>
 <div class="meta">${meta.map(esc).join('<br>')}</div>
@@ -130,12 +133,12 @@ function documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }) {
     const bodyMd = bodyHtml ? td.turndown(bodyHtml) : '_(vide)_'
     block.push(bodyMd)
     if (opts.withAttachments) {
-      const annexes = (n.medias || []).filter(m => m.type_media !== 'markdown')
+      const annexes = (n.medias || [])
       if (annexes.length) {
         block.push('**Annexes :**')
         block.push(annexes.map(m => IMG_EXT.test(m.filename)
           ? `![${m.nom_original || ''}](medias/${m.filename})`
-          : `- [📎 ${m.nom_original || m.filename}](medias/${m.filename})`).join('\n'))
+          : `- [${attachIcon(m.type_media)} ${m.nom_original || m.filename}](medias/${m.filename})`).join('\n'))
       }
     }
     parts.push(block.join('\n\n'))
@@ -162,6 +165,44 @@ async function downloadMedias({ wsId, token, medias, files, onProgress }) {
     }
   }
   await Promise.all(Array.from({ length: Math.min(4, total || 1) }, worker))
+  return ok
+}
+
+// Extrait les références d'images RELATIVES d'un markdown (syntaxe MD + <img>).
+// Ignore http(s)/data/absolu — seuls les assets locaux (ex. _base.assets/img.png) comptent.
+function extractRelRefs(md) {
+  const refs = new Set()
+  let m
+  const reMd = /!\[[^\]]*\]\(\s*([^)\s]+)/g
+  while ((m = reMd.exec(md))) refs.add(m[1])
+  const reImg = /<img[^>]+src=["']([^"']+)["']/gi
+  while ((m = reImg.exec(md))) refs.add(m[1])
+  return [...refs].filter(u => u && !/^(https?:|data:|mailto:|#|\/)/i.test(u))
+}
+
+// Rapatrie les images internes des .md joints : télécharge le contenu de chaque .md,
+// résout ses refs relatives via le proxy /relfile, et les place dans le ZIP au MÊME
+// chemin relatif (à côté du .md dans medias/) → les liens du .md restent valides.
+async function downloadMdAssets({ wsId, token, mdMedias, files }) {
+  let ok = 0
+  for (const m of mdMedias) {
+    let content = ''
+    try {
+      const r = await fetch(`${API_ROUTES.JD_MEDIA_CONTENT(wsId, m.id)}?t=${encodeURIComponent(token)}`)
+      if (!r.ok) continue
+      content = (await r.json()).content || ''
+    } catch { continue }
+    for (const ref of extractRelRefs(content)) {
+      const rel = decodeURIComponent(ref.split('#')[0].split('?')[0])  // cf. piège %20
+      if (!rel) continue
+      const key = `medias/${rel}`
+      if (files[key]) continue  // déjà rapatrié
+      try {
+        const res = await fetch(`${API_ROUTES.JD_MEDIA_RELFILE(wsId, m.id)}?rel=${encodeURIComponent(rel)}&t=${encodeURIComponent(token)}`)
+        if (res.ok) { files[key] = [new Uint8Array(await res.arrayBuffer()), { level: 0 }]; ok++ }
+      } catch { /* asset manquant → ignoré */ }
+    }
+  }
   return ok
 }
 
@@ -200,6 +241,9 @@ export async function buildListExport({ wsId, token, ids, opts, onProgress }) {
     // On ne télécharge que les médias effectivement référencés par les notes exportées.
     mediaTotal = manifest.medias.length
     mediaOk = await downloadMedias({ wsId, token, medias: manifest.medias, files, onProgress })
+    // Images internes des .md joints → rapatriées à côté du .md dans le ZIP.
+    const mdMedias = manifest.medias.filter(m => m.type_media === 'markdown')
+    if (mdMedias.length) await downloadMdAssets({ wsId, token, mdMedias, files })
   }
 
   onProgress?.({ phase: 'zip' })
