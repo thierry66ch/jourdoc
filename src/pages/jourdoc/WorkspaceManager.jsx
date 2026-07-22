@@ -488,6 +488,19 @@ export default function WorkspaceManager() {
         </button>
       </section>
 
+      {/* ── Schémas de données étendues ── */}
+      <section className="ws-manager__section">
+        <h3 className="ws-manager__title">📋 Données étendues</h3>
+        <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.75rem' }}>
+          Définir les champs proposés selon le contexte d'une note (objet, thème, catégorie,
+          nature), et simuler quel schéma s'applique.
+        </p>
+        <button className="btn btn-secondary" style={{ fontSize: '.8rem' }}
+          onClick={() => navigate(`/jourdoc/${wsId}/schemas`)}>
+          📋 Gérer les schémas →
+        </button>
+      </section>
+
       {/* ── Web-clipper ── */}
       <section className="ws-manager__section">
         <h3 className="ws-manager__title">🔖 Web-clipper</h3>

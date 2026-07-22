@@ -4,6 +4,40 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Builds 126-128 — 2026-07-22 — V2.1 — Données étendues, Phase B (schémas contextuels)
+
+**B.1 — Modèle** (migration `012`, appliquée). `jd_schema_donnees` : 4 axes de contexte
+`objet_id` / `theme_id` / `doc_categorie_id` / **`nature`** (4e axe ajouté au CDC, en symétrie
+de la catégorie pour les notes de journal), tous nullables = jokers. Contrainte
+`UNIQUE NULLS NOT DISTINCT` — **correctif majeur du CDC** : avec l'unicité standard les NULL
+sont DISTINCTS, donc la contrainte aurait été inopérante dans 7 cas sur 8 (le joker est le cas
+courant). Vérifié en base : le doublon à jokers est bien rejeté. Ajout de
+`jd_notes.objet_principal_id` (résolution déterministe) et du cache `schema_donnees_id`.
+
+**B.2 — Résolution.** Helper partagé `ancestorChain()` extrait (la remontée hiérarchique était
+dupliquée et enfermée dans `/analyse` — rien n'était réutilisable, contrairement à ce que
+supposait le CDC). `resolveSchemaDonnees()` trie par spécificité, **priorité d'axe**, puis
+distance d'ancêtre. **2e écart assumé au CDC** : la priorité passe AVANT la distance. Motif
+constaté en test sur la hiérarchie réelle : les axes non hiérarchiques (nature, catégorie) ont
+une distance nulle par construction et l'emportaient donc toujours sur un schéma objet matché
+via un ancêtre (une note « Pommier Gala + Semer » choisissait « toute Observation » plutôt que
+« Pommiers »). Une note `mixte` est matchée par les schémas `observation`/`activite`, comme les
+filtres. Endpoints CRUD + `/resolve` (déclaré avant `/:id`), cache recalculé sur POST/PUT note.
+
+**B.3 — Formulaire dynamique.** `DonneesEtenduesForm` rend les 8 types (texte court/long,
+nombre, décimal, échelle en étoiles, liste, oui/non, date). Section **« hors schéma »** :
+les valeurs saisies dans un autre contexte sont conservées et éditables — aucune perte.
+Repli sur la saisie libre si aucun schéma. Sélecteur d'objet principal si la note en porte
+plusieurs. La fiche affiche libellés, ordre et formatage du schéma.
+
+**B.4 — Administration.** Page `/jourdoc/:wsId/schemas` (lien depuis Workspace ⚙️) : liste avec
+badges de contexte, éditeur de champs (types, unité, min/max, options, réordonnancement),
+activation, suppression. **Simulateur de résolution** — le garde-fou identifié par le CDC :
+choisir un contexte affiche le schéma qui s'appliquera. Avertissement si catégorie ET nature
+sont renseignées (elles s'excluent : documentation vs journal).
+
+---
+
 ## Build 125 — 2026-07-22 — **JourDoc V2.1** — Données étendues, Phase A (MVP libre)
 
 Première phase de la Vague 4 (cf. CDC « Données étendues »). Stockage libre, sans schéma.

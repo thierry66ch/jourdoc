@@ -22,6 +22,7 @@ import WorkspaceManager from './pages/jourdoc/WorkspaceManager'
 import TodoistTasks from './pages/jourdoc/TodoistTasks'
 import AnalyseView from './pages/jourdoc/AnalyseView'
 import ElementManager from './pages/jourdoc/ElementManager'
+import SchemaDonneesManager from './pages/jourdoc/SchemaDonneesManager'
 import BibliothequeView from './pages/jourdoc/BibliothequeView'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
@@ -67,6 +68,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="todoist-tasks" element={<TodoistTasks />} />
               <Route path="analyse" element={<AnalyseView />} />
               <Route path="elements" element={<ElementManager />} />
+              <Route path="schemas" element={<SchemaDonneesManager />} />
               <Route path="bibliotheque" element={<BibliothequeView />} />
               <Route path="settings" element={<WorkspaceManager />} />
               <Route path="medias" element={<MediaGallery />} />

@@ -2801,6 +2801,38 @@ button, input, select, textarea { font: inherit; color: inherit }
 .jd-donnees-table th { width: 38%; font-weight: 600; color: var(--text-muted) }
 .jd-donnees-table td { color: var(--text) }
 
+/* Admin des schémas de données étendues */
+.jd-schema-champ {
+  border: 1px solid var(--border); border-radius: var(--r);
+  padding: .5rem; margin-top: .45rem; background: var(--surface);
+}
+.jd-schema-champ__head { display: flex; gap: .35rem; align-items: center }
+.jd-schema-champ__head .input:first-child { flex: 1; min-width: 0 }
+.jd-schema-champ__head select.input { width: auto; min-width: 110px; flex-shrink: 0 }
+.jd-schema-champ__params { display: flex; gap: .35rem; margin-top: .35rem; flex-wrap: wrap }
+.jd-schema-champ__params .input { flex: 1; min-width: 90px; font-size: .8rem }
+
+.jd-schema-row {
+  display: flex; align-items: center; gap: .5rem; flex-wrap: wrap;
+  padding: .6rem 0; border-bottom: 1px solid var(--border);
+}
+.jd-schema-row:last-child { border-bottom: none }
+.jd-schema-row__nom { font-weight: 600 }
+.jd-schema-row__off {
+  margin-left: .4rem; font-size: .7rem; font-weight: 700; color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: var(--r-full); padding: .05em .45em;
+}
+.jd-schema-row__ctx { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .2rem }
+.jd-schema-row__badge {
+  font-size: .72rem; background: var(--accent-bg); color: var(--accent);
+  border-radius: var(--r-full); padding: .1em .5em;
+}
+.jd-schema-row__meta { font-size: .75rem; color: var(--text-muted); margin-top: .2rem }
+.jd-schema-sim__res {
+  margin-top: .6rem; padding: .5rem .7rem; border-radius: var(--r);
+  background: var(--surface); border: 1px solid var(--border); font-size: .85rem;
+}
+
 /* Données étendues — formulaire dynamique (schéma résolu) */
 .jd-de-badge {
   margin-left: .5rem; padding: .1em .5em; border-radius: var(--r-full);
