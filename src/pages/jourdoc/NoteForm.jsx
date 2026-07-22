@@ -539,20 +539,6 @@ export default function NoteForm() {
           onChange={v => setForm(f => ({ ...f, objet_ids: v }))}
           mode="multi" label="Objets liés" placeholder="Choisir un ou plusieurs objets…" filterMode={pickerMode} />
 
-        {/* Objet principal : détermine le schéma de données appliqué. Utile seulement
-            quand la note porte plusieurs objets (sinon le choix est évident). */}
-        {form.objet_ids.length > 1 && (
-          <div className="form-field">
-            <label className="form-label">Objet principal <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>— contexte des données</span></label>
-            <select className="input" value={form.objet_principal_id ?? ''}
-              onChange={e => setForm(f => ({ ...f, objet_principal_id: e.target.value ? Number(e.target.value) : null }))}>
-              {form.objet_ids.map(id => {
-                const o = objets.find(x => x.id === id)
-                return <option key={id} value={id}>{o?.nom ?? `#${id}`}</option>
-              })}
-            </select>
-          </div>
-        )}
 
         {/* Éléments */}
         <div className="form-field">
@@ -568,6 +554,52 @@ export default function NoteForm() {
         <HierarchyPicker items={themes} value={form.theme_ids}
           onChange={v => setForm(f => ({ ...f, theme_ids: v }))}
           mode="multi" label="Thèmes liés" placeholder="Choisir un ou plusieurs thèmes…" filterMode={pickerMode} />
+
+        {/* Contexte du schéma de données : quel objet / quel thème sert de référence.
+            Par défaut le 1er sélectionné ; modifiable ici quand il y en a plusieurs. */}
+        {(form.objet_ids.length > 0 || form.theme_ids.length > 0) && (
+          <div className="form-field jd-ctx-schema">
+            <label className="form-label">
+              🎯 Contexte des données
+              <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> — détermine le schéma appliqué</span>
+            </label>
+            <div className="jd-ctx-schema__row">
+              {form.objet_ids.length > 0 && (
+                <label className="jd-ctx-schema__item">
+                  <span>🌿 Objet principal</span>
+                  <select className="input" value={form.objet_principal_id ?? ''}
+                    disabled={form.objet_ids.length === 1}
+                    onChange={e => setForm(f => ({ ...f, objet_principal_id: e.target.value ? Number(e.target.value) : null }))}>
+                    {form.objet_ids.map(id => (
+                      <option key={id} value={id}>{objets.find(x => x.id === id)?.nom ?? `#${id}`}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {form.theme_ids.length > 0 && (
+                <label className="jd-ctx-schema__item">
+                  <span>🏷️ Thème principal</span>
+                  {/* Le thème principal est le 1er de la liste (notes.theme_id) : choisir
+                      ici réordonne theme_ids pour le placer en tête. */}
+                  <select className="input" value={form.theme_ids[0] ?? ''}
+                    disabled={form.theme_ids.length === 1}
+                    onChange={e => {
+                      const id = Number(e.target.value)
+                      setForm(f => ({ ...f, theme_ids: [id, ...f.theme_ids.filter(t => t !== id)] }))
+                    }}>
+                    {form.theme_ids.map(id => (
+                      <option key={id} value={id}>{themes.find(x => x.id === id)?.nom ?? `#${id}`}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+            </div>
+            <p className="jd-ctx-schema__aide">
+              Par défaut le <b>premier sélectionné</b>. Un schéma défini sur un objet ou un
+              thème s'applique aussi à leurs <b>enfants</b>.
+            </p>
+          </div>
+        )}
 
         {/* Titre */}
         <div className="form-field">

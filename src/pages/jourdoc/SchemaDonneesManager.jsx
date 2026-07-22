@@ -107,6 +107,13 @@ export default function SchemaDonneesManager() {
 
           <div className="form-field">
             <label className="form-label">Contexte d'application</label>
+            <p className="jd-schema-aide">
+              🌿🏷️ <b>L'héritage descend</b> : un schéma défini sur « Arbres fruitiers »
+              s'applique aussi à <b>tous ses objets enfants</b> (Pommiers, Pommier Golden…),
+              idem pour les sous-thèmes — dans la limite de la profondeur de recherche du
+              workspace. À contexte également spécifique, <b>le plus proche</b> dans la
+              hiérarchie l'emporte ; à distance égale, l'objet prime sur le thème.
+            </p>
             <HierarchyPicker items={objets} value={edit.objet_id}
               onChange={v => setEdit(x => ({ ...x, objet_id: v }))}
               nullable nullLabel="— tout objet —" placeholder="Objet…" filterMode={pickerMode} />
@@ -173,9 +180,7 @@ export default function SchemaDonneesManager() {
                     </>
                   )}
                   {ch.type === 'select' && (
-                    <input className="input" placeholder="options séparées par des virgules"
-                      value={(ch.options ?? []).join(', ')}
-                      onChange={e => majChamp(i, { options: e.target.value.split(',').map(o => o.trim()).filter(Boolean) })} />
+                    <OptionsInput value={ch.options ?? []} onChange={opts => majChamp(i, { options: opts })} />
                   )}
                 </div>
               </div>
@@ -220,6 +225,26 @@ export default function SchemaDonneesManager() {
         ))}
       </div>
     </div>
+  )
+}
+
+// Saisie des options d'une liste. Le texte brut est gardé en état LOCAL pendant la frappe :
+// en parsant à chaque frappe, la virgule tout juste tapée produisait un élément vide,
+// aussitôt filtré puis re-joint — la virgule disparaissait et la liste était intapable.
+// On ne parse donc qu'à la sortie du champ.
+function OptionsInput({ value, onChange }) {
+  const [txt, setTxt] = useState(value.join(', '))
+  const [focus, setFocus] = useState(false)
+  useEffect(() => { if (!focus) setTxt(value.join(', ')) }, [value, focus])
+  return (
+    <input className="input" placeholder="options séparées par des virgules"
+      value={txt}
+      onFocus={() => setFocus(true)}
+      onChange={e => setTxt(e.target.value)}
+      onBlur={() => {
+        setFocus(false)
+        onChange(txt.split(',').map(o => o.trim()).filter(Boolean))
+      }} />
   )
 }
 

@@ -2253,14 +2253,17 @@ async function ancestorChain(table, wsId, id, maxDepth) {
 
 // Résout le schéma applicable à un contexte. Renvoie la ligne du schéma, ou null.
 //
-// Tri : spécificité DESC (nb d'axes non-joker), puis PRIORITÉ d'axe DESC
-// (objet > thème > catégorie|nature), puis distance d'ancêtre cumulée ASC, puis id.
+// Tri : spécificité DESC (nb d'axes non-joker), puis DISTANCE d'ancêtre ASC, puis
+// priorité d'axe DESC (objet > thème > catégorie|nature), puis id.
 //
-// ⚠️ Écart assumé au CDC, qui plaçait la distance avant la priorité : les axes NON
-// hiérarchiques (catégorie, nature) ont une distance nulle par construction, ils
-// l'emportaient donc toujours sur un schéma objet/thème matché via un ancêtre. Ex. : une
-// note « Pommier Gala + Semer » choisissait « toute Observation » plutôt que « Pommiers ».
-// La distance ne départage plus que des schémas de même profil d'axes.
+// ⚠️ Nuance essentielle : la distance n'a de sens que pour les axes HIÉRARCHIQUES
+// (objet, thème). Un schéma qui n'utilise QUE des axes non hiérarchiques (nature,
+// catégorie) aurait une distance 0 imméritée et gagnerait toujours → on lui affecte
+// +∞ pour qu'il passe en dernier à spécificité égale.
+// Cette règle réconcilie les deux cas observés en test :
+//   • « Pommier Gala + Semer » → « Pommiers » (objet, dist 1) et non « toute Observation ».
+//   • « Pommier Golden + Traitement » → « Traitement » (thème, dist 0) et non
+//     « Arbres fruitiers » (objet, dist 2) : le plus PROCHE gagne, quel que soit l'axe.
 async function resolveSchemaDonnees(wsId, { objetId, themeId, docCategorieId, nature }) {
   const depth = await wsDepth(wsId)
   const [chainO, chainT] = await Promise.all([
@@ -2284,15 +2287,22 @@ async function resolveSchemaDonnees(wsId, { objetId, themeId, docCategorieId, na
   `
   if (!candidats.length) return null
 
-  const scored = candidats.map(c => ({
-    c,
-    score: (c.objet_id != null) + (c.theme_id != null) + (c.doc_categorie_id != null) + (c.nature != null),
-    dist: (c.objet_id != null ? chainO.indexOf(c.objet_id) : 0)
-        + (c.theme_id != null ? chainT.indexOf(c.theme_id) : 0),
-    prio: (c.objet_id != null ? 4 : 0) + (c.theme_id != null ? 2 : 0)
-        + ((c.doc_categorie_id != null || c.nature != null) ? 1 : 0),
-  }))
-  scored.sort((a, b) => b.score - a.score || b.prio - a.prio || a.dist - b.dist || a.c.id - b.c.id)
+  const scored = candidats.map(c => {
+    const hierarchique = c.objet_id != null || c.theme_id != null
+    return {
+      c,
+      score: (c.objet_id != null) + (c.theme_id != null) + (c.doc_categorie_id != null) + (c.nature != null),
+      // Distance cumulée sur les seuls axes hiérarchiques utilisés ; +∞ si le schéma
+      // n'en utilise aucun (sinon distance 0 imméritée).
+      dist: hierarchique
+        ? (c.objet_id != null ? chainO.indexOf(c.objet_id) : 0)
+          + (c.theme_id != null ? chainT.indexOf(c.theme_id) : 0)
+        : Infinity,
+      prio: (c.objet_id != null ? 4 : 0) + (c.theme_id != null ? 2 : 0)
+          + ((c.doc_categorie_id != null || c.nature != null) ? 1 : 0),
+    }
+  })
+  scored.sort((a, b) => b.score - a.score || a.dist - b.dist || b.prio - a.prio || a.c.id - b.c.id)
   return scored[0].c
 }
 
