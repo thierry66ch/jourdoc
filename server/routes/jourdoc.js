@@ -2002,12 +2002,34 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
     params,
   )
 
-  const [cats, stats] = await Promise.all([
+  const [cats, stats, schemas] = await Promise.all([
     sql`SELECT id, nom FROM jd_doc_categorie WHERE workspace_id=${wsId}`,
     sql`SELECT id, nom FROM jd_doc_statut    WHERE workspace_id=${wsId}`,
+    sql`SELECT id, champs FROM jd_schema_donnees WHERE workspace_id=${wsId}`,
   ])
   const catName  = new Map(cats.map(r => [r.id, r.nom]))
   const statName = new Map(stats.map(r => [r.id, r.nom]))
+  const schemaById = new Map(schemas.map(r => [r.id, r.champs]))
+
+  // Données étendues mises en forme pour l'export : [[libellé, valeur affichée], …].
+  // Champs du schéma d'abord (libellés + ordre + formatage), puis valeurs hors schéma.
+  function donneesExport(note) {
+    const vals = note.donnees_etendues ?? {}
+    const rempli = v => v !== null && v !== undefined && String(v).trim() !== ''
+    const champs = schemaById.get(note.schema_donnees_id) ?? []
+    const vus = new Set(), out = []
+    for (const ch of Array.isArray(champs) ? champs : []) {
+      vus.add(ch.cle)
+      if (!rempli(vals[ch.cle])) continue
+      const v = vals[ch.cle]
+      out.push([ch.label || ch.cle,
+        ch.type === 'booleen' ? (String(v) === 'true' ? 'Oui' : 'Non')
+        : ch.type === 'echelle' ? `${v}/${ch.max ?? 5}`
+        : ch.unite ? `${v} ${ch.unite}` : String(v)])
+    }
+    for (const [cle, v] of Object.entries(vals)) if (!vus.has(cle) && rempli(v)) out.push([cle, String(v)])
+    return out
+  }
 
   const mediaSet = new Map() // id → {id, filename, nom_original, type_media}
   const notes = await Promise.all(rawNotes.map(async n => {
@@ -2029,6 +2051,7 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
       contenu: n.contenu, doc_auteur: n.doc_auteur, doc_reference: n.doc_reference, source_url: n.source_url,
       categorie: catName.get(n.doc_categorie_id) ?? null, statut: statName.get(n.doc_statut_id) ?? null,
       objets: objets.map(r => r.nom), themes: themes.map(r => r.nom), elements: elements.map(r => r.nom),
+      donnees: donneesExport(n),
       medias: mlist,
       liens: liens.map(l => ({ type_lien: l.type_lien, titre: l.cible_titre, id: l.note_cible_id })),
     }

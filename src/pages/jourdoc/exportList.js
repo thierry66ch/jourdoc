@@ -83,6 +83,9 @@ article{border-top:1px solid #e3e5ec;padding-top:1.4rem;margin-top:1.4rem}
 .annexes{margin-top:1.2rem;border-top:1px dashed #ddd;padding-top:.8rem}
 .annexes figure{margin:0 0 1rem}.annexes img{max-width:100%;height:auto;border-radius:6px}
 .annexes figcaption{font-size:.8rem;color:#888;margin-top:.25rem}
+table.donnees{border-collapse:collapse;margin:.2rem 0 1rem;font-size:.9rem;width:100%}
+table.donnees th,table.donnees td{border:1px solid #ddd;padding:.35rem .6rem;text-align:left;vertical-align:top}
+table.donnees th{width:35%;background:#f7f7fa;font-weight:600;color:#555}
 @media print{body{max-width:none}article{break-before:page;border-top:none}.toc{break-after:page}a{color:#1f2430;text-decoration:none}}`
 
 const attachIcon = t => t === 'pdf' ? '📄' : t === 'markdown' ? '📝' : '📎'
@@ -96,8 +99,15 @@ function articleHtml(n, mediaById, withAttachments) {
       ? `<figure><img src="medias/${esc(m.filename)}" alt="${esc(m.nom_original || '')}"><figcaption>${esc(m.nom_original || m.filename)}</figcaption></figure>`
       : `<p><a href="medias/${esc(m.filename)}">${attachIcon(m.type_media)} ${esc(m.nom_original || m.filename)}</a></p>`,
     ).join('\n')}</section>` : ''
+  // Données étendues : avant le corps (données structurées d'abord, comme en fiche).
+  const donneesHtml = (n.donnees ?? []).length
+    ? `<table class="donnees">${(n.donnees).map(([l, v]) =>
+        `<tr><th>${esc(l)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`
+    : ''
+
   return `<article id="note-${n.id}"><h2>${esc(n.titre || '(sans titre)')}</h2>
 <div class="meta">${meta.map(esc).join('<br>')}</div>
+${donneesHtml}
 <div class="contenu">${rewriteImg(n.contenu, mediaById, 'medias/')}</div>
 ${annexHtml}</article>`
 }
@@ -129,6 +139,11 @@ function documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }) {
   for (const n of notes) {
     const block = [`## ${n.titre || '(sans titre)'}`]
     block.push(metaLines(n, opts.withLinks).map(m => `> ${m}`).join('  \n'))
+    // Données étendues en tableau Markdown, avant le corps.
+    if ((n.donnees ?? []).length) {
+      block.push(['| | |', '|---|---|', ...n.donnees.map(([l, v]) =>
+        `| **${String(l).replace(/\|/g, '\\|')}** | ${String(v).replace(/\|/g, '\\|')} |`)].join('\n'))
+    }
     const bodyHtml = rewriteImg(n.contenu, mediaById, 'medias/')
     const bodyMd = bodyHtml ? td.turndown(bodyHtml) : '_(vide)_'
     block.push(bodyMd)

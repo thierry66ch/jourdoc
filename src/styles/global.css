@@ -4040,3 +4040,7 @@ button, input, select, textarea { font: inherit; color: inherit }
 .biblio__row-dot { width: .7rem; height: .7rem; border-radius: 50%; flex-shrink: 0 }
 .biblio__row-title { font-weight: 600; font-size: .9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .biblio__row-meta { margin-left: auto; font-size: .75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45% }
+
+/* Bibliothèque — tri sur une donnée étendue (Phase C) */
+.biblio__tri-donnee { display: flex; align-items: center; gap: .3rem }
+.biblio__tri-donnee .input { font-size: .8rem; padding: .3rem .5rem; width: auto; min-width: 150px }

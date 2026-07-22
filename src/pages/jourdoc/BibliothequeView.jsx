@@ -39,6 +39,10 @@ export default function BibliothequeView() {
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [density, setDensity] = useState(() => localStorage.getItem('biblio_density') || 'cards')
   const [exportOpen, setExportOpen] = useState(false)
+  // Tri sur les données étendues (Phase C) — 100% côté client.
+  const [schemas, setSchemas] = useState([])
+  const [sortDonnee, setSortDonnee] = useState('')
+  const [sortDonneeDir, setSortDonneeDir] = useState('desc')
 
   const [objetFilter, setObjetFilter] = useState(() => { const v = params.get('of'); return v ? Number(v) : null })
   const [objetDir, setObjetDir]       = useState(() => params.get('od') || 'both')
@@ -58,6 +62,12 @@ export default function BibliothequeView() {
     if (themeFilter) { p.tf = String(themeFilter); if (themeDir !== 'both') p.td = themeDir }
     setParams(p, { replace: true })
   }, [q, sort, selCat, selStatut, objetFilter, objetDir, themeFilter, themeDir, setParams])
+
+  // Schémas du workspace : pour proposer leurs champs comme critères de tri.
+  useEffect(() => {
+    fetch(API_ROUTES.JD_SCHEMAS(wsId), { headers: authHeader(token) })
+      .then(r => r.json()).then(d => setSchemas(d.schemas ?? [])).catch(() => setSchemas([]))
+  }, [wsId, token])
 
   useEffect(() => {
     setLoading(true)
@@ -106,8 +116,8 @@ export default function BibliothequeView() {
     requestAnimationFrame(apply)
   }, [loading, scrollKey])
 
-  // Recherche + filtres objet/thème (hiérarchiques) + tri
-  const matched = useMemo(() => {
+  // 1) Filtrage seul (sans tri) — sert aussi à déterminer le schéma commun des notes visées.
+  const filtres = useMemo(() => {
     const lq = q.trim().toLowerCase()
     const objetIds = objetFilter ? getRelated(objets, Number(objetFilter), objetDir, searchDepth) : null
     const themeIds = themeFilter ? getRelated(themes, Number(themeFilter), themeDir, searchDepth) : null
@@ -119,10 +129,38 @@ export default function BibliothequeView() {
     )
     if (objetIds) list = list.filter(n => n.objets?.some(o => objetIds.has(o.id)))
     if (themeIds) list = list.filter(n => n.themes?.some(t => themeIds.has(t.id)))
-    return [...list].sort((a, b) => sort === 'alpha'
+    return list
+  }, [notes, q, objetFilter, objetDir, themeFilter, themeDir, objets, themes, searchDepth])
+
+  // 2) Champs triables : uniquement si TOUTES les notes concernées relèvent du MÊME schéma.
+  // Un tri croisé entre schémas hétérogènes n'aurait pas de sens (cf. CDC §7).
+  const champsTriables = useMemo(() => {
+    const ids = new Set(filtres.map(n => n.schema_donnees_id).filter(Boolean))
+    if (ids.size !== 1) return null
+    const s = schemas.find(x => x.id === [...ids][0])
+    return Array.isArray(s?.champs) && s.champs.length ? s.champs : null
+  }, [filtres, schemas])
+
+  // 3) Tri : sur une donnée étendue si demandé, sinon tri usuel (récent / A→Z).
+  const matched = useMemo(() => {
+    if (sortDonnee && champsTriables) {
+      const champ = champsTriables.find(c => c.cle === sortDonnee)
+      const num = champ && ['nombre', 'decimal', 'echelle'].includes(champ.type)
+      const val = n => n.donnees_etendues?.[sortDonnee] ?? ''
+      const s = sortDonneeDir === 'asc' ? 1 : -1
+      return [...filtres].sort((a, b) => {
+        const va = val(a), vb = val(b)
+        // Les notes sans valeur finissent toujours en bas, quel que soit le sens.
+        if (va === '' && vb === '') return 0
+        if (va === '') return 1
+        if (vb === '') return -1
+        return s * (num ? (Number(va) - Number(vb)) : String(va).localeCompare(String(vb), 'fr'))
+      })
+    }
+    return [...filtres].sort((a, b) => sort === 'alpha'
       ? (a.titre || '').localeCompare(b.titre || '', 'fr', { sensitivity: 'base' })
       : (b.date || '').localeCompare(a.date || '') || b.id - a.id)
-  }, [notes, q, sort, objetFilter, objetDir, themeFilter, themeDir, objets, themes, searchDepth])
+  }, [filtres, sort, sortDonnee, sortDonneeDir, champsTriables])
 
   const counts = useMemo(() => {
     const m = new Map(); let none = 0
@@ -218,6 +256,24 @@ export default function BibliothequeView() {
                 onClick={() => setDensity(v)}>{l}</button>
             ))}
           </div>
+          {/* Tri sur une donnée étendue — proposé uniquement quand les notes filtrées
+              relèvent toutes du même schéma (sinon le tri n'aurait pas de sens). */}
+          {champsTriables && (
+            <div className="biblio__tri-donnee">
+              <select className="input" value={sortDonnee} onChange={e => setSortDonnee(e.target.value)}
+                title="Trier sur une donnée étendue">
+                <option value="">📋 Trier par donnée…</option>
+                {champsTriables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
+              </select>
+              {sortDonnee && (
+                <button type="button" className="jd-auto-btn"
+                  title={sortDonneeDir === 'desc' ? 'Décroissant' : 'Croissant'}
+                  onClick={() => setSortDonneeDir(d => d === 'desc' ? 'asc' : 'desc')}>
+                  {sortDonneeDir === 'desc' ? '↓' : '↑'}
+                </button>
+              )}
+            </div>
+          )}
           <button type="button" className="jd-auto-btn" disabled={flatIds.length === 0}
             title="Exporter la liste filtrée (Markdown + HTML imprimable)"
             onClick={() => setExportOpen(true)}>📤 Exporter ({flatIds.length})</button>
