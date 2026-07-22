@@ -4041,6 +4041,11 @@ button, input, select, textarea { font: inherit; color: inherit }
 .biblio__row-title { font-weight: 600; font-size: .9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .biblio__row-meta { margin-left: auto; font-size: .75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45% }
 
-/* Bibliothèque — tri sur une donnée étendue (Phase C) */
-.biblio__tri-donnee { display: flex; align-items: center; gap: .3rem }
+/* Bibliothèque — tri sur une donnée étendue (Phase C), ligne propre au-dessus de la liste */
+.biblio__tri-donnee {
+  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+  margin: .5rem 0 .75rem; padding: .45rem .6rem;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+}
+.biblio__tri-donnee__label { font-size: .78rem; font-weight: 600; color: var(--text-muted) }
 .biblio__tri-donnee .input { font-size: .8rem; padding: .3rem .5rem; width: auto; min-width: 150px }

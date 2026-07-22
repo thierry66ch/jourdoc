@@ -132,14 +132,18 @@ export default function BibliothequeView() {
     return list
   }, [notes, q, objetFilter, objetDir, themeFilter, themeDir, objets, themes, searchDepth])
 
-  // 2) Champs triables : uniquement si TOUTES les notes concernées relèvent du MÊME schéma.
-  // Un tri croisé entre schémas hétérogènes n'aurait pas de sens (cf. CDC §7).
+  // 2) Champs triables. Deux conditions cumulatives :
+  //    a) un filtre objet/thème est ACTIF — le tri suit le « contexte de filtrage courant » ;
+  //       sans filtre, proposer un tri sur données n'a pas de sens (et surprenait à l'ouverture).
+  //    b) toutes les notes concernées relèvent du MÊME schéma — pas de tri croisé entre
+  //       schémas hétérogènes (cf. CDC §7).
   const champsTriables = useMemo(() => {
+    if (!objetFilter && !themeFilter) return null
     const ids = new Set(filtres.map(n => n.schema_donnees_id).filter(Boolean))
     if (ids.size !== 1) return null
     const s = schemas.find(x => x.id === [...ids][0])
     return Array.isArray(s?.champs) && s.champs.length ? s.champs : null
-  }, [filtres, schemas])
+  }, [filtres, schemas, objetFilter, themeFilter])
 
   // 3) Tri : sur une donnée étendue si demandé, sinon tri usuel (récent / A→Z).
   const matched = useMemo(() => {
@@ -256,24 +260,6 @@ export default function BibliothequeView() {
                 onClick={() => setDensity(v)}>{l}</button>
             ))}
           </div>
-          {/* Tri sur une donnée étendue — proposé uniquement quand les notes filtrées
-              relèvent toutes du même schéma (sinon le tri n'aurait pas de sens). */}
-          {champsTriables && (
-            <div className="biblio__tri-donnee">
-              <select className="input" value={sortDonnee} onChange={e => setSortDonnee(e.target.value)}
-                title="Trier sur une donnée étendue">
-                <option value="">📋 Trier par donnée…</option>
-                {champsTriables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
-              </select>
-              {sortDonnee && (
-                <button type="button" className="jd-auto-btn"
-                  title={sortDonneeDir === 'desc' ? 'Décroissant' : 'Croissant'}
-                  onClick={() => setSortDonneeDir(d => d === 'desc' ? 'asc' : 'desc')}>
-                  {sortDonneeDir === 'desc' ? '↓' : '↑'}
-                </button>
-              )}
-            </div>
-          )}
           <button type="button" className="jd-auto-btn" disabled={flatIds.length === 0}
             title="Exporter la liste filtrée (Markdown + HTML imprimable)"
             onClick={() => setExportOpen(true)}>📤 Exporter ({flatIds.length})</button>
@@ -361,6 +347,25 @@ export default function BibliothequeView() {
           {statutCounts.none > 0 && (
             <button type="button" className={`biblio__chip${selStatut === '__none__' ? ' active' : ''}`}
               onClick={() => toggleStatut('__none__')}>— Sans statut <span className="biblio__chip-n">{statutCounts.none}</span></button>
+          )}
+        </div>
+      )}
+
+      {/* Tri sur une donnée étendue — juste au-dessus de la liste qu'il ordonne, sur sa
+          propre ligne (dans la barre d'outils, il sautait de ligne à la sélection). */}
+      {champsTriables && (
+        <div className="biblio__tri-donnee">
+          <span className="biblio__tri-donnee__label">📋 Trier par donnée</span>
+          <select className="input" value={sortDonnee} onChange={e => setSortDonnee(e.target.value)}>
+            <option value="">— aucun —</option>
+            {champsTriables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
+          </select>
+          {sortDonnee && (
+            <button type="button" className="jd-auto-btn"
+              title={sortDonneeDir === 'desc' ? 'Décroissant' : 'Croissant'}
+              onClick={() => setSortDonneeDir(d => d === 'desc' ? 'asc' : 'desc')}>
+              {sortDonneeDir === 'desc' ? '↓ décroissant' : '↑ croissant'}
+            </button>
           )}
         </div>
       )}
