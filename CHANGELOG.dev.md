@@ -4,6 +4,28 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 125 — 2026-07-22 — **JourDoc V2.1** — Données étendues, Phase A (MVP libre)
+
+Première phase de la Vague 4 (cf. CDC « Données étendues »). Stockage libre, sans schéma.
+
+- **Migration `011`** : `jd_notes.donnees_etendues jsonb` (appliquée sur Neon). Stockage en
+  **objet `{ cle: valeur }`** — déjà la forme attendue par la Phase B ; les clés saisies
+  librement en Phase A deviendront naturellement des valeurs « hors schéma ».
+- **Serveur** : `POST /notes` accepte `donnees_etendues` ; `PUT /notes/:id` le met à jour en
+  requête **séparée et conditionnelle** (`!== undefined`) — un client qui n'envoie pas le
+  champ ne l'efface pas. Renvoyé automatiquement par les GET (`normalizeNote` propage).
+- **Éditeur de note** : bloc « 📋 Données complémentaires » avec « ✚ Ajouter un champ »,
+  paires libellé/valeur libres, suppression par ligne. Édité comme un **tableau ordonné**
+  côté client (jsonb ne garantit pas l'ordre des clés), converti en objet à l'enregistrement.
+- **Fiche** : tableau libellé/valeur **au-dessus du corps de la note** (données structurées
+  d'abord, le texte est un complément). **Masqué** si aucune valeur n'est renseignée (les
+  champs vides ne s'affichent pas).
+
+Écarts au CDC corrigés (analyse de conformité) : tables `jd_*`, routes sous
+`/api/jourdoc/:wsId/…`, méthode `PUT` (et non PATCH).
+
+---
+
 ## Doc — 2026-07-21 — Guide utilisateur
 
 Nouveau **`docs/GUIDE-UTILISATEUR.md`** : documentation orientée utilisateur (non

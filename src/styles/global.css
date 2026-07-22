@@ -2787,6 +2787,31 @@ button, input, select, textarea { font: inherit; color: inherit }
   font-size: .8125rem; color: var(--text-muted);
   font-family: var(--font-mono);
 }
+/* Données étendues — tableau en fiche (placé AVANT le corps de la note) */
+.jd-donnees-table {
+  width: 100%; border-collapse: collapse; margin: 0 0 1rem;
+  background: var(--surface-alt, var(--surface)); border: 1px solid var(--border);
+  border-radius: var(--r); overflow: hidden; font-size: .9rem;
+}
+.jd-donnees-table th, .jd-donnees-table td {
+  padding: .45rem .7rem; text-align: left; vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+.jd-donnees-table tr:last-child th, .jd-donnees-table tr:last-child td { border-bottom: none }
+.jd-donnees-table th { width: 38%; font-weight: 600; color: var(--text-muted) }
+.jd-donnees-table td { color: var(--text) }
+
+/* Données étendues — lignes d'édition dans le formulaire */
+.jd-donnees-edit { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem }
+.jd-donnees-edit__row { display: flex; gap: .4rem; align-items: center }
+.jd-donnees-edit__row .input { flex: 1; min-width: 0 }
+.jd-donnees-edit__remove {
+  flex-shrink: 0; width: 32px; height: 32px; border: 1px solid var(--border);
+  border-radius: var(--r); background: transparent; color: var(--text-muted);
+  cursor: pointer; font-size: 1.1rem; line-height: 1;
+}
+.jd-donnees-edit__remove:hover { color: var(--color-error); border-color: var(--color-error) }
+
 .note-view__body {
   padding: 1rem 0;
   border-top: 1px solid var(--border);

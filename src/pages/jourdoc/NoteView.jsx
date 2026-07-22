@@ -73,6 +73,14 @@ export default function NoteView() {
   // Sommaire du contenu (titres h1–h3)
   const contentRef = useRef(null)
   const { html: contentHtml, items: contentToc } = useMemo(() => buildToc(note?.contenu ?? ''), [note])
+
+  // Données étendues effectivement renseignées : un champ existant mais vide n'affiche rien
+  // (et si aucun n'est renseigné, le tableau entier est masqué).
+  const donneesRenseignees = useMemo(
+    () => Object.entries(note?.donnees_etendues ?? {})
+      .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== ''),
+    [note],
+  )
   function gotoHeading(id) {
     contentRef.current?.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
@@ -162,6 +170,21 @@ export default function NoteView() {
               <p className="note-view__title-alt">{note.titre_alt}</p>
             )}
           </div>
+
+          {/* Données étendues — AVANT le texte : données structurées d'abord, le texte
+              n'est qu'un complément. Masqué s'il n'y a aucune valeur renseignée. */}
+          {donneesRenseignees.length > 0 && (
+            <table className="jd-donnees-table">
+              <tbody>
+                {donneesRenseignees.map(([cle, valeur]) => (
+                  <tr key={cle}>
+                    <th>{cle}</th>
+                    <td>{String(valeur)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
 
           {/* Contenu */}
           <div className="note-view__body">

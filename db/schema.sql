@@ -134,6 +134,7 @@ CREATE TABLE IF NOT EXISTS jd_notes (
   contenu         TEXT,
   date            DATE,
   source_url      TEXT,
+  donnees_etendues JSONB,   -- Données étendues : objet { cle: valeur } (V2.1, cf. migration 011)
   created_at      TIMESTAMPTZ DEFAULT NOW(),
   updated_at      TIMESTAMPTZ DEFAULT NOW(),
   tache_todoist_id              TEXT,

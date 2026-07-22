@@ -83,6 +83,10 @@ export default function NoteForm() {
     date:      location.state?.note_date ?? today(),
     source_url: location.state?.source_url ?? '',
   })
+  // Données étendues (Phase A) : édité comme un TABLEAU [{cle, valeur}] pour préserver
+  // l'ordre de saisie (jsonb ne garantit pas l'ordre des clés), converti en objet à
+  // l'enregistrement.
+  const [donnees, setDonnees] = useState([])
   const [noteLoaded, setNoteLoaded] = useState(!isEdit) // pour la clé de RichTextEditor
   const [editorBump, setEditorBump] = useState(0)       // force le remontage de l'éditeur (injection capture)
   const [mediaDetails, setMediaDetails] = useState([])  // détail des médias liés (pour miniatures)
@@ -179,6 +183,7 @@ export default function NoteForm() {
           date: note.date ?? today(),
           source_url: note.source_url ?? '',
         })
+        setDonnees(Object.entries(note.donnees_etendues ?? {}).map(([cle, valeur]) => ({ cle, valeur: String(valeur ?? '') })))
         setMediaDetails(note.medias ?? [])
         setLiens(sortByDate(note.liens ?? []))
         setLiensEntrants(sortByDate(note.liensEntrants ?? []))
@@ -353,6 +358,10 @@ export default function NoteForm() {
         source_url: form.source_url || null,
         // Si le titre court n'est pas rempli, l'auto-générer (objets → thèmes, version courte).
         titre_alt: (form.titre_alt.trim() || computeTitreAlt()) || null,
+        // Tableau [{cle, valeur}] → objet { cle: valeur } ; libellés vides ignorés.
+        donnees_etendues: Object.fromEntries(
+          donnees.map(d => [d.cle.trim(), d.valeur]).filter(([cle]) => cle)
+        ),
       }
       const url = isEdit ? API_ROUTES.JD_NOTE(wsId, noteId) : API_ROUTES.JD_NOTES(wsId)
       const res = await fetch(url, {
@@ -535,6 +544,35 @@ export default function NoteForm() {
           <input className="input" value={form.titre_alt}
             onChange={e => setForm(f => ({ ...f, titre_alt: e.target.value }))}
             placeholder="Ex : Pom/Gol → TrAntif" />
+        </div>
+
+        {/* Données complémentaires (Phase A : paires libellé/valeur libres) */}
+        <div className="form-field">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label className="form-label">
+              📋 Données complémentaires
+              {donnees.length > 0 && (
+                <span style={{ marginLeft: '.5rem', color: 'var(--accent)', fontWeight: 700 }}>{donnees.length}</span>
+              )}
+            </label>
+            <button type="button" className="jd-auto-btn"
+              onClick={() => setDonnees(d => [...d, { cle: '', valeur: '' }])}>✚ Ajouter un champ</button>
+          </div>
+
+          {donnees.length > 0 && (
+            <div className="jd-donnees-edit">
+              {donnees.map((d, i) => (
+                <div key={i} className="jd-donnees-edit__row">
+                  <input className="input" placeholder="Libellé (ex. Prix payé)" value={d.cle}
+                    onChange={e => setDonnees(list => list.map((x, j) => j === i ? { ...x, cle: e.target.value } : x))} />
+                  <input className="input" placeholder="Valeur" value={d.valeur}
+                    onChange={e => setDonnees(list => list.map((x, j) => j === i ? { ...x, valeur: e.target.value } : x))} />
+                  <button type="button" className="jd-donnees-edit__remove" title="Supprimer ce champ"
+                    onClick={() => setDonnees(list => list.filter((_, j) => j !== i))}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Contenu — éditeur riche */}

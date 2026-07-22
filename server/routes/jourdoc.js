@@ -878,9 +878,13 @@ jourdoc.post('/:wsId/notes', async (c) => {
   const docReference   = isDoc ? (body.doc_reference?.trim() || null) : null
   if (!titre) return c.json({ error: 'titre requis' }, 400)
 
+  // Données étendues (Phase A) : objet { cle: valeur } libre, sans validation.
+  const donneesEtendues = body.donnees_etendues && Object.keys(body.donnees_etendues).length
+    ? JSON.stringify(body.donnees_etendues) : null
+
   const [r] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_statut_id, doc_auteur, doc_reference, titre, titre_alt, contenu, date, source_url)
-    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docStatutId}, ${docAuteur}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null})
+    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_statut_id, doc_auteur, doc_reference, titre, titre_alt, contenu, date, source_url, donnees_etendues)
+    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docStatutId}, ${docAuteur}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null}, ${donneesEtendues}::jsonb)
     RETURNING id
   `
   const noteId = r.id
@@ -923,6 +927,14 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
       date=${date ?? null}, source_url=${source_url ?? null}, updated_at=NOW()
     WHERE id=${id} AND workspace_id=${wsId}
   `
+
+  // Données étendues : mise à jour SÉPARÉE et conditionnelle — un client qui n'envoie pas
+  // le champ (ex. formulaire partiel) ne doit pas l'effacer.
+  if (body.donnees_etendues !== undefined) {
+    const de = body.donnees_etendues && Object.keys(body.donnees_etendues).length
+      ? JSON.stringify(body.donnees_etendues) : null
+    await sql`UPDATE jd_notes SET donnees_etendues=${de}::jsonb WHERE id=${id} AND workspace_id=${wsId}`
+  }
 
   if (theme_ids !== undefined) {
     await sql`DELETE FROM jd_note_theme WHERE note_id = ${id}`
