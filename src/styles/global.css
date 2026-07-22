@@ -2801,15 +2801,22 @@ button, input, select, textarea { font: inherit; color: inherit }
 .jd-donnees-table th { width: 38%; font-weight: 600; color: var(--text-muted) }
 .jd-donnees-table td { color: var(--text) }
 
-/* Contexte du schéma dans le formulaire de note */
-.jd-ctx-schema {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--r); padding: .6rem .7rem;
+/* Contexte déterminant le schéma — ligne compacte sous le titre du bloc données */
+.jd-de-ctx { margin: .15rem 0 .5rem }
+.jd-de-ctx__ligne { font-size: .78rem; color: var(--text-muted) }
+.jd-de-ctx__aide {
+  margin-left: .4rem; width: 18px; height: 18px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+  cursor: pointer; font-size: .7rem; line-height: 1; padding: 0;
 }
-.jd-ctx-schema__row { display: flex; gap: .6rem; flex-wrap: wrap }
-.jd-ctx-schema__item { flex: 1; min-width: 160px; display: flex; flex-direction: column; gap: .2rem }
-.jd-ctx-schema__item > span { font-size: .78rem; font-weight: 600; color: var(--text-muted) }
-.jd-ctx-schema__aide { margin: .45rem 0 0; font-size: .75rem; color: var(--text-muted) }
+.jd-de-ctx__aide:hover { color: var(--accent); border-color: var(--accent) }
+.jd-de-ctx__row { display: flex; gap: .5rem; flex-wrap: wrap; margin-top: .4rem }
+.jd-de-ctx__item { flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: .15rem }
+.jd-de-ctx__item > span { font-size: .75rem; font-weight: 600; color: var(--text-muted) }
+.jd-de-ctx__texte {
+  margin: .4rem 0 0; font-size: .75rem; line-height: 1.5; color: var(--text-muted);
+  background: var(--accent-bg); border-radius: var(--r); padding: .4rem .55rem;
+}
 
 /* Admin des schémas de données étendues */
 .jd-schema-aide {
