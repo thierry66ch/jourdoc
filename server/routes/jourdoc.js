@@ -860,7 +860,12 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
   const doc_categorie = await docCategorie(note.doc_categorie_id)
   const doc_statut = await docStatutRef(note.doc_statut_id)
   const fmtN = n => ({ ...n, date: fmtDate(n.date) })
-  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements, doc_categorie, doc_statut } })
+  // Schéma de données appliqué (pour afficher les libellés et l'ordre des champs en fiche).
+  const [schemaDonnees] = note.schema_donnees_id
+    ? await sql`SELECT id, nom, champs FROM jd_schema_donnees WHERE id=${note.schema_donnees_id}`
+    : []
+
+  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements, doc_categorie, doc_statut, schema_donnees: schemaDonnees ?? null } })
 })
 
 jourdoc.post('/:wsId/notes', async (c) => {

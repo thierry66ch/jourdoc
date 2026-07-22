@@ -76,11 +76,29 @@ export default function NoteView() {
 
   // Données étendues effectivement renseignées : un champ existant mais vide n'affiche rien
   // (et si aucun n'est renseigné, le tableau entier est masqué).
-  const donneesRenseignees = useMemo(
-    () => Object.entries(note?.donnees_etendues ?? {})
-      .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== ''),
-    [note],
-  )
+  // Si un schéma s'applique, ses champs sont affichés EN PREMIER, avec leurs libellés et
+  // dans l'ordre du schéma ; les valeurs restantes suivent (saisies dans un autre contexte).
+  const donneesRenseignees = useMemo(() => {
+    const vals = note?.donnees_etendues ?? {}
+    const rempli = v => v !== null && v !== undefined && String(v).trim() !== ''
+    const champs = Array.isArray(note?.schema_donnees?.champs) ? note.schema_donnees.champs : []
+    const vus = new Set()
+    const out = []
+    for (const ch of champs) {
+      if (rempli(vals[ch.cle])) {
+        const v = vals[ch.cle]
+        const affiche = ch.type === 'booleen' ? (String(v) === 'true' ? '✓ Oui' : '✗ Non')
+          : ch.type === 'echelle' ? `${v}/${ch.max ?? 5}`
+          : ch.unite ? `${v} ${ch.unite}` : String(v)
+        out.push([ch.label || ch.cle, affiche])
+      }
+      vus.add(ch.cle)
+    }
+    for (const [cle, v] of Object.entries(vals)) {
+      if (!vus.has(cle) && rempli(v)) out.push([cle, String(v)])
+    }
+    return out
+  }, [note])
   function gotoHeading(id) {
     contentRef.current?.querySelector(`#${CSS.escape(id)}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }

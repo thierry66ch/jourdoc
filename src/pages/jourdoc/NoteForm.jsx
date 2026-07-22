@@ -12,6 +12,7 @@ import RichTextEditor from './RichTextEditor'
 import MarkdownModal from './MarkdownModal'
 import ExtDocsBrowser from './ExtDocsBrowser'
 import { prepareUploadFiles } from '../../lib/imageUpload'
+import DonneesEtenduesForm from './DonneesEtenduesForm'
 
 function today() {
   const d = new Date()
@@ -75,6 +76,7 @@ export default function NoteForm() {
     doc_reference: '',
     theme_ids:   location.state?.theme_ids ?? [],
     objet_ids:   location.state?.objet_ids ?? [],
+    objet_principal_id: null,   // contexte de résolution du schéma de données
     element_ids: [],
     media_ids: initMediaIds,
     titre:     location.state?.titre   ?? '',
@@ -87,6 +89,7 @@ export default function NoteForm() {
   // l'ordre de saisie (jsonb ne garantit pas l'ordre des clés), converti en objet à
   // l'enregistrement.
   const [donnees, setDonnees] = useState([])
+  const [schema, setSchema] = useState(null)   // schéma résolu pour le contexte courant
   const [noteLoaded, setNoteLoaded] = useState(!isEdit) // pour la clé de RichTextEditor
   const [editorBump, setEditorBump] = useState(0)       // force le remontage de l'éditeur (injection capture)
   const [mediaDetails, setMediaDetails] = useState([])  // détail des médias liés (pour miniatures)
@@ -175,6 +178,7 @@ export default function NoteForm() {
           doc_reference: note.doc_reference ?? '',
           theme_ids:   (note.themes ?? []).map(t => t.id),
           objet_ids:   note.objets.map(o => o.id),
+          objet_principal_id: note.objet_principal_id ?? note.objets[0]?.id ?? null,
           element_ids: (note.elements ?? []).map(e => e.id),
           media_ids: note.medias?.map(m => m.id) ?? [],
           titre: note.titre,
@@ -317,6 +321,29 @@ export default function NoteForm() {
       setAttaching(false)
     }
   }
+
+  // L'objet principal doit rester parmi les objets liés (sinon → 1er de la liste).
+  useEffect(() => {
+    setForm(f => (f.objet_principal_id && f.objet_ids.includes(f.objet_principal_id))
+      ? f
+      : { ...f, objet_principal_id: f.objet_ids[0] ?? null })
+  }, [form.objet_ids])
+
+  // Résolution du schéma en direct : dès que le contexte change, on demande au serveur
+  // quel schéma s'applique (avant même la sauvegarde de la note).
+  useEffect(() => {
+    const p = new URLSearchParams()
+    if (form.objet_principal_id) p.set('objet_id', form.objet_principal_id)
+    if (form.theme_ids[0])      p.set('theme_id', form.theme_ids[0])
+    if (form.type === 'documentation' && form.doc_categorie_id) p.set('doc_categorie_id', form.doc_categorie_id)
+    if (form.type === 'journal' && form.nature) p.set('nature', form.nature)
+    let annule = false
+    fetch(`${API_ROUTES.JD_SCHEMA_RESOLVE(wsId)}?${p}`, { headers: authHeader(token) })
+      .then(r => r.json())
+      .then(d => { if (!annule) setSchema(d.schema ?? null) })
+      .catch(() => { if (!annule) setSchema(null) })
+    return () => { annule = true }
+  }, [wsId, token, form.objet_principal_id, form.theme_ids, form.type, form.doc_categorie_id, form.nature])
 
   // Source des mentions « @ » : objets + thèmes (locaux) + notes (recherche)
   async function mentionItems(query) {
@@ -512,6 +539,21 @@ export default function NoteForm() {
           onChange={v => setForm(f => ({ ...f, objet_ids: v }))}
           mode="multi" label="Objets liés" placeholder="Choisir un ou plusieurs objets…" filterMode={pickerMode} />
 
+        {/* Objet principal : détermine le schéma de données appliqué. Utile seulement
+            quand la note porte plusieurs objets (sinon le choix est évident). */}
+        {form.objet_ids.length > 1 && (
+          <div className="form-field">
+            <label className="form-label">Objet principal <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>— contexte des données</span></label>
+            <select className="input" value={form.objet_principal_id ?? ''}
+              onChange={e => setForm(f => ({ ...f, objet_principal_id: e.target.value ? Number(e.target.value) : null }))}>
+              {form.objet_ids.map(id => {
+                const o = objets.find(x => x.id === id)
+                return <option key={id} value={id}>{o?.nom ?? `#${id}`}</option>
+              })}
+            </select>
+          </div>
+        )}
+
         {/* Éléments */}
         <div className="form-field">
           <label className="form-label">Éléments</label>
@@ -546,20 +588,28 @@ export default function NoteForm() {
             placeholder="Ex : Pom/Gol → TrAntif" />
         </div>
 
-        {/* Données complémentaires (Phase A : paires libellé/valeur libres) */}
+        {/* Données complémentaires — guidées par un schéma si le contexte en résout un,
+            sinon saisie libre (repli Phase A : ne jamais bloquer la saisie). */}
         <div className="form-field">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <label className="form-label">
               📋 Données complémentaires
-              {donnees.length > 0 && (
+              {schema && <span className="jd-de-badge" title="Schéma appliqué au contexte de la note">{schema.nom}</span>}
+              {!schema && donnees.length > 0 && (
                 <span style={{ marginLeft: '.5rem', color: 'var(--accent)', fontWeight: 700 }}>{donnees.length}</span>
               )}
             </label>
-            <button type="button" className="jd-auto-btn"
-              onClick={() => setDonnees(d => [...d, { cle: '', valeur: '' }])}>✚ Ajouter un champ</button>
+            {!schema && (
+              <button type="button" className="jd-auto-btn"
+                onClick={() => setDonnees(d => [...d, { cle: '', valeur: '' }])}>✚ Ajouter un champ</button>
+            )}
           </div>
 
-          {donnees.length > 0 && (
+          {schema && (
+            <DonneesEtenduesForm schema={schema} donnees={donnees} setDonnees={setDonnees} />
+          )}
+
+          {!schema && donnees.length > 0 && (
             <div className="jd-donnees-edit">
               {donnees.map((d, i) => (
                 <div key={i} className="jd-donnees-edit__row">

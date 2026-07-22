@@ -2801,6 +2801,29 @@ button, input, select, textarea { font: inherit; color: inherit }
 .jd-donnees-table th { width: 38%; font-weight: 600; color: var(--text-muted) }
 .jd-donnees-table td { color: var(--text) }
 
+/* Données étendues — formulaire dynamique (schéma résolu) */
+.jd-de-badge {
+  margin-left: .5rem; padding: .1em .5em; border-radius: var(--r-full);
+  background: var(--accent-bg); color: var(--accent); font-size: .7rem; font-weight: 700;
+}
+.jd-de-form { display: flex; flex-direction: column; gap: .55rem; margin-top: .5rem }
+.jd-de-champ { display: flex; flex-direction: column; gap: .2rem }
+.jd-de-champ__label { font-size: .8rem; font-weight: 600; color: var(--text-muted) }
+.jd-de-champ__inline { display: flex; align-items: center; gap: .4rem }
+.jd-de-champ__inline .input { flex: 1; min-width: 0 }
+.jd-de-champ__unite { font-size: .8rem; color: var(--text-muted); flex-shrink: 0 }
+.jd-de-bool { display: flex; align-items: center; gap: .4rem; font-size: .9rem }
+.jd-de-echelle { display: flex; align-items: center; gap: .15rem }
+.jd-de-echelle__star {
+  border: none; background: transparent; cursor: pointer; font-size: 1.35rem;
+  line-height: 1; padding: 0 .05em; color: var(--border);
+}
+.jd-de-echelle__star.on { color: #f59e0b }
+.jd-de-echelle__val { margin-left: .4rem; font-size: .8rem; color: var(--text-muted) }
+.jd-de-hors { margin-top: .7rem; padding-top: .6rem; border-top: 1px dashed var(--border) }
+.jd-de-hors__titre { font-size: .78rem; font-weight: 700; color: var(--text-muted); margin-bottom: .35rem }
+.jd-de-hors__aide { font-weight: 400; margin-left: .4rem; font-style: italic }
+
 /* Données étendues — lignes d'édition dans le formulaire */
 .jd-donnees-edit { display: flex; flex-direction: column; gap: .4rem; margin-top: .5rem }
 .jd-donnees-edit__row { display: flex; gap: .4rem; align-items: center }
