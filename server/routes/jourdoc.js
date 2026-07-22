@@ -882,9 +882,12 @@ jourdoc.post('/:wsId/notes', async (c) => {
   const donneesEtendues = body.donnees_etendues && Object.keys(body.donnees_etendues).length
     ? JSON.stringify(body.donnees_etendues) : null
 
+  // Objet principal : sert à résoudre le schéma de données. Par défaut le 1er objet lié.
+  const objetPrincipal = body.objet_principal_id ?? objet_ids[0] ?? null
+
   const [r] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_statut_id, doc_auteur, doc_reference, titre, titre_alt, contenu, date, source_url, donnees_etendues)
-    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docStatutId}, ${docAuteur}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null}, ${donneesEtendues}::jsonb)
+    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_statut_id, doc_auteur, doc_reference, titre, titre_alt, contenu, date, source_url, donnees_etendues, objet_principal_id)
+    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docStatutId}, ${docAuteur}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null}, ${donneesEtendues}::jsonb, ${objetPrincipal})
     RETURNING id
   `
   const noteId = r.id
@@ -899,6 +902,8 @@ jourdoc.post('/:wsId/notes', async (c) => {
   }
   for (const elementId of element_ids)
     await sql`INSERT INTO jd_note_element (note_id, element_id) VALUES (${noteId}, ${elementId}) ON CONFLICT DO NOTHING`
+
+  await recalcSchemaNote(wsId, noteId)   // cache du schéma applicable
 
   return c.json({ id: noteId }, 201)
 })
@@ -927,6 +932,14 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
       date=${date ?? null}, source_url=${source_url ?? null}, updated_at=NOW()
     WHERE id=${id} AND workspace_id=${wsId}
   `
+
+  // Objet principal (résolution du schéma) : explicite, sinon 1er objet lié si la liste
+  // est fournie. Non envoyé et liste absente → on ne touche pas à l'existant.
+  if (body.objet_principal_id !== undefined) {
+    await sql`UPDATE jd_notes SET objet_principal_id=${body.objet_principal_id ?? null} WHERE id=${id} AND workspace_id=${wsId}`
+  } else if (objet_ids !== undefined) {
+    await sql`UPDATE jd_notes SET objet_principal_id=${objet_ids[0] ?? null} WHERE id=${id} AND workspace_id=${wsId}`
+  }
 
   // Données étendues : mise à jour SÉPARÉE et conditionnelle — un client qui n'envoie pas
   // le champ (ex. formulaire partiel) ne doit pas l'effacer.
@@ -961,6 +974,9 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
     for (const elementId of element_ids)
       await sql`INSERT INTO jd_note_element (note_id, element_id) VALUES (${id}, ${elementId}) ON CONFLICT DO NOTHING`
   }
+
+  // Le contexte (objet principal / thème / catégorie / nature) a pu changer → cache à jour.
+  await recalcSchemaNote(wsId, id)
 
   return c.json({ ok: true })
 })
@@ -2197,6 +2213,188 @@ ${rawNotes
   c.header('Content-Type', 'application/zip')
   c.header('Content-Disposition', contentDisposition('attachment', `${slug}-${date}.zip`))
   return c.body(buffer)
+})
+
+// ── SCHÉMAS DE DONNÉES ÉTENDUES (Phase B) ─────────────────────
+//
+// Un schéma définit les champs proposés selon un CONTEXTE de 4 axes, tous nullables
+// (NULL = joker) : objet, thème, catégorie de documentation, nature (journal).
+
+// Profondeur de remontée hiérarchique configurée sur le workspace.
+async function wsDepth(wsId) {
+  const [r] = await sql`SELECT COALESCE(jd_search_depth,3) AS d FROM workspaces WHERE id=${wsId}`
+  return r?.d ?? 3
+}
+
+// Chaîne d'ancêtres [soi, parent, grand-parent, …] limitée à maxDepth remontées.
+// L'INDEX dans le tableau = distance (0 = correspondance exacte) → sert à départager
+// deux schémas de même spécificité. Helper partagé (la remontée était jusqu'ici
+// dupliquée et enfermée dans l'endpoint /analyse).
+async function ancestorChain(table, wsId, id, maxDepth) {
+  if (!id) return []
+  const all = await sql(`SELECT id, parent_id FROM ${table} WHERE workspace_id = $1`, [wsId])
+  const byId = new Map(all.map(r => [r.id, r]))
+  const chain = [Number(id)]
+  let cur = Number(id), d = 0
+  while (d < maxDepth) {
+    const node = byId.get(cur)
+    if (!node || !node.parent_id) break
+    chain.push(node.parent_id)
+    cur = node.parent_id
+    d++
+  }
+  return chain
+}
+
+// Résout le schéma applicable à un contexte. Renvoie la ligne du schéma, ou null.
+//
+// Tri : spécificité DESC (nb d'axes non-joker), puis PRIORITÉ d'axe DESC
+// (objet > thème > catégorie|nature), puis distance d'ancêtre cumulée ASC, puis id.
+//
+// ⚠️ Écart assumé au CDC, qui plaçait la distance avant la priorité : les axes NON
+// hiérarchiques (catégorie, nature) ont une distance nulle par construction, ils
+// l'emportaient donc toujours sur un schéma objet/thème matché via un ancêtre. Ex. : une
+// note « Pommier Gala + Semer » choisissait « toute Observation » plutôt que « Pommiers ».
+// La distance ne départage plus que des schémas de même profil d'axes.
+async function resolveSchemaDonnees(wsId, { objetId, themeId, docCategorieId, nature }) {
+  const depth = await wsDepth(wsId)
+  const [chainO, chainT] = await Promise.all([
+    ancestorChain('jd_objets', wsId, objetId, depth),
+    ancestorChain('jd_themes', wsId, themeId, depth),
+  ])
+  // ANY() sur tableau vide ne matche rien : sentinelle 0 (aucun id réel = 0).
+  const anyO = chainO.length ? chainO : [0]
+  const anyT = chainT.length ? chainT : [0]
+  const nat = nature ?? null
+
+  const candidats = await sql`
+    SELECT * FROM jd_schema_donnees
+    WHERE workspace_id = ${wsId} AND actif = TRUE
+      AND (objet_id IS NULL OR objet_id = ANY(${anyO}))
+      AND (theme_id IS NULL OR theme_id = ANY(${anyT}))
+      AND (doc_categorie_id IS NULL OR doc_categorie_id = ${docCategorieId ?? null})
+      -- Une note « mixte » est à la fois observation et activité (comme les filtres).
+      AND (nature IS NULL OR nature = ${nat}
+           OR (${nat} = 'mixte' AND nature IN ('observation','activite')))
+  `
+  if (!candidats.length) return null
+
+  const scored = candidats.map(c => ({
+    c,
+    score: (c.objet_id != null) + (c.theme_id != null) + (c.doc_categorie_id != null) + (c.nature != null),
+    dist: (c.objet_id != null ? chainO.indexOf(c.objet_id) : 0)
+        + (c.theme_id != null ? chainT.indexOf(c.theme_id) : 0),
+    prio: (c.objet_id != null ? 4 : 0) + (c.theme_id != null ? 2 : 0)
+        + ((c.doc_categorie_id != null || c.nature != null) ? 1 : 0),
+  }))
+  scored.sort((a, b) => b.score - a.score || b.prio - a.prio || a.dist - b.dist || a.c.id - b.c.id)
+  return scored[0].c
+}
+
+// Recalcule et mémorise le schéma applicable à une note (cache schema_donnees_id).
+async function recalcSchemaNote(wsId, noteId) {
+  const [n] = await sql`
+    SELECT type, nature, objet_principal_id, theme_id, doc_categorie_id
+    FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
+  if (!n) return null
+  const schema = await resolveSchemaDonnees(wsId, {
+    objetId: n.objet_principal_id,
+    themeId: n.theme_id,
+    docCategorieId: n.type === 'documentation' ? n.doc_categorie_id : null,
+    nature: n.type === 'journal' ? n.nature : null,
+  })
+  await sql`UPDATE jd_notes SET schema_donnees_id=${schema?.id ?? null} WHERE id=${noteId}`
+  return schema
+}
+
+// Résolution à la volée (appelée par l'éditeur de note avant sauvegarde).
+// ⚠️ Déclarée AVANT /:id, sinon Hono capturerait « resolve » comme un id.
+jourdoc.get('/:wsId/schemas-donnees/resolve', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const { objet_id, theme_id, doc_categorie_id, nature } = c.req.query()
+  const schema = await resolveSchemaDonnees(wsId, {
+    objetId: objet_id ? Number(objet_id) : null,
+    themeId: theme_id ? Number(theme_id) : null,
+    docCategorieId: doc_categorie_id ? Number(doc_categorie_id) : null,
+    nature: nature || null,
+  })
+  return c.json({ schema })
+})
+
+jourdoc.get('/:wsId/schemas-donnees', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const schemas = await sql`
+    SELECT s.*,
+      (SELECT nom FROM jd_objets WHERE id = s.objet_id)         AS objet_nom,
+      (SELECT nom FROM jd_themes WHERE id = s.theme_id)         AS theme_nom,
+      (SELECT nom FROM jd_doc_categorie WHERE id = s.doc_categorie_id) AS categorie_nom,
+      (SELECT COUNT(*) FROM jd_notes n WHERE n.schema_donnees_id = s.id)::int AS notes_count
+    FROM jd_schema_donnees s
+    WHERE s.workspace_id = ${wsId}
+    ORDER BY s.nom`
+  return c.json({ schemas })
+})
+
+// Normalise le contexte reçu : '' / undefined → NULL (joker).
+function ctxAxes(body) {
+  const num = v => (v === '' || v == null) ? null : Number(v)
+  return {
+    objet_id: num(body.objet_id),
+    theme_id: num(body.theme_id),
+    doc_categorie_id: num(body.doc_categorie_id),
+    nature: body.nature || null,
+  }
+}
+
+jourdoc.post('/:wsId/schemas-donnees', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const body = await c.req.json().catch(() => ({}))
+  const nom = (body.nom || '').trim()
+  if (!nom) return c.json({ error: 'nom requis' }, 400)
+  const ax = ctxAxes(body)
+  const champs = Array.isArray(body.champs) ? body.champs : []
+  try {
+    const [r] = await sql`
+      INSERT INTO jd_schema_donnees (workspace_id, nom, objet_id, theme_id, doc_categorie_id, nature, champs, actif)
+      VALUES (${wsId}, ${nom}, ${ax.objet_id}, ${ax.theme_id}, ${ax.doc_categorie_id}, ${ax.nature},
+              ${JSON.stringify(champs)}::jsonb, ${body.actif !== false})
+      RETURNING *`
+    return c.json({ schema: r }, 201)
+  } catch (e) {
+    if (String(e.message).includes('uniq_schema_contexte'))
+      return c.json({ error: 'Un schéma existe déjà pour exactement ce contexte.' }, 409)
+    throw e
+  }
+})
+
+jourdoc.put('/:wsId/schemas-donnees/:id', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const id = Number(c.req.param('id'))
+  const body = await c.req.json().catch(() => ({}))
+  const nom = (body.nom || '').trim()
+  if (!nom) return c.json({ error: 'nom requis' }, 400)
+  const ax = ctxAxes(body)
+  const champs = Array.isArray(body.champs) ? body.champs : []
+  try {
+    const [r] = await sql`
+      UPDATE jd_schema_donnees SET nom=${nom}, objet_id=${ax.objet_id}, theme_id=${ax.theme_id},
+        doc_categorie_id=${ax.doc_categorie_id}, nature=${ax.nature},
+        champs=${JSON.stringify(champs)}::jsonb, actif=${body.actif !== false}
+      WHERE id=${id} AND workspace_id=${wsId} RETURNING *`
+    if (!r) return c.json({ error: 'Not found' }, 404)
+    return c.json({ schema: r })
+  } catch (e) {
+    if (String(e.message).includes('uniq_schema_contexte'))
+      return c.json({ error: 'Un schéma existe déjà pour exactement ce contexte.' }, 409)
+    throw e
+  }
+})
+
+jourdoc.delete('/:wsId/schemas-donnees/:id', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const id = Number(c.req.param('id'))
+  await sql`DELETE FROM jd_schema_donnees WHERE id=${id} AND workspace_id=${wsId}`
+  return c.json({ ok: true })
 })
 
 // ── ANALYSE PLURIANNUELLE ─────────────────────────────────────
