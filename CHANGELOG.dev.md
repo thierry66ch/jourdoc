@@ -4,6 +4,20 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 135 — 2026-07-23 — V2.1 — Export de liste : CSV (données en colonnes)
+
+`liste.csv` ajouté au ZIP d'export de liste (option cochée par défaut). Colonnes fixes :
+ID, titre, titre court, date de création, date journal, type, catégorie, objets, éléments,
+thèmes, auteur, source, référence, URL de la note, liens (IDs), nb pièces jointes ; puis
+**une colonne par clé de donnée étendue** rencontrée (schéma d'abord, hors-schéma ensuite),
+en-tête = libellé du champ, valeur formatée (Oui/Non, n/max, unité). Pas de corps de texte,
+pas de référence aux pièces (seulement le nombre). Virgule + guillemets (comme l'export
+complet), listes intra-cellule jointes par « | », BOM UTF-8 (Excel). Logique testée en
+isolation (échappement virgule/guillemet/saut de ligne). Manifeste enrichi : `titre_alt`,
+`donnees_brut` (clé→valeur), `champsDonnees` (clé→{label,type,unite,max} agrégé des schémas).
+
+---
+
 ## Build 134 — 2026-07-23 — V2.1 — Données étendues : Calendrier (filtre + export)
 
 - Helpers d'exploitation extraits dans `donneesUtils.js` (partagés Biblio + Calendrier) :

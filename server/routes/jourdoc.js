@@ -2011,6 +2011,14 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
   const statName = new Map(stats.map(r => [r.id, r.nom]))
   const schemaById = new Map(schemas.map(r => [r.id, r.champs]))
 
+  // Dictionnaire clé → {label, type, unite, max} agrégé de tous les schémas du workspace :
+  // sert d'en-têtes et de formatage aux colonnes de données étendues du CSV (1re occurrence).
+  const champsDonnees = {}
+  for (const s of schemas)
+    for (const ch of (Array.isArray(s.champs) ? s.champs : []))
+      if (ch?.cle && !champsDonnees[ch.cle])
+        champsDonnees[ch.cle] = { label: ch.label || ch.cle, type: ch.type, unite: ch.unite ?? null, max: ch.max ?? null }
+
   // Données étendues mises en forme pour l'export : [[libellé, valeur affichée], …].
   // Champs du schéma d'abord (libellés + ordre + formatage), puis valeurs hors schéma.
   function donneesExport(note) {
@@ -2046,12 +2054,13 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
       return { id: m.id, filename, nom_original: m.nom_original, type_media: m.type_media }
     })
     return {
-      id: n.id, type: n.type, nature: n.nature, titre: n.titre, date: fmtDate(n.date),
+      id: n.id, type: n.type, nature: n.nature, titre: n.titre, titre_alt: n.titre_alt, date: fmtDate(n.date),
       created_at: n.created_at ? new Date(n.created_at).toISOString() : null,
       contenu: n.contenu, doc_auteur: n.doc_auteur, doc_reference: n.doc_reference, source_url: n.source_url,
       categorie: catName.get(n.doc_categorie_id) ?? null, statut: statName.get(n.doc_statut_id) ?? null,
       objets: objets.map(r => r.nom), themes: themes.map(r => r.nom), elements: elements.map(r => r.nom),
       donnees: donneesExport(n),
+      donnees_brut: n.donnees_etendues ?? {},   // clé → valeur brute, pour les colonnes CSV
       medias: mlist,
       liens: liens.map(l => ({ type_lien: l.type_lien, titre: l.cible_titre, id: l.note_cible_id })),
     }
@@ -2065,6 +2074,7 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
     generatedAt: new Date().toISOString(),
     notes,
     medias: [...mediaSet.values()],
+    champsDonnees,
   }
 }
 

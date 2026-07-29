@@ -175,6 +175,55 @@ function documentMarkdown({ wsName, secs, mediaById, sub }) {
   return parts.join('\n\n---\n\n') + '\n'
 }
 
+// ── CSV (données en colonnes) ────────────────────────────────
+// Colonnes fixes + une colonne par clé de donnée étendue rencontrée. Pas de corps de note,
+// pas de référence aux pièces jointes (seulement leur nombre). Séparateur virgule (comme
+// l'export complet), listes intra-cellule jointes par « | », BOM UTF-8 pour Excel.
+const csvCell = s => {
+  const t = String(s ?? '')
+  return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t
+}
+function fmtDonneeCsv(meta, v) {
+  if (v == null || String(v).trim() === '') return ''
+  if (meta?.type === 'booleen') return String(v) === 'true' ? 'Oui' : 'Non'
+  if (meta?.type === 'echelle') return `${v}/${meta.max ?? 5}`
+  if (meta?.unite) return `${v} ${meta.unite}`
+  return String(v)
+}
+function documentCsv({ wsId, secs, champsDonnees }) {
+  const notes = secs.flatMap(s => s.notes)
+  const LI = ' | '  // séparateur de liste intra-cellule
+
+  // Colonnes de données étendues : clés présentes (valeur non vide), schéma d'abord.
+  const presents = new Set()
+  for (const n of notes) for (const [k, v] of Object.entries(n.donnees_brut || {}))
+    if (String(v ?? '').trim() !== '') presents.add(k)
+  const cols = []
+  for (const k of Object.keys(champsDonnees || {})) if (presents.has(k)) { cols.push(k); presents.delete(k) }
+  for (const k of presents) cols.push(k)  // hors-schéma / imprévus, dans l'ordre d'apparition
+
+  const entetes = [
+    'ID', 'Titre', 'Titre court', 'Date de création', 'Date (journal)', 'Type', 'Catégorie',
+    'Objets', 'Éléments', 'Thèmes', 'Auteur', 'Source', 'Référence', 'URL de la note',
+    'Liens (IDs)', 'Nb pièces jointes',
+    ...cols.map(k => (champsDonnees?.[k]?.label) || k),
+  ]
+
+  const origin = (typeof location !== 'undefined' && location.origin) || ''
+  const ligne = n => [
+    n.id, n.titre || '', n.titre_alt || '',
+    (n.created_at || '').slice(0, 10), n.date || '', n.type || '', n.categorie || '',
+    (n.objets || []).join(LI), (n.elements || []).join(LI), (n.themes || []).join(LI),
+    n.doc_auteur || '', n.source_url || '', n.doc_reference || '',
+    `${origin}/jourdoc/${wsId}/notes/${n.id}`,
+    (n.liens || []).map(l => l.id).join(LI), (n.medias || []).length,
+    ...cols.map(k => fmtDonneeCsv(champsDonnees?.[k], n.donnees_brut?.[k])),
+  ]
+
+  const lignes = [entetes, ...notes.map(ligne)].map(r => r.map(csvCell).join(','))
+  return '﻿' + lignes.join('\r\n') + '\r\n'  // BOM UTF-8 (Excel)
+}
+
 // Télécharge les médias avec un petit pool de concurrence + progression par fichier.
 async function downloadMedias({ wsId, token, medias, files, onProgress }) {
   const total = medias.length
@@ -277,6 +326,8 @@ export async function buildListExport({ wsId, token, ids, sections, opts, onProg
   const files = {}
   files['liste.html'] = strToU8(documentHtml({ wsName, secs, mediaById, sub }))
   files['liste.md']   = strToU8(documentMarkdown({ wsName, secs, mediaById, sub }))
+  if (opts.withCsv !== false)
+    files['liste.csv'] = strToU8(documentCsv({ wsId, secs, champsDonnees: manifest.champsDonnees }))
 
   let mediaTotal = 0, mediaOk = 0
   if (opts.withAttachments) {

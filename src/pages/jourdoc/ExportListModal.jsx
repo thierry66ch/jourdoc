@@ -10,6 +10,7 @@ export default function ExportListModal({ wsId, token, ids, sections, count, def
   const [dir, setDir] = useState(defaultDir)
   const [withAttachments, setWithAttachments] = useState(true)
   const [withLinks, setWithLinks] = useState(true)
+  const [withCsv, setWithCsv] = useState(true)
   const [prog, setProg] = useState(null)  // { phase, done, total } | { error }
 
   const structured = Array.isArray(sections)
@@ -21,7 +22,7 @@ export default function ExportListModal({ wsId, token, ids, sections, count, def
     try {
       const { blob, filename, count: done, mediaOk, mediaTotal } = await buildListExport({
         wsId, token, ids, sections,
-        opts: { dir, withAttachments, withLinks },
+        opts: { dir, withAttachments, withLinks, withCsv },
         onProgress: setProg,
       })
       const a = document.createElement('a')
@@ -70,6 +71,10 @@ export default function ExportListModal({ wsId, token, ids, sections, count, def
         <label className="media-picker__toggle">
           <input type="checkbox" checked={withLinks} onChange={e => setWithLinks(e.target.checked)} />
           Mentionner les notes liées
+        </label>
+        <label className="media-picker__toggle">
+          <input type="checkbox" checked={withCsv} onChange={e => setWithCsv(e.target.checked)} />
+          Inclure un CSV (données en colonnes, pour tableur)
         </label>
 
         {prog && (
