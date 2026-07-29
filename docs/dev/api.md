@@ -53,7 +53,7 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | GET | `/jourdoc/:wsId/export?format=json\|csv&medias=0\|1` | Export workspace (voir plus bas) |
 | GET | `/jourdoc/:wsId/export/facets` | Années journal + compteurs (sélecteur d'export) |
 | GET | `/jourdoc/:wsId/export/manifest?type=&year=` | Manifeste léger pour l'export complet côté navigateur |
-| POST | `/jourdoc/:wsId/export/manifest` | Manifeste d'une **liste filtrée** : body `{ ids:[…] }` (évite une URL trop longue). Même forme que le GET, notes filtrées par ces ids ; expose aussi `created_at` (tri doc). Helper serveur `buildExportManifest` partagé |
+| POST | `/jourdoc/:wsId/export/manifest` | Manifeste d'une **liste filtrée** : body `{ ids:[…] }` (évite une URL trop longue). Même forme que le GET, notes filtrées par ces ids. Expose aussi `created_at` (tri doc), `titre_alt`, `donnees` (données étendues mises en forme), `donnees_brut` (clé→valeur, pour le CSV) et `champsDonnees` (clé→{label,type,unite,max} agrégé des schémas). Helper serveur `buildExportManifest` partagé |
 
 ### Objets / Thèmes (hiérarchies)
 
@@ -85,15 +85,33 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | DELETE | `/jourdoc/:wsId/doc-categories/:id` | Supprimer (FK `SET NULL` sur les notes) |
 | GET/POST/PUT/DELETE | `/jourdoc/:wsId/doc-statuts[/:id]` | Référentiel des statuts de doc (même schéma que les catégories) |
 
+### Schémas de données étendues (V2.1)
+
+| Méthode | Route | Description |
+|---|---|---|
+| GET | `/jourdoc/:wsId/schemas-donnees` | Liste des schémas (+ noms de contexte, `notes_count`) |
+| POST | `/jourdoc/:wsId/schemas-donnees` | Créer `{ nom, objet_id?, theme_id?, doc_categorie_id?, nature?, champs[], actif }` — `409` si le contexte est déjà pris (contrainte unique) |
+| PUT | `/jourdoc/:wsId/schemas-donnees/:id` | Modifier (mêmes champs, même `409`) |
+| DELETE | `/jourdoc/:wsId/schemas-donnees/:id` | Supprimer (les données déjà saisies restent, deviennent « hors schéma ») |
+| GET | `/jourdoc/:wsId/schemas-donnees/resolve?objet_id=&theme_id=&doc_categorie_id=&nature=` | **Résout** le schéma applicable à un contexte → `{ schema }` ou `{ schema: null }`. Déclaré **avant** `/:id`. Utilisé par l'éditeur de note en direct |
+
+> **Résolution** (`resolveSchemaDonnees`) : parmi les schémas dont chaque axe non-joker
+> matche (objet/thème via **chaîne d'ancêtres** `ancestorChain`, profondeur du workspace),
+> tri par **spécificité** (nb d'axes non-joker) ↓, puis **distance d'ancêtre** ↑ *(uniquement
+> pour les schémas à axe hiérarchique — un schéma nature/catégorie seul a une distance ∞ pour
+> ne pas gagner indûment)*, puis **priorité** objet > thème > (catégorie|nature). Une note
+> `mixte` est matchée par les schémas `observation`/`activite`. Le résultat est mis en cache
+> dans `jd_notes.schema_donnees_id`, recalculé à chaque POST/PUT de note.
+
 ### Notes
 
 | Méthode | Route | Description |
 |---|---|---|
 | GET | `/jourdoc/:wsId/notes` | Liste filtrée : `?type= &nature= &date_from= &date_to= &objet_id= &theme_id=`. `nature=observation\|activite` inclut aussi les notes `mixte` (`nature IN (filtre,'mixte')`) |
-| POST | `/jourdoc/:wsId/notes` | Créer — body `theme_ids[]`, `objet_ids[]`, `element_ids[]`, `media_ids[]`, `doc_categorie_id` (documentation) |
+| POST | `/jourdoc/:wsId/notes` | Créer — body `theme_ids[]`, `objet_ids[]`, `element_ids[]`, `media_ids[]`, `doc_categorie_id` (documentation), `donnees_etendues` (objet `{cle:valeur}`), `objet_principal_id` (déf. = 1er objet). Cache de schéma recalculé |
 | GET | `/jourdoc/:wsId/notes/search?q=` | Recherche titre (NoteLinkPicker) |
 | GET | `/jourdoc/:wsId/notes/:id` | Détail : `objets[]`, `themes[]`, `elements[]`, `medias[]`, `doc_categorie`, liens entrants/sortants |
-| PUT | `/jourdoc/:wsId/notes/:id` | Modifier |
+| PUT | `/jourdoc/:wsId/notes/:id` | Modifier. `donnees_etendues` mis à jour **seulement s'il est présent** dans le body (pas d'écrasement sinon) ; `objet_principal_id` recalculé ; cache de schéma recalculé |
 | DELETE | `/jourdoc/:wsId/notes/:id` | Supprimer |
 | POST | `/jourdoc/:wsId/notes/:id/liens` | Lien note→note |
 | DELETE | `/jourdoc/:wsId/notes/:id/liens/:cibleId` | Supprimer lien |

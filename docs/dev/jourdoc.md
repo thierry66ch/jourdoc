@@ -64,6 +64,36 @@ Lightbox photos + PDF (iframe). Navigation contextuelle + swipe.
 **`NoteCard.jsx`** — compact : badge nature/type, **chips thèmes (multi)**, objets,
 éléments, vignettes médias, chip Todoist. Prop `showDate`.
 
+## Données étendues (V2.1)
+
+Champ structuré par note (`jd_notes.donnees_etendues`, objet `{cle:valeur}`), dont la
+**forme dépend du contexte** via des **schémas** (`jd_schema_donnees`, cf. `database.md` /
+`api.md`).
+
+- **Résolution (serveur)** : `resolveSchemaDonnees(wsId, {objetId, themeId, docCategorieId,
+  nature})` dans `jourdoc.js`. Le contexte vient de l'**objet principal**
+  (`jd_notes.objet_principal_id`) et du **thème principal** (`jd_notes.theme_id`, 1er thème).
+  Helper `ancestorChain()` partagé (extrait de `/analyse`). Tri : spécificité ↓, distance
+  d'ancêtre ↑ (∞ pour un schéma sans axe hiérarchique), priorité objet > thème >
+  catégorie/nature. Cache dans `schema_donnees_id`, recalculé au POST/PUT note.
+- **`DonneesEtenduesForm.jsx`** — formulaire dynamique : rend les 8 types de champs
+  (texte court/long, nombre, décimal, échelle en étoiles, liste, oui/non, date) + section
+  **« hors schéma »** (valeurs d'un autre contexte, conservées et éditables — aucune perte).
+- **`NoteForm`** : résout le schéma **en direct** (`GET …/schemas-donnees/resolve`) au
+  changement de contexte ; repli sur la saisie libre si aucun schéma. Bloc compact
+  « déterminant : objet → thème » + sélecteurs d'objet/thème principal **seulement s'il y a
+  un choix** (plusieurs objets/thèmes). **`NoteView`** affiche le tableau **au-dessus du
+  corps** (libellés/ordre du schéma), masqué si aucune valeur.
+- **`SchemaDonneesManager.jsx`** (page `/jourdoc/:wsId/schemas`, lien depuis Workspace ⚙️) —
+  liste, éditeur de champs (types, unité, min/max, options, réordonnancement), activation, et
+  **simulateur** de résolution (choisir un contexte → schéma appliqué). Avertit si catégorie
+  **et** nature sont renseignées (axes mutuellement exclusifs).
+- **Exploitation** : helpers partagés `donneesUtils.js` (`GROUPABLES`, `valeursDe`,
+  `sousGroupes`, `champsSchemaCommun`, `filtrerParDonnee`). Bibliothèque : **tri / groupe /
+  filtre** sur les types discrets (liste/échelle/oui-non), proposés seulement si le contexte
+  filtré résout à un schéma unique. Calendrier : **filtre** par donnée (pas de tri/groupe :
+  vue chronologique). Export : cf. Bibliothèque + `exportList.js`.
+
 ## Hiérarchies et éléments
 
 **`HierarchyPicker.jsx`** — sélecteur hiérarchique avec recherche et navigation
@@ -95,7 +125,9 @@ catégorie » ; masqué si le type est restreint au journal).
 **Tout l'état de vue** (mode, période `anchor`, filtres objet/thème + direction) persisté
 en URL via une synchro unique (`useSearchParams`, `replace`) → **retour propre** depuis une
 note. Le filtre thème teste `note.themes.some(...)`. Swipe tactile. Le panneau « jour
-sélectionné » liste les `NoteCard` du jour sous la grille.
+sélectionné » liste les `NoteCard` du jour sous la grille. **Données étendues** : filtre par
+donnée (si le contexte filtré résout à un schéma unique) qui restreint les notes de toutes
+les grilles ; bouton **📤 Exporter** de la période filtrée (liste plate, tri date).
 
 **`AnalyseView.jsx`** — 52 buckets hebdomadaires × N années. Filtres objet + thème +
 nature, **persistés en URL** (retour propre). Surlignage cross-année, marqueur semaine
@@ -116,8 +148,21 @@ ancêtres/descendants (`getRelated` avec `searchDepth`). Chaque étagère a un b
 coloré repliable + une grille de `NoteCard` (ou liste compacte). Tout est calculé
 côté client (`useMemo`). **Filtres persistés en query params** (`useSearchParams`,
 `replace`) → restaurés au retour depuis une note ; **position de défilement**
-sauvegardée/restaurée via `sessionStorage` (conteneur `.jd-main`). Bouton **📤 Exporter**
-→ export de la liste filtrée (`ExportListModal` / `exportList.js`, cf. `api.md`).
+sauvegardée/restaurée via `sessionStorage` (conteneur `.jd-main`).
+
+**Données étendues** (quand le contexte filtré résout à un schéma unique) : barre au-dessus
+de la liste pour **trier / grouper / filtrer** sur les champs à valeurs discrètes (les
+sous-groupes s'affichent au sein des étagères, avec intertitres).
+
+**Export** (`ExportListModal` / `exportList.js`) — le ZIP contient `liste.html` (imprimable),
+`liste.md` et **`liste.csv`** (+ dossier `medias/` optionnel). Depuis la Bibliothèque, la
+modale reçoit une **structure de sections** (`sections=[{titre, ids}]`) → l'export **reflète
+l'affichage** (catégories, sous-groupes, ordre, intertitres). Le **CSV** (`documentCsv`) a des
+colonnes fixes (ID, titres, dates, type, catégorie, objets/éléments/thèmes joints par « | »,
+auteur/source/référence, URL, liens IDs, nb pièces jointes) **+ une colonne par clé de donnée
+étendue** (schéma puis hors-schéma) ; virgule + guillemets, BOM UTF-8. L'Analyse et le
+Calendrier passent une liste plate d'`ids` (tri par date). Téléchargement médias en pool de
+concurrence 8, images internes des `.md` rapatriées.
 
 ## Médias & stockage
 

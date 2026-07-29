@@ -2,7 +2,7 @@
 
 > Guide d'utilisation fonctionnel — que fait l'application et comment s'en servir.
 > Pour la spécification et les détails techniques, voir `CDC-JourDoc.md` et `docs/dev/`.
-> À jour au 21 juillet 2026 (build 124).
+> À jour au 23 juillet 2026 (build 135, V2.1 — données étendues).
 
 ---
 
@@ -12,6 +12,7 @@
 2. [La structure des données](#2-la-structure-des-données)
 3. [Les pages de l'application](#3-les-pages-de-lapplication)
 4. [Créer et éditer une note](#4-créer-et-éditer-une-note)
+   · [4 bis. Les données étendues](#4-bis-les-données-étendues)
 5. [Consulter et filtrer](#5-consulter-et-filtrer)
 6. [Le principe des médias](#6-le-principe-des-médias)
 7. [Importer du contenu](#7-importer-du-contenu)
@@ -163,6 +164,38 @@ La saisie est pensée pour être **rapide, surtout sur mobile**.
   externe, ou capturer une page web.
 - **Fil de notes** : relier la note à d'autres notes.
 - **Tâche** : créer ou lier une tâche Todoist.
+- **Données complémentaires** : des valeurs structurées propres à la note (voir §4 bis).
+
+---
+
+## 4 bis. Les données étendues
+
+Au-delà du texte libre, une note peut porter des **données structurées** — par exemple, pour
+un arbre : hauteur, état sanitaire, stade ; pour un produit : goût, prix, à racheter.
+
+Deux façons de les saisir :
+
+- **Champs guidés (schémas)** : si vous avez défini un **schéma** pour le contexte de la note,
+  les bons champs apparaissent **automatiquement** dans le bloc « 📋 Données complémentaires »
+  (avec le bon type : liste, étoiles, oui/non, date, nombre + unité…). Un petit **« déterminant »**
+  indique quel objet/thème a choisi le schéma.
+- **Saisie libre** : sans schéma applicable, vous ajoutez des paires **libellé / valeur** à la volée.
+
+**Définir des schémas** — dans **Workspace ⚙️ → 📋 Gérer les schémas** : vous composez les
+champs et choisissez le **contexte** d'application (un objet, un thème, une catégorie de
+documentation, ou une nature — chacun facultatif). Un schéma défini sur « Arbres fruitiers »
+s'applique aussi à ses **enfants** (Pommiers, Pommier Golden…). Un **simulateur** vous montre,
+pour un contexte donné, quel schéma s'appliquera.
+
+Bon à savoir :
+- L'**objet et le thème principaux** (par défaut les premiers sélectionnés, modifiables)
+  déterminent le schéma ; le contexte **le plus proche** dans la hiérarchie l'emporte.
+- Vos valeurs ne sont **jamais perdues** : si vous changez le contexte d'une note, les données
+  déjà saisies restent visibles dans une section « hors schéma ».
+- En fiche, les données s'affichent en **tableau au-dessus du texte** (masqué si vide).
+
+Ces données s'**exploitent** ensuite : tri / regroupement / filtre dans la Bibliothèque,
+filtre au Calendrier, et export (dont CSV). Voir §5 et §8.
 
 ---
 
@@ -200,6 +233,9 @@ Toute la documentation, **groupée en étagères par catégorie**. On y trouve :
 - **Tri** (récent / A→Z) ;
 - **Densité** d'affichage (cartes / compact) ;
 - **Filtres** objet et thème (avec direction), **catégorie** et **statut**.
+- **Données étendues** : lorsque le filtre pointe vers un contexte homogène (un schéma), une
+  barre permet de **trier**, **grouper** (sous-groupes dans les catégories) et **filtrer** sur
+  les champs à valeurs discrètes (liste / échelle / oui-non).
 - Les filtres et la position de défilement sont **conservés** quand on ouvre une fiche puis
   revient (bouton retour).
 - Bouton **📤 Exporter** : exporte la liste filtrée telle qu'affichée (voir §8).
@@ -209,8 +245,10 @@ Toute la documentation, **groupée en étagères par catégorie**. On y trouve :
 Cinq modes : **année** (52 semaines/mois), **mois**, **semaine**, **7 jours**, **matrice**
 (objets × jours). Chaque note apparaît en **pastille colorée selon sa nature**
 (vert = observation, indigo = activité, rose = mixte, orange = documentation). Cliquer un
-jour liste les notes de ce jour sous la grille. Filtres objet + thème (avec direction). La
-vue (mode, période, filtres) est **conservée** au retour depuis une note.
+jour liste les notes de ce jour sous la grille. Filtres objet + thème (avec direction), et
+un **filtre par donnée étendue** quand le contexte s'y prête. Un bouton **📤 Exporter** sort
+les notes de la période filtrée. La vue (mode, période, filtres) est **conservée** au retour
+depuis une note.
 
 ### Analyse 📊
 
@@ -297,13 +335,17 @@ Depuis **Workspace ⚙️** :
   hors-ligne.
 
 ### Export d'une liste filtrée (vue en l'état)
-Depuis la **Bibliothèque** ou l'**Analyse**, bouton **📤 Exporter** : produit un **ZIP**
-contenant la liste **agrégée** dans les notes affichées, en deux formats :
+Depuis la **Bibliothèque**, l'**Analyse** ou le **Calendrier**, bouton **📤 Exporter** :
+produit un **ZIP** contenant la liste **agrégée** des notes affichées, en trois formats :
 - **`liste.md`** (Markdown) et **`liste.html`** (mis en page, **imprimable → PDF** via le
-  navigateur).
-- Options : **tri** par date (↑/↓ ; date de référence pour le journal, date de création pour
-  la documentation), **avec/sans pièces jointes** (dossier `medias/`, y compris les images
-  internes des `.md`), **avec/sans notes liées**.
+  navigateur) ;
+- **`liste.csv`** — une ligne par note, colonnes fixes (identité, dates, objets/thèmes/
+  éléments, etc.) **plus une colonne par donnée étendue** rencontrée : idéal pour un tableur.
+- Depuis la Bibliothèque, l'export **respecte l'ordre et les groupes affichés** (catégories,
+  sous-groupes, intertitres).
+- Options : **avec/sans pièces jointes** (dossier `medias/`, y compris les images internes des
+  `.md`), **avec/sans notes liées**, et le CSV activable/désactivable. (Depuis l'Analyse et le
+  Calendrier : tri par date de référence.)
 
 ---
 

@@ -25,6 +25,7 @@ L'idée centrale n'est pas seulement de savoir « qu'ai-je fait tel jour ? », m
 | **Éléments** | Étiquettes **plates** (non hiérarchiques) : 3e axe de marquage transversal des notes. |
 | **Médias** | Photos, captures d'écran, PDF, documents Markdown rattachés aux notes. |
 | **Tâches** | Rappels d'actions à faire, synchronisés avec Todoist. |
+| **Données étendues** | Valeurs structurées (clé/valeur) par note, dont la forme dépend du contexte (schémas). |
 
 ### Workspaces (cloisonnement des contextes)
 
@@ -210,6 +211,49 @@ un **état**… puis retrouver toutes les notes portant cette étiquette.
 
 ---
 
+## 4 ter. Les Données étendues (V2.1)
+
+*(Développé en V2.1 — juillet 2026.)*
+
+### Rôle
+
+Les axes de classement (objets, thèmes, éléments) qualifient une note, mais ne capturent
+pas des **valeurs structurées propres à un contexte** — par exemple les caractéristiques
+techniques d'une locomotive, ou l'évaluation d'un fromage (goût, texture, prix…). Les
+**données étendues** ajoutent un **champ de données structurées éditable par note**, dont la
+**forme dépend du contexte**, sans complexifier le modèle central.
+
+### Deux niveaux
+
+- **Saisie libre** : n'importe quelle note peut porter des paires **libellé / valeur** libres.
+- **Schémas contextuels** : un **schéma** définit les **champs proposés** (avec un type :
+  texte, nombre, décimal, échelle, liste, oui/non, date) selon un **contexte** de 4 axes,
+  chacun facultatif (joker) : **objet**, **thème**, **catégorie de documentation** (notes de
+  documentation), **nature** (notes de journal). À l'édition, le bon formulaire apparaît
+  automatiquement ; sans schéma applicable, la saisie libre reste disponible.
+
+### Règles
+
+- **Un objet et un thème « principaux »** déterminent le contexte (par défaut les premiers
+  sélectionnés, modifiables). Un schéma défini sur un objet ou un thème s'applique aussi à
+  leurs **enfants** (héritage). À contexte également spécifique, le **plus proche** dans la
+  hiérarchie l'emporte ; à égalité, l'objet prime sur le thème.
+- **Aucune perte** : si le contexte d'une note change (ou qu'un champ est retiré d'un schéma),
+  les valeurs déjà saisies sont **conservées** et affichées en section « hors schéma ».
+- **Administration** : page de gestion des schémas avec un **simulateur** (« pour ce contexte,
+  quel schéma s'applique ? »).
+
+### Exploitation
+
+- **Affichage** : en fiche, les données figurent en tableau **avant le corps** de la note.
+- **Consultation** : dans la **Bibliothèque** (documentation), tri / **groupement** (sous-groupes
+  dans les catégories) / **filtre** sur les données à valeurs discrètes ; dans le **Calendrier**
+  (journal), **filtre** par donnée.
+- **Export** : la liste filtrée s'exporte en Markdown, HTML imprimable **et CSV** (une colonne
+  par donnée rencontrée).
+
+---
+
 ## 5. Les Médias (photos, captures, PDF)
 
 ### 5.1 Besoin
@@ -361,7 +405,26 @@ Modèle relationnel déduit des besoins ci-dessus. À affiner lors de la concept
 | `contenu` | texte enrichi | Corps de la note |
 | `date` | date/heure | Date de l'événement (notes journal) |
 | `source_url` | texte | Pour la documentation (lien web, etc.) |
+| `donnees_etendues` | JSON | Données étendues : objet `{ cle: valeur }` (V2.1) |
+| `objet_principal_id` | référence → `objets.id` | Objet servant à résoudre le schéma (déf. = 1er objet lié) |
+| `schema_donnees_id` | référence → `schema_donnees.id` | Cache du schéma résolu (recalculé à l'enregistrement) |
 | `tache_todoist_id` | texte | Référence vers la tâche Todoist liée (optionnel) |
+
+### 9.3 bis Table `schema_donnees` (schémas de données étendues — V2.1)
+
+| Champ | Type | Description |
+|---|---|---|
+| `id` | identifiant | Clé primaire |
+| `workspace_id` | référence → `workspaces.id` | Workspace |
+| `nom` | texte | Nom du schéma |
+| `objet_id`, `theme_id`, `doc_categorie_id` | références (nullables) | Axes de contexte (NULL = joker) |
+| `nature` | énumération (nullable) | 4e axe de contexte (notes journal) |
+| `champs` | JSON | Tableau de définitions `{ cle, label, type, … }` |
+| `actif` | booléen | |
+
+> **Unicité** : `UNIQUE NULLS NOT DISTINCT (workspace_id, objet_id, theme_id,
+> doc_categorie_id, nature)` — les NULL doivent être traités comme **égaux** pour que la
+> contrainte empêche deux schémas identiques comportant un joker.
 
 ### 9.4 Table de liaison `note_objet` (relation N–N)
 
@@ -410,6 +473,7 @@ workspaces (cloisonnement des contextes)
  └─ objets    (auto-référence parent_id, flag est_individu)
  └─ themes    (auto-référence parent_id)
  └─ elements  (plats, sans hiérarchie)
+ └─ schema_donnees (contexte objet/thème/catégorie/nature → champs)
  └─ notes / médias (via objets, themes & elements du workspace)
 
 objets  (auto-référence parent_id, flag est_individu, nom_court)
@@ -421,12 +485,14 @@ notes ──< note_theme >── themes    (thèmes multiples ; theme_id = 1er t
 notes ──< note_element >── elements (étiquettes plates)
 notes ──< note_media >── medias
 notes ──< note_note >── notes      (liaisons entre notes)
+notes ──> schema_donnees           (schema_donnees_id = cache du schéma résolu)
 notes ──> Todoist                  (N tâches via note_todoist ; cache tache_todoist_*)
+notes : donnees_etendues (JSON), objet_principal_id (contexte de résolution)
 ```
 
 ---
 
-## 10. Phasage — état d'avancement (build 124, juillet 2026)
+## 10. Phasage — état d'avancement (build 135, juillet 2026)
 
 | Phase | Contenu | Statut |
 |---|---|---|
@@ -454,7 +520,11 @@ notes ──> Todoist                  (N tâches via note_todoist ; cache tache
 
 **Export**
 - Export **complet** d'un workspace (JSON / CSV+médias / **HTML lisible** en ZIP).
-- Export d'une **liste filtrée** (vue en l'état) : ZIP agrégé en **Markdown** + **HTML imprimable** (→ PDF), tri par date, options pièces jointes (avec assets des `.md`) et notes liées.
+- Export d'une **liste filtrée** (vue en l'état) : ZIP agrégé en **Markdown** + **HTML imprimable** (→ PDF) + **CSV**, options pièces jointes (avec assets des `.md`) et notes liées. Depuis la Bibliothèque, l'export **reflète l'affichage** (catégories, sous-groupes, ordre, intertitres).
+
+**Données étendues (V2.1)** — valeurs structurées par note dont la forme dépend du contexte
+(schémas objet/thème/catégorie/nature) ; saisie libre en repli ; consultation (tri/groupe/
+filtre en Bibliothèque, filtre au Calendrier) et export (dont CSV). Voir §4 ter.
 
 **Robustesse & confort**
 - **Redirection automatique vers la connexion** quand la session expire (intercepteur 401 global).
@@ -463,7 +533,7 @@ notes ──> Todoist                  (N tâches via note_todoist ; cache tache
 
 ### Idées d'évolution (non encore spécifiées)
 
-- **Modèles de contenu HTML** (+ placeholders) et champ **« données étendues »** (JSON éditable, table dans la fiche).
+- **Modèles de contenu HTML** (+ placeholders). *(Les « données étendues » sont désormais livrées — voir §4 ter.)*
 - Extension de navigateur pour le clipper (desktop).
 - Analyses comparatives entre workspaces ; notifications push (PWA) pour les tâches Todoist dues ; recherche globale dans les notes.
 

@@ -4,6 +4,25 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Doc — 2026-07-23 — Mise à jour V2.1 (données étendues) dans tous les documents
+
+Passe de documentation après la Vague 4. Aucun changement de code.
+- **CdC** (`CDC-JourDoc.md`) : concept « Données étendues » (§1), **nouvelle §4 ter**
+  (rôle, schémas, règles, exploitation), modèle de données (colonnes `notes` + table
+  `schema_donnees` §9.3 bis, schéma relationnel), §10 mis à jour (build 135 ; export CSV +
+  fidèle à l'affichage ; « données étendues » retiré des idées d'évolution).
+- **Guide utilisateur** (`GUIDE-UTILISATEUR.md`) : **§4 bis** (saisie guidée/libre, schémas,
+  simulateur, héritage, hors-schéma), exploitation en §5 (Biblio tri/groupe/filtre, Calendrier
+  filtre + export) et §8 (CSV).
+- **Docs dev** : `database.md` (colonnes `donnees_etendues`/`objet_principal_id`/
+  `schema_donnees_id`, table `jd_schema_donnees` + `NULLS NOT DISTINCT`, migrations 011-012),
+  `api.md` (routes `schemas-donnees` + `resolve`, note sur la résolution, body notes,
+  manifeste enrichi), `jourdoc.md` (section Données étendues, Biblio groupe/filtre/CSV/sections,
+  Calendrier filtre), `architecture.md` (route `/schemas`).
+- Copies racine `docs/` synchronisées.
+
+---
+
 ## Build 135 — 2026-07-23 — V2.1 — Export de liste : CSV (données en colonnes)
 
 `liste.csv` ajouté au ZIP d'export de liste (option cochée par défaut). Colonnes fixes :

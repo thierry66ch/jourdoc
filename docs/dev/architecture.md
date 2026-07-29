@@ -93,6 +93,7 @@ Milkdown (`@milkdown/kit` + `plugin-math` + `plugin-clipboard`, éditeur des doc
   /objet/:id /theme/:id   → ObjetDetail / ThemeDetail
   /todoist-tasks          → TodoistTasks
   /analyse                → AnalyseView
+  /schemas                → SchemaDonneesManager (schémas de données étendues, V2.1)
   /settings               → WorkspaceManager
 ```
 

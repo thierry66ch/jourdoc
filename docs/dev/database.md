@@ -33,6 +33,7 @@ users ──< user_app_access >── apps
 users ──< user_workspace_access >── workspaces ──< jd_objets   (auto-réf parent_id)
                                                 ──< jd_themes   (auto-réf parent_id)
                                                 ──< jd_elements
+                                                ──< jd_schema_donnees (contexte objet/thème/catégorie/nature)
                                                 ──< jd_notes ──< jd_note_objet   >── jd_objets
                                                              ──< jd_note_theme   >── jd_themes
                                                              ──< jd_note_element >── jd_elements
@@ -82,6 +83,18 @@ Compte unique, login 2 étapes par OTP email. Colonnes `otp_code`, `otp_expires`
 ### `jd_elements` (étiquettes plates)
 `id` · `workspace_id` (CASCADE) · `nom` · `created_at` · `UNIQUE (workspace_id, nom)`.
 
+### `jd_schema_donnees` (schémas de données étendues — V2.1)
+Définit les **champs proposés** pour les données étendues d'une note, selon un **contexte**
+de 4 axes tous nullables (`NULL` = joker « quel que soit… ») : `objet_id`, `theme_id`,
+`doc_categorie_id` (documentation), `nature` (journal). `champs` (JSONB) = tableau de
+définitions `{ cle, label, type, … }` (types : `texte_court`, `texte_long`, `nombre`,
+`decimal`, `echelle` [min/max], `select` [options], `booleen`, `date`). `actif` (BOOLEAN).
+
+> **Unicité** : `UNIQUE NULLS NOT DISTINCT (workspace_id, objet_id, theme_id, doc_categorie_id, nature)`
+> — le `NULLS NOT DISTINCT` (PG ≥ 15) est **indispensable** : sans lui, deux schémas
+> identiques comportant un joker seraient acceptés (les NULL sont distincts par défaut).
+> Migration `012`.
+
 ### `jd_doc_categorie` / `jd_doc_statut` (référentiels documentation)
 Référentiels ouverts par workspace : sous-natures (`jd_doc_categorie`) et statuts
 (`jd_doc_statut`) des notes `documentation`. Même schéma : `id` · `workspace_id`
@@ -105,6 +118,9 @@ Conseil/Descriptif/Manuel/Norme/Exemple ; statuts : Brouillon/Validé/Obsolète)
 | `contenu` | TEXT | HTML (Tiptap) |
 | `date` | DATE | NULL pour documentation |
 | `source_url` | TEXT | documentation |
+| `donnees_etendues` | JSONB | données étendues : objet `{ cle: valeur }` (V2.1, migration `011`) |
+| `objet_principal_id` | → `jd_objets.id` | `ON DELETE SET NULL` — objet servant à résoudre le schéma (déf. = 1er objet lié) — migration `012` |
+| `schema_donnees_id` | → `jd_schema_donnees.id` | `ON DELETE SET NULL` — **cache** du schéma résolu à l'enregistrement — migration `012` |
 | `tache_todoist_*` | divers | **cache** de la tâche Todoist la plus urgente (id, due, priority, done, recurrence_done, consigne, content) — source de vérité = `jd_note_todoist` |
 | `created_at` / `updated_at` | TIMESTAMPTZ | |
 
@@ -162,6 +178,8 @@ import('./db/db.js').then(async ({ default: sql }) => {
 - `008_media_externe.sql` — `jd_medias.externe` (pièces jointes *liées*)
 - `009_jd_note_todoist.sql` — table `jd_note_todoist` (N tâches/note) + migration des liens 1:1 ; colonnes `jd_notes.tache_todoist_*` conservées en cache
 - `010_nature_mixte.sql` — élargit `CHECK (nature IN (…))` avec `'mixte'` (nature « Observ.→Activité »)
+- `011_donnees_etendues.sql` — `jd_notes.donnees_etendues` JSONB (V2.1, phase A)
+- `012_schemas_donnees.sql` — table `jd_schema_donnees` (contrainte `UNIQUE NULLS NOT DISTINCT`) + `jd_notes.objet_principal_id` + `jd_notes.schema_donnees_id` (V2.1, phase B)
 
 **Convention** : nouvelle évolution de schéma → fichier de migration numéroté
 **et** mise à jour de `schema.sql` (référence d'un schéma vierge).
