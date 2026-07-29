@@ -9,6 +9,8 @@ import CalendarWeek from './CalendarWeek'
 import CalendarYear from './CalendarYear'
 import ObjectMatrix from './ObjectMatrix'
 import HierarchyPicker from './HierarchyPicker'
+import ExportListModal from './ExportListModal'
+import { GROUPABLES, valeursDe, champsSchemaCommun, filtrerParDonnee } from './donneesUtils'
 
 const MODES = [
   { key: 'year',   label: '📅 Année',   period: 'year'   },
@@ -37,6 +39,12 @@ export default function CalendarView() {
   const [themeFilter,    setThemeFilter]    = useState(() => { const v = searchParams.get('tf'); return v ? Number(v) : null })
   const [themeDirection, setThemeDirection] = useState(() => searchParams.get('td') || 'both')
 
+  // Exploitation des données étendues sur le journal : filtre + export (Vague 4).
+  const [schemas, setSchemas] = useState([])
+  const [filtreDonneeCle, setFiltreDonneeCle] = useState('')
+  const [filtreDonneeVal, setFiltreDonneeVal] = useState('')
+  const [exportOpen, setExportOpen] = useState(false)
+
   // Synchro unique de tout l'état de vue vers l'URL (mode + période + filtres).
   useEffect(() => {
     const p = { mode, anchor }
@@ -53,6 +61,11 @@ export default function CalendarView() {
   const period = currentMode.period
 
   useEffect(() => {
+    fetch(API_ROUTES.JD_SCHEMAS(wsId), { headers: authHeader(token) })
+      .then(r => r.json()).then(d => setSchemas(d.schemas ?? [])).catch(() => setSchemas([]))
+  }, [wsId, token])
+
+  useEffect(() => {
     setLoading(true)
     fetch(`${API_ROUTES.JD_NOTES(wsId)}?date_from=${from}&date_to=${to}`, { headers: authHeader(token) })
       .then(r => r.json())
@@ -60,7 +73,7 @@ export default function CalendarView() {
       .finally(() => setLoading(false))
   }, [wsId, token, from, to])
 
-  const filteredNotes = useMemo(() => {
+  const baseFilteredNotes = useMemo(() => {
     let result = notes
     if (objetFilter) {
       const ids = getRelated(objets, Number(objetFilter), objetDirection, searchDepth)
@@ -72,6 +85,24 @@ export default function CalendarView() {
     }
     return result
   }, [notes, objets, themes, objetFilter, objetDirection, themeFilter, themeDirection])
+
+  // Champs filtrables : seulement si un filtre objet/thème est actif ET que les notes
+  // partagent un unique schéma (mêmes conditions que la Bibliothèque).
+  const champsFiltrables = useMemo(() =>
+    (objetFilter || themeFilter)
+      ? (champsSchemaCommun(baseFilteredNotes, schemas) ?? []).filter(c => GROUPABLES.has(c.type))
+      : [],
+    [baseFilteredNotes, schemas, objetFilter, themeFilter])
+  const champFiltre = champsFiltrables.find(c => c.cle === filtreDonneeCle) || null
+
+  const filteredNotes = useMemo(
+    () => filtrerParDonnee(baseFilteredNotes, champFiltre, filtreDonneeVal),
+    [baseFilteredNotes, champFiltre, filtreDonneeVal])
+
+  // Plus de contexte filtrable → on retire le filtre par donnée.
+  useEffect(() => {
+    if (champsFiltrables.length === 0) { setFiltreDonneeCle(''); setFiltreDonneeVal('') }
+  }, [champsFiltrables.length])
 
   const showFilters = mode === 'month' || mode === 'year'
 
@@ -152,6 +183,26 @@ export default function CalendarView() {
               </div>
             )}
           </div>
+
+          {/* Filtre par donnée étendue — visible quand les notes filtrées partagent un schéma */}
+          {champsFiltrables.length > 0 && (
+            <div className="cal-filter-row">
+              <span className="cal-filter-label">📋 Donnée</span>
+              <div className="cal-filter-picker" style={{ display: 'flex', gap: '.4rem' }}>
+                <select className="input" value={filtreDonneeCle}
+                  onChange={e => { setFiltreDonneeCle(e.target.value); setFiltreDonneeVal('') }}>
+                  <option value="">— aucune —</option>
+                  {champsFiltrables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
+                </select>
+                {champFiltre && (
+                  <select className="input" value={filtreDonneeVal} onChange={e => setFiltreDonneeVal(e.target.value)}>
+                    <option value="">toutes</option>
+                    {valeursDe(champFiltre).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -165,6 +216,9 @@ export default function CalendarView() {
           {filteredNotes.some(n => n.medias?.length) && (
             <><span>·</span><span>{filteredNotes.reduce((s, n) => s + (n.medias?.length ?? 0), 0)} médias</span></>
           )}
+          <button type="button" className="jd-auto-btn" style={{ marginLeft: 'auto' }}
+            title="Exporter les notes de la période (filtrées)"
+            onClick={() => setExportOpen(true)}>📤 Exporter ({filteredNotes.length})</button>
         </div>
       )}
 
@@ -178,6 +232,15 @@ export default function CalendarView() {
           {mode === 'last7'  && <CalendarWeek  notes={filteredNotes} anchor={anchor} mode="last7" />}
           {mode === 'matrix' && <ObjectMatrix  notes={filteredNotes} objets={objets} year={year} month={month} />}
         </>
+      )}
+
+      {exportOpen && (
+        <ExportListModal
+          wsId={wsId} token={token}
+          ids={filteredNotes.map(n => n.id)} count={filteredNotes.length}
+          defaultDir="desc"
+          onClose={() => setExportOpen(false)}
+        />
       )}
     </div>
   )

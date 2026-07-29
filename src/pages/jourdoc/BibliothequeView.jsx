@@ -7,50 +7,12 @@ import { getRelated } from './calUtils'
 import HierarchyPicker from './HierarchyPicker'
 import NoteCard from './NoteCard'
 import ExportListModal from './ExportListModal'
+import { GROUPABLES, valeursDe, sousGroupes, champsSchemaCommun, filtrerParDonnee } from './donneesUtils'
 
 const DIR_OPTS = [['both', '↕ Les deux'], ['down', '↓ Descendants'], ['up', '↑ Ancêtres']]
 
 function stripHtml(html) {
   return (html || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ')
-}
-
-// Types de données étendues à valeurs discrètes → exploitables en groupement/filtre.
-const GROUPABLES = new Set(['select', 'echelle', 'booleen'])
-
-// Valeurs possibles d'un champ, sous forme [valeurStockée, libellé], dans l'ordre naturel.
-function valeursDe(champ) {
-  if (!champ) return []
-  if (champ.type === 'booleen') return [['true', 'Oui'], ['false', 'Non']]
-  if (champ.type === 'select') return (champ.options ?? []).map(o => [o, o])
-  if (champ.type === 'echelle') {
-    const min = Number(champ.min ?? 1), max = Number(champ.max ?? 5)
-    return Array.from({ length: Math.max(0, max - min + 1) }, (_, i) => [String(min + i), `${min + i}/${max}`])
-  }
-  return []
-}
-
-// Libellé de la valeur d'une note pour ce champ, ou null si non renseigné.
-// (Un booléen non coché = « Non » ; les autres types vides = non renseigné.)
-function libelleValeur(champ, raw) {
-  if (champ.type === 'booleen') return raw === 'true' ? 'Oui' : 'Non'
-  if (raw === '' || raw == null) return null
-  if (champ.type === 'echelle') return `${raw}/${champ.max ?? 5}`
-  return String(raw)
-}
-
-// Sous-groupe une liste de notes par la valeur d'un champ, dans l'ordre naturel du champ,
-// « non renseigné » en dernier. Renvoie [{ label, items }].
-function sousGroupes(items, champ) {
-  const buckets = new Map()
-  for (const n of items) {
-    const label = libelleValeur(champ, String(n.donnees_etendues?.[champ.cle] ?? '')) ?? '— non renseigné —'
-    if (!buckets.has(label)) buckets.set(label, [])
-    buckets.get(label).push(n)
-  }
-  const out = [], vus = new Set()
-  for (const [, l] of valeursDe(champ)) if (buckets.has(l)) { out.push({ label: l, items: buckets.get(l) }); vus.add(l) }
-  for (const [l, its] of buckets) if (!vus.has(l)) out.push({ label: l, items: its })  // non renseigné / imprévus
-  return out
 }
 
 /**
@@ -177,13 +139,9 @@ export default function BibliothequeView() {
   // 2) Champs exploitables (tri/groupe/filtre). Deux conditions cumulatives :
   //    a) un filtre objet/thème est ACTIF — on suit le « contexte de filtrage courant » ;
   //    b) toutes les notes relèvent du MÊME schéma — pas d'exploitation croisée (CDC §7).
-  const champsTriables = useMemo(() => {
-    if (!objetFilter && !themeFilter) return null
-    const ids = new Set(baseFiltres.map(n => n.schema_donnees_id).filter(Boolean))
-    if (ids.size !== 1) return null
-    const s = schemas.find(x => x.id === [...ids][0])
-    return Array.isArray(s?.champs) && s.champs.length ? s.champs : null
-  }, [baseFiltres, schemas, objetFilter, themeFilter])
+  const champsTriables = useMemo(() =>
+    (objetFilter || themeFilter) ? champsSchemaCommun(baseFiltres, schemas) : null,
+    [baseFiltres, schemas, objetFilter, themeFilter])
 
   // Champs groupables/filtrables : uniquement les types à valeurs discrètes.
   const champsGroupables = useMemo(
@@ -192,11 +150,8 @@ export default function BibliothequeView() {
   const champFiltre = champsGroupables.find(c => c.cle === filtreDonneeCle) || null
 
   // 3) Filtre par donnée (après les champs triables, pour ne pas réduire leurs options).
-  const filtres = useMemo(() => {
-    if (!champFiltre || filtreDonneeVal === '') return baseFiltres
-    return baseFiltres.filter(n => String(n.donnees_etendues?.[champFiltre.cle] ?? '') === filtreDonneeVal
-      || (champFiltre.type === 'booleen' && filtreDonneeVal === 'false' && !n.donnees_etendues?.[champFiltre.cle]))
-  }, [baseFiltres, champFiltre, filtreDonneeVal])
+  const filtres = useMemo(() => filtrerParDonnee(baseFiltres, champFiltre, filtreDonneeVal),
+    [baseFiltres, champFiltre, filtreDonneeVal])
 
   // 4) Tri : sur une donnée étendue si demandé, sinon tri usuel (récent / A→Z).
   const matched = useMemo(() => {

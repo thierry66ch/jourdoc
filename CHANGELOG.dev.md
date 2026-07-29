@@ -4,6 +4,19 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 134 — 2026-07-23 — V2.1 — Données étendues : Calendrier (filtre + export)
+
+- Helpers d'exploitation extraits dans `donneesUtils.js` (partagés Biblio + Calendrier) :
+  `GROUPABLES`, `valeursDe`, `libelleValeur`, `sousGroupes`, `champsSchemaCommun`,
+  `filtrerParDonnee`. BibliothequeView refactorée pour les importer.
+- **Calendrier** : filtre par donnée étendue (mêmes conditions que la Biblio : filtre
+  objet/thème actif + schéma commun) qui restreint les notes affichées dans toutes les
+  grilles + le résumé. Bouton **📤 Exporter** de la période filtrée (export plat trié par
+  date de référence, via l'entrée `ids` de la modale). Décision : pas de tri/groupe par
+  donnée sur le journal (la vue reste chronologique).
+
+---
+
 ## Build 133 — 2026-07-23 — V2.1 — Données étendues : groupe/filtre Biblio + export fidèle
 
 Suite aux retours de test. Tout reste 100% côté client (décision assumée : pas de tri/index
