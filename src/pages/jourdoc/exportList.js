@@ -75,6 +75,9 @@ h1{font-size:1.7rem;margin:.2rem 0 .3rem}h2{font-size:1.3rem;margin:.2rem 0 .5re
 .toc{margin:0 0 2rem;padding:0 0 1rem;border-bottom:2px solid #e3e5ec}
 .toc ul{list-style:none;padding-left:0;margin:.3rem 0}.toc li{padding:.15rem 0}
 .toc a{color:#4f46e5;text-decoration:none}.toc .d{color:#999;font-size:.8rem;margin-left:.4rem}
+.toc-sec{font-weight:700;margin-top:.6rem;color:#333;list-style:none}
+h2.sec{font-size:1.15rem;margin:1.8rem 0 .4rem;padding-bottom:.2rem;border-bottom:2px solid #e3e5ec;color:#4f46e5}
+article h3{font-size:1.25rem;margin:.2rem 0 .5rem}
 article{border-top:1px solid #e3e5ec;padding-top:1.4rem;margin-top:1.4rem}
 .meta{background:#f1f2f6;border:1px solid #e3e5ec;border-radius:8px;padding:.6rem .85rem;font-size:.83rem;color:#555;margin:.4rem 0 1rem}
 .contenu img{max-width:100%;height:auto;border-radius:6px}
@@ -86,7 +89,7 @@ article{border-top:1px solid #e3e5ec;padding-top:1.4rem;margin-top:1.4rem}
 table.donnees{border-collapse:collapse;margin:.2rem 0 1rem;font-size:.9rem;width:100%}
 table.donnees th,table.donnees td{border:1px solid #ddd;padding:.35rem .6rem;text-align:left;vertical-align:top}
 table.donnees th{width:35%;background:#f7f7fa;font-weight:600;color:#555}
-@media print{body{max-width:none}article{break-before:page;border-top:none}.toc{break-after:page}a{color:#1f2430;text-decoration:none}}`
+@media print{body{max-width:none}h2.sec{break-before:page}article{break-inside:avoid;border-top:none}.toc{break-after:page}a{color:#1f2430;text-decoration:none}}`
 
 const attachIcon = t => t === 'pdf' ? '📄' : t === 'markdown' ? '📝' : '📎'
 
@@ -105,40 +108,50 @@ function articleHtml(n, mediaById, withAttachments) {
         `<tr><th>${esc(l)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`
     : ''
 
-  return `<article id="note-${n.id}"><h2>${esc(n.titre || '(sans titre)')}</h2>
+  return `<article id="note-${n.id}"><h3>${esc(n.titre || '(sans titre)')}</h3>
 <div class="meta">${meta.map(esc).join('<br>')}</div>
 ${donneesHtml}
 <div class="contenu">${rewriteImg(n.contenu, mediaById, 'medias/')}</div>
 ${annexHtml}</article>`
 }
 
-function documentHtml({ wsName, notes, mediaById, opts, generatedAt }) {
-  const toc = notes.map(n =>
-    `<li><a href="#note-${n.id}">${esc(n.titre || '(sans titre)')}</a>${shownDate(n) ? `<span class="d">${esc(shownDate(n))}</span>` : ''}</li>`
-  ).join('')
-  const sub = `${notes.length} fiche(s) · tri ${opts.dir === 'asc' ? 'date ↑' : 'date ↓'}`
-    + `${opts.withAttachments ? ' · pièces jointes' : ''}${opts.withLinks ? ' · notes liées' : ''}`
-    + ` · généré le ${generatedAt.slice(0, 10)}`
+// secs : [{ titre, notes }] — les intertitres (null = pas de section nommée) reflètent
+// l'affichage (catégories, sous-groupes de la Bibliothèque).
+function documentHtml({ wsName, secs, mediaById, sub }) {
+  const total = secs.reduce((s, x) => s + x.notes.length, 0)
+  const toc = secs.map(sec => {
+    const items = sec.notes.map(n =>
+      `<li><a href="#note-${n.id}">${esc(n.titre || '(sans titre)')}</a>${shownDate(n) ? `<span class="d">${esc(shownDate(n))}</span>` : ''}</li>`
+    ).join('')
+    return sec.titre ? `<li class="toc-sec">${esc(sec.titre)}</li>${items}` : items
+  }).join('')
+  const body = secs.map(sec =>
+    (sec.titre ? `<h2 class="sec">${esc(sec.titre)}</h2>` : '')
+    + sec.notes.map(n => articleHtml(n, mediaById, sub.withAttachments)).join('\n')
+  ).join('\n')
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(wsName)} — liste exportée</title><style>${STYLE}</style></head>
-<body><h1>${esc(wsName)} — liste exportée</h1><p class="sub">${esc(sub)}</p>
+<body><h1>${esc(wsName)} — liste exportée</h1><p class="sub">${esc(`${total} fiche(s) · ${sub.txt}`)}</p>
 <nav class="toc"><ul>${toc}</ul></nav>
-${notes.map(n => articleHtml(n, mediaById, opts.withAttachments)).join('\n')}
+${body}
 </body></html>`
 }
 
 // ── Markdown (document unique) ───────────────────────────────
-function documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }) {
+function documentMarkdown({ wsName, secs, mediaById, sub }) {
   const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced', bulletListMarker: '-', emDelimiter: '*' })
   td.use(gfm)
+  const total = secs.reduce((s, x) => s + x.notes.length, 0)
   const parts = []
   parts.push(`# ${wsName} — liste exportée`)
-  parts.push(`> ${notes.length} fiche(s) · tri ${opts.dir === 'asc' ? 'date ↑' : 'date ↓'} · généré le ${generatedAt.slice(0, 10)}`)
+  parts.push(`> ${total} fiche(s) · ${sub.txt}`)
 
-  for (const n of notes) {
-    const block = [`## ${n.titre || '(sans titre)'}`]
-    block.push(metaLines(n, opts.withLinks).map(m => `> ${m}`).join('  \n'))
+  for (const sec of secs) {
+   if (sec.titre) parts.push(`## ${sec.titre}`)
+   for (const n of sec.notes) {
+    const block = [`### ${n.titre || '(sans titre)'}`]
+    block.push(metaLines(n, sub.withLinks).map(m => `> ${m}`).join('  \n'))
     // Données étendues en tableau Markdown, avant le corps.
     if ((n.donnees ?? []).length) {
       block.push(['| | |', '|---|---|', ...n.donnees.map(([l, v]) =>
@@ -147,7 +160,7 @@ function documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }) {
     const bodyHtml = rewriteImg(n.contenu, mediaById, 'medias/')
     const bodyMd = bodyHtml ? td.turndown(bodyHtml) : '_(vide)_'
     block.push(bodyMd)
-    if (opts.withAttachments) {
+    if (sub.withAttachments) {
       const annexes = (n.medias || [])
       if (annexes.length) {
         block.push('**Annexes :**')
@@ -157,6 +170,7 @@ function documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }) {
       }
     }
     parts.push(block.join('\n\n'))
+   }
   }
   return parts.join('\n\n---\n\n') + '\n'
 }
@@ -179,7 +193,7 @@ async function downloadMedias({ wsId, token, medias, files, onProgress }) {
       onProgress?.({ phase: 'download', done, total })
     }
   }
-  await Promise.all(Array.from({ length: Math.min(4, total || 1) }, worker))
+  await Promise.all(Array.from({ length: Math.min(8, total || 1) }, worker))
   return ok
 }
 
@@ -228,28 +242,41 @@ function zipAsync(files) {
 }
 
 // Génère le ZIP de la liste filtrée.
-// ids : identifiants des notes de la vue courante (dans l'ordre voulu ou non : on re-trie).
-// opts : { dir: 'asc'|'desc', withAttachments: bool, withLinks: bool }
+// Deux entrées : `sections` [{titre, ids}] (ordre/groupes de l'affichage préservés) OU
+// `ids` (liste plate re-triée par date). opts : { dir, withAttachments, withLinks }.
 // onProgress({ phase, done, total }) : phase ∈ 'manifest' | 'download' | 'zip' | 'done'
-export async function buildListExport({ wsId, token, ids, opts, onProgress }) {
-  if (!ids?.length) throw new Error('Aucune note à exporter')
+export async function buildListExport({ wsId, token, ids, sections, opts, onProgress }) {
+  const allIds = Array.isArray(sections) ? sections.flatMap(s => s.ids) : (ids ?? [])
+  if (!allIds.length) throw new Error('Aucune note à exporter')
   onProgress?.({ phase: 'manifest' })
   const res = await fetch(API_ROUTES.JD_WS_EXPORT_MANIFEST_IDS(wsId), {
     method: 'POST',
     headers: { ...authHeader(token), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ids }),
+    body: JSON.stringify({ ids: allIds }),
   })
   if (!res.ok) throw new Error(`Manifeste (${res.status})`)
   const manifest = await res.json()
 
   const wsName = manifest.workspace.name
-  const notes = sortNotes(manifest.notes, opts.dir)
   const mediaById = new Map(manifest.medias.map(m => [m.id, m]))
   const generatedAt = manifest.generatedAt
 
+  // Sections à rendre : soit l'affichage tel quel, soit une section unique triée par date.
+  const noteById = new Map(manifest.notes.map(n => [n.id, n]))
+  const secs = Array.isArray(sections)
+    ? sections.map(s => ({ titre: s.titre, notes: s.ids.map(id => noteById.get(id)).filter(Boolean) }))
+    : [{ titre: null, notes: sortNotes(manifest.notes, opts.dir) }]
+
+  const sub = {
+    txt: (Array.isArray(sections) ? 'ordre de l\'affichage' : `tri ${opts.dir === 'asc' ? 'date ↑' : 'date ↓'}`)
+      + `${opts.withAttachments ? ' · pièces jointes' : ''}${opts.withLinks ? ' · notes liées' : ''}`
+      + ` · généré le ${generatedAt.slice(0, 10)}`,
+    withAttachments: opts.withAttachments, withLinks: opts.withLinks,
+  }
+
   const files = {}
-  files['liste.html'] = strToU8(documentHtml({ wsName, notes, mediaById, opts, generatedAt }))
-  files['liste.md']   = strToU8(documentMarkdown({ wsName, notes, mediaById, opts, generatedAt }))
+  files['liste.html'] = strToU8(documentHtml({ wsName, secs, mediaById, sub }))
+  files['liste.md']   = strToU8(documentMarkdown({ wsName, secs, mediaById, sub }))
 
   let mediaTotal = 0, mediaOk = 0
   if (opts.withAttachments) {
@@ -266,6 +293,7 @@ export async function buildListExport({ wsId, token, ids, opts, onProgress }) {
   const blob = new Blob([data], { type: 'application/zip' })
   const filename = `${manifest.workspace.slug}-liste-${generatedAt.slice(0, 10)}.zip`
 
-  onProgress?.({ phase: 'done', count: notes.length, mediaOk, mediaTotal })
-  return { blob, filename, count: notes.length, mediaOk, mediaTotal }
+  const count = secs.reduce((s, x) => s + x.notes.length, 0)
+  onProgress?.({ phase: 'done', count, mediaOk, mediaTotal })
+  return { blob, filename, count, mediaOk, mediaTotal }
 }

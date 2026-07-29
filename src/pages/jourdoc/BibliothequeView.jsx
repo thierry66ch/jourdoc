@@ -14,6 +14,45 @@ function stripHtml(html) {
   return (html || '').replace(/<[^>]*>/g, ' ').replace(/&[a-z]+;/gi, ' ')
 }
 
+// Types de données étendues à valeurs discrètes → exploitables en groupement/filtre.
+const GROUPABLES = new Set(['select', 'echelle', 'booleen'])
+
+// Valeurs possibles d'un champ, sous forme [valeurStockée, libellé], dans l'ordre naturel.
+function valeursDe(champ) {
+  if (!champ) return []
+  if (champ.type === 'booleen') return [['true', 'Oui'], ['false', 'Non']]
+  if (champ.type === 'select') return (champ.options ?? []).map(o => [o, o])
+  if (champ.type === 'echelle') {
+    const min = Number(champ.min ?? 1), max = Number(champ.max ?? 5)
+    return Array.from({ length: Math.max(0, max - min + 1) }, (_, i) => [String(min + i), `${min + i}/${max}`])
+  }
+  return []
+}
+
+// Libellé de la valeur d'une note pour ce champ, ou null si non renseigné.
+// (Un booléen non coché = « Non » ; les autres types vides = non renseigné.)
+function libelleValeur(champ, raw) {
+  if (champ.type === 'booleen') return raw === 'true' ? 'Oui' : 'Non'
+  if (raw === '' || raw == null) return null
+  if (champ.type === 'echelle') return `${raw}/${champ.max ?? 5}`
+  return String(raw)
+}
+
+// Sous-groupe une liste de notes par la valeur d'un champ, dans l'ordre naturel du champ,
+// « non renseigné » en dernier. Renvoie [{ label, items }].
+function sousGroupes(items, champ) {
+  const buckets = new Map()
+  for (const n of items) {
+    const label = libelleValeur(champ, String(n.donnees_etendues?.[champ.cle] ?? '')) ?? '— non renseigné —'
+    if (!buckets.has(label)) buckets.set(label, [])
+    buckets.get(label).push(n)
+  }
+  const out = [], vus = new Set()
+  for (const [, l] of valeursDe(champ)) if (buckets.has(l)) { out.push({ label: l, items: buckets.get(l) }); vus.add(l) }
+  for (const [l, its] of buckets) if (!vus.has(l)) out.push({ label: l, items: its })  // non renseigné / imprévus
+  return out
+}
+
 /**
  * Bibliothèque : parcours de toute la documentation du workspace,
  * groupée en « étagères » par catégorie. Recherche, tri, densité, filtres objet/thème.
@@ -39,10 +78,13 @@ export default function BibliothequeView() {
   const [collapsed, setCollapsed] = useState(() => new Set())
   const [density, setDensity] = useState(() => localStorage.getItem('biblio_density') || 'cards')
   const [exportOpen, setExportOpen] = useState(false)
-  // Tri sur les données étendues (Phase C) — 100% côté client.
+  // Exploitation des données étendues (Phase C+) — 100% côté client.
   const [schemas, setSchemas] = useState([])
   const [sortDonnee, setSortDonnee] = useState('')
   const [sortDonneeDir, setSortDonneeDir] = useState('desc')
+  const [groupeDonnee, setGroupeDonnee] = useState('')        // sous-groupement dans les catégories
+  const [filtreDonneeCle, setFiltreDonneeCle] = useState('')  // filtre par donnée : champ…
+  const [filtreDonneeVal, setFiltreDonneeVal] = useState('')  // …et valeur
 
   const [objetFilter, setObjetFilter] = useState(() => { const v = params.get('of'); return v ? Number(v) : null })
   const [objetDir, setObjetDir]       = useState(() => params.get('od') || 'both')
@@ -116,8 +158,8 @@ export default function BibliothequeView() {
     requestAnimationFrame(apply)
   }, [loading, scrollKey])
 
-  // 1) Filtrage seul (sans tri) — sert aussi à déterminer le schéma commun des notes visées.
-  const filtres = useMemo(() => {
+  // 1) Filtrage de base (recherche + objet/thème) — détermine aussi le schéma commun.
+  const baseFiltres = useMemo(() => {
     const lq = q.trim().toLowerCase()
     const objetIds = objetFilter ? getRelated(objets, Number(objetFilter), objetDir, searchDepth) : null
     const themeIds = themeFilter ? getRelated(themes, Number(themeFilter), themeDir, searchDepth) : null
@@ -132,20 +174,31 @@ export default function BibliothequeView() {
     return list
   }, [notes, q, objetFilter, objetDir, themeFilter, themeDir, objets, themes, searchDepth])
 
-  // 2) Champs triables. Deux conditions cumulatives :
-  //    a) un filtre objet/thème est ACTIF — le tri suit le « contexte de filtrage courant » ;
-  //       sans filtre, proposer un tri sur données n'a pas de sens (et surprenait à l'ouverture).
-  //    b) toutes les notes concernées relèvent du MÊME schéma — pas de tri croisé entre
-  //       schémas hétérogènes (cf. CDC §7).
+  // 2) Champs exploitables (tri/groupe/filtre). Deux conditions cumulatives :
+  //    a) un filtre objet/thème est ACTIF — on suit le « contexte de filtrage courant » ;
+  //    b) toutes les notes relèvent du MÊME schéma — pas d'exploitation croisée (CDC §7).
   const champsTriables = useMemo(() => {
     if (!objetFilter && !themeFilter) return null
-    const ids = new Set(filtres.map(n => n.schema_donnees_id).filter(Boolean))
+    const ids = new Set(baseFiltres.map(n => n.schema_donnees_id).filter(Boolean))
     if (ids.size !== 1) return null
     const s = schemas.find(x => x.id === [...ids][0])
     return Array.isArray(s?.champs) && s.champs.length ? s.champs : null
-  }, [filtres, schemas, objetFilter, themeFilter])
+  }, [baseFiltres, schemas, objetFilter, themeFilter])
 
-  // 3) Tri : sur une donnée étendue si demandé, sinon tri usuel (récent / A→Z).
+  // Champs groupables/filtrables : uniquement les types à valeurs discrètes.
+  const champsGroupables = useMemo(
+    () => (champsTriables ?? []).filter(c => GROUPABLES.has(c.type)), [champsTriables])
+  const champGroupe = champsGroupables.find(c => c.cle === groupeDonnee) || null
+  const champFiltre = champsGroupables.find(c => c.cle === filtreDonneeCle) || null
+
+  // 3) Filtre par donnée (après les champs triables, pour ne pas réduire leurs options).
+  const filtres = useMemo(() => {
+    if (!champFiltre || filtreDonneeVal === '') return baseFiltres
+    return baseFiltres.filter(n => String(n.donnees_etendues?.[champFiltre.cle] ?? '') === filtreDonneeVal
+      || (champFiltre.type === 'booleen' && filtreDonneeVal === 'false' && !n.donnees_etendues?.[champFiltre.cle]))
+  }, [baseFiltres, champFiltre, filtreDonneeVal])
+
+  // 4) Tri : sur une donnée étendue si demandé, sinon tri usuel (récent / A→Z).
   const matched = useMemo(() => {
     if (sortDonnee && champsTriables) {
       const champ = champsTriables.find(c => c.cle === sortDonnee)
@@ -201,6 +254,27 @@ export default function BibliothequeView() {
 
   const flatIds = useMemo(() => groups.flatMap(g => g.items.map(n => n.id)), [groups])
   const totalCats = docCategories.filter(c => counts.m.get(c.id)).length + (counts.none ? 1 : 0)
+
+  // Structure d'export reflétant l'AFFICHAGE : catégories, sous-groupes éventuels,
+  // ordre courant. Sert à générer un export identique à l'écran (intertitres compris).
+  const exportSections = useMemo(() => {
+    const secs = []
+    for (const g of groups) {
+      const catNom = g.cat ? `${g.cat.icon || '📄'} ${g.cat.nom}` : '📄 Sans catégorie'
+      if (champGroupe) {
+        for (const sg of sousGroupes(g.items, champGroupe))
+          secs.push({ titre: `${catNom} — ${champGroupe.label} : ${sg.label}`, ids: sg.items.map(n => n.id) })
+      } else {
+        secs.push({ titre: catNom, ids: g.items.map(n => n.id) })
+      }
+    }
+    return secs
+  }, [groups, champGroupe])
+
+  // Contexte qui ne résout plus à un schéma unique → on retire les contrôles « données ».
+  useEffect(() => {
+    if (!champsTriables) { setSortDonnee(''); setGroupeDonnee(''); setFiltreDonneeCle(''); setFiltreDonneeVal('') }
+  }, [champsTriables])
 
   function toggleCat(id) { setSelCat(s => s === id ? null : id) }
   function toggleStatut(id) { setSelStatut(s => s === id ? null : id) }
@@ -351,21 +425,49 @@ export default function BibliothequeView() {
         </div>
       )}
 
-      {/* Tri sur une donnée étendue — juste au-dessus de la liste qu'il ordonne, sur sa
-          propre ligne (dans la barre d'outils, il sautait de ligne à la sélection). */}
+      {/* Exploitation des données étendues (tri / groupe / filtre), juste au-dessus de la
+          liste. Visible seulement quand le contexte filtré résout à un schéma unique. */}
       {champsTriables && (
-        <div className="biblio__tri-donnee">
-          <span className="biblio__tri-donnee__label">📋 Trier par donnée</span>
-          <select className="input" value={sortDonnee} onChange={e => setSortDonnee(e.target.value)}>
-            <option value="">— aucun —</option>
-            {champsTriables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
-          </select>
-          {sortDonnee && (
-            <button type="button" className="jd-auto-btn"
-              title={sortDonneeDir === 'desc' ? 'Décroissant' : 'Croissant'}
-              onClick={() => setSortDonneeDir(d => d === 'desc' ? 'asc' : 'desc')}>
-              {sortDonneeDir === 'desc' ? '↓ décroissant' : '↑ croissant'}
-            </button>
+        <div className="biblio__donnees-bar">
+          <div className="biblio__donnees-ctrl">
+            <span>📋 Trier</span>
+            <select className="input" value={sortDonnee} onChange={e => setSortDonnee(e.target.value)}>
+              <option value="">— date/A→Z —</option>
+              {champsTriables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
+            </select>
+            {sortDonnee && (
+              <button type="button" className="jd-auto-btn"
+                onClick={() => setSortDonneeDir(d => d === 'desc' ? 'asc' : 'desc')}>
+                {sortDonneeDir === 'desc' ? '↓' : '↑'}
+              </button>
+            )}
+          </div>
+
+          {champsGroupables.length > 0 && (
+            <div className="biblio__donnees-ctrl">
+              <span>Grouper</span>
+              <select className="input" value={groupeDonnee} onChange={e => setGroupeDonnee(e.target.value)}>
+                <option value="">— non —</option>
+                {champsGroupables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
+              </select>
+            </div>
+          )}
+
+          {champsGroupables.length > 0 && (
+            <div className="biblio__donnees-ctrl">
+              <span>Filtrer</span>
+              <select className="input" value={filtreDonneeCle}
+                onChange={e => { setFiltreDonneeCle(e.target.value); setFiltreDonneeVal('') }}>
+                <option value="">— aucun —</option>
+                {champsGroupables.map(c => <option key={c.cle} value={c.cle}>{c.label || c.cle}</option>)}
+              </select>
+              {champFiltre && (
+                <select className="input" value={filtreDonneeVal} onChange={e => setFiltreDonneeVal(e.target.value)}>
+                  <option value="">toutes</option>
+                  {valeursDe(champFiltre).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -391,7 +493,19 @@ export default function BibliothequeView() {
                 <span className="biblio__shelf-count">{g.items.length}</span>
                 <span className="biblio__shelf-caret">{isCollapsed ? '▸' : '▾'}</span>
               </button>
-              {!isCollapsed && renderItems(g.items)}
+              {!isCollapsed && (
+                champGroupe
+                  ? sousGroupes(g.items, champGroupe).map(sg => (
+                      <div key={sg.label} className="biblio__subgroup">
+                        <div className="biblio__subgroup-head">
+                          {champGroupe.label} : <b>{sg.label}</b>
+                          <span className="biblio__subgroup-n">{sg.items.length}</span>
+                        </div>
+                        {renderItems(sg.items)}
+                      </div>
+                    ))
+                  : renderItems(g.items)
+              )}
             </section>
           )
         })
@@ -400,8 +514,7 @@ export default function BibliothequeView() {
       {exportOpen && (
         <ExportListModal
           wsId={wsId} token={token}
-          ids={flatIds} count={flatIds.length}
-          defaultDir="desc"
+          sections={exportSections} count={flatIds.length}
           onClose={() => setExportOpen(false)}
         />
       )}

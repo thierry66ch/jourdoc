@@ -2,21 +2,25 @@ import { useState } from 'react'
 import { buildListExport } from './exportList'
 
 // Modale d'export d'une liste filtrée (vue en l'état) → ZIP (Markdown + HTML imprimable).
-// ids : identifiants des notes de la vue courante. defaultDir : 'asc' | 'desc'.
-export default function ExportListModal({ wsId, token, ids, count, defaultDir = 'desc', onClose }) {
+// Deux entrées possibles :
+//   - sections : [{ titre, ids }] → l'export reflète EXACTEMENT l'affichage (ordre +
+//     groupes + intertitres). L'ordre est figé, pas d'option de tri par date.
+//   - ids : liste plate → export trié par date (option asc/desc), sans intertitres.
+export default function ExportListModal({ wsId, token, ids, sections, count, defaultDir = 'desc', onClose }) {
   const [dir, setDir] = useState(defaultDir)
   const [withAttachments, setWithAttachments] = useState(true)
   const [withLinks, setWithLinks] = useState(true)
   const [prog, setProg] = useState(null)  // { phase, done, total } | { error }
 
+  const structured = Array.isArray(sections)
   const busy = prog && !prog.error && prog.phase !== 'done'
-  const n = ids?.length ?? count ?? 0
+  const n = structured ? sections.reduce((s, sec) => s + sec.ids.length, 0) : (ids?.length ?? count ?? 0)
 
   async function run() {
     setProg({ phase: 'manifest' })
     try {
       const { blob, filename, count: done, mediaOk, mediaTotal } = await buildListExport({
-        wsId, token, ids,
+        wsId, token, ids, sections,
         opts: { dir, withAttachments, withLinks },
         onProgress: setProg,
       })
@@ -40,18 +44,24 @@ export default function ExportListModal({ wsId, token, ids, count, defaultDir = 
           {' '}(→ « Enregistrer en PDF » depuis le navigateur).
         </p>
 
-        <div className="form-field">
-          <label className="form-label">Ordre (par date)</label>
-          <div className="jd-seg">
-            <button type="button" className={`jd-seg-btn${dir === 'desc' ? ' active' : ''}`}
-              onClick={() => setDir('desc')}>↓ Récent → ancien</button>
-            <button type="button" className={`jd-seg-btn${dir === 'asc' ? ' active' : ''}`}
-              onClick={() => setDir('asc')}>↑ Ancien → récent</button>
-          </div>
-          <p style={{ margin: '.25rem 0 0', fontSize: '.75rem', color: 'var(--text-muted)' }}>
-            Journal : date de référence · Documentation : date de création.
+        {structured ? (
+          <p style={{ margin: 0, fontSize: '.8rem', color: 'var(--text-muted)' }}>
+            L'export reprend l'<b>ordre et les groupes affichés</b> ({sections.length} section{sections.length > 1 ? 's' : ''}).
           </p>
-        </div>
+        ) : (
+          <div className="form-field">
+            <label className="form-label">Ordre (par date)</label>
+            <div className="jd-seg">
+              <button type="button" className={`jd-seg-btn${dir === 'desc' ? ' active' : ''}`}
+                onClick={() => setDir('desc')}>↓ Récent → ancien</button>
+              <button type="button" className={`jd-seg-btn${dir === 'asc' ? ' active' : ''}`}
+                onClick={() => setDir('asc')}>↑ Ancien → récent</button>
+            </div>
+            <p style={{ margin: '.25rem 0 0', fontSize: '.75rem', color: 'var(--text-muted)' }}>
+              Journal : date de référence · Documentation : date de création.
+            </p>
+          </div>
+        )}
 
         <label className="media-picker__toggle">
           <input type="checkbox" checked={withAttachments} onChange={e => setWithAttachments(e.target.checked)} />

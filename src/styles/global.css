@@ -4041,11 +4041,23 @@ button, input, select, textarea { font: inherit; color: inherit }
 .biblio__row-title { font-weight: 600; font-size: .9375rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
 .biblio__row-meta { margin-left: auto; font-size: .75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 45% }
 
-/* Bibliothèque — tri sur une donnée étendue (Phase C), ligne propre au-dessus de la liste */
-.biblio__tri-donnee {
-  display: flex; align-items: center; gap: .4rem; flex-wrap: wrap;
+/* Bibliothèque — exploitation des données étendues (tri / groupe / filtre) */
+.biblio__donnees-bar {
+  display: flex; align-items: center; gap: .5rem 1rem; flex-wrap: wrap;
   margin: .5rem 0 .75rem; padding: .45rem .6rem;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
 }
-.biblio__tri-donnee__label { font-size: .78rem; font-weight: 600; color: var(--text-muted) }
-.biblio__tri-donnee .input { font-size: .8rem; padding: .3rem .5rem; width: auto; min-width: 150px }
+.biblio__donnees-ctrl { display: flex; align-items: center; gap: .35rem }
+.biblio__donnees-ctrl > span { font-size: .78rem; font-weight: 600; color: var(--text-muted) }
+.biblio__donnees-ctrl .input { font-size: .8rem; padding: .3rem .5rem; width: auto; min-width: 120px }
+
+/* Sous-groupes dans une étagère */
+.biblio__subgroup { margin: .3rem 0 .6rem }
+.biblio__subgroup-head {
+  font-size: .82rem; color: var(--text-muted); margin: .5rem 0 .35rem;
+  padding-bottom: .2rem; border-bottom: 1px dashed var(--border);
+}
+.biblio__subgroup-n {
+  margin-left: .4rem; font-size: .72rem; background: var(--accent-bg); color: var(--accent);
+  border-radius: var(--r-full); padding: .05em .5em;
+}

@@ -4,6 +4,26 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 133 — 2026-07-23 — V2.1 — Données étendues : groupe/filtre Biblio + export fidèle
+
+Suite aux retours de test. Tout reste 100% côté client (décision assumée : pas de tri/index
+serveur — la Biblio charge déjà toutes les notes).
+
+- **Bibliothèque — groupement & filtre par donnée** (types à valeurs discrètes :
+  select/échelle/oui-non). Barre « données » au-dessus de la liste : trier (existant),
+  **grouper** (sous-groupes au sein des catégories, avec intertitres) et **filtrer** (champ +
+  valeur). Visible seulement quand le contexte filtré résout à un schéma unique ; contrôles
+  réinitialisés quand ce n'est plus le cas.
+- **Export de liste = affichage** : l'export reçoit désormais une **structure de sections**
+  (catégories + sous-groupes, ordre courant) au lieu d'une liste plate. `liste.html`/`liste.md`
+  reprennent les **intertitres** et l'ordre à l'écran ; plus d'option de tri par date pour la
+  Biblio (l'ordre suit la vue). `ExportListModal`/`exportList` acceptent `sections` OU `ids`
+  (l'entrée plate + tri date reste pour l'Analyse). Titre de note → `h3`, section → `h2`,
+  saut de page à l'impression sur les sections.
+- **Perf export** : concurrence de téléchargement des médias 4 → 8.
+
+---
+
 ## Builds 126-128 — 2026-07-22 — V2.1 — Données étendues, Phase B (schémas contextuels)
 
 **B.1 — Modèle** (migration `012`, appliquée). `jd_schema_donnees` : 4 axes de contexte
