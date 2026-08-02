@@ -5,6 +5,7 @@ import { API_ROUTES } from '@pogil/shared'
 import { useJdData, authHeader, buildPathMap } from './hooks'
 import { sortedIds } from './calUtils'
 import NoteCard from './NoteCard'
+import ElementFilterPicker from './ElementFilterPicker'
 
 function getDescendants(items, rootId) {
   const ids = new Set([rootId])
@@ -29,6 +30,7 @@ export default function ObjetDetail() {
   const [themeFilter, setThemeFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [catFilter, setCatFilter] = useState('')
+  const [elementFilter, setElementFilter] = useState([])
   const [loading, setLoading] = useState(true)
 
   const objet = objets.find(o => o.id === Number(objetId))
@@ -58,6 +60,7 @@ export default function ObjetDetail() {
       if (catFilter === '__none__') return n.type === 'documentation' && !n.doc_categorie
       return n.doc_categorie?.id === Number(catFilter)
     })
+    .filter(n => !elementFilter.length || n.elements?.some(e => elementFilter.includes(e.id)))
 
   // Thèmes présents dans les notes (pour le filtre)
   const themesInNotes = themes.filter(t => notes.some(n => n.themes?.some(nt => nt.id === t.id)))
@@ -65,6 +68,10 @@ export default function ObjetDetail() {
   const catsInNotes = docCategories.filter(c => notes.some(n => n.doc_categorie?.id === c.id))
   const hasUncatDoc = notes.some(n => n.type === 'documentation' && !n.doc_categorie)
   const showCatFilter = typeFilter !== 'journal' && (catsInNotes.length > 0 || hasUncatDoc)
+  // Éléments présents dans les notes (pour le filtre, plat — multi-select)
+  const elementsInNotesMap = new Map()
+  for (const n of notes) for (const e of (n.elements ?? [])) if (!elementsInNotesMap.has(e.id)) elementsInNotesMap.set(e.id, e)
+  const elementsInNotes = [...elementsInNotesMap.values()]
 
   return (
     <div className="jd-objet-detail">
@@ -104,6 +111,12 @@ export default function ObjetDetail() {
             {catsInNotes.map(c => <option key={c.id} value={c.id}>{c.icon} {c.nom}</option>)}
             {hasUncatDoc && <option value="__none__">— Sans catégorie</option>}
           </select>
+        )}
+        {elementsInNotes.length > 0 && (
+          <div style={{ marginLeft: '.75rem', minWidth: '180px' }}>
+            <ElementFilterPicker items={elementsInNotes} value={elementFilter}
+              onChange={setElementFilter} placeholder="🔩 Élément…" />
+          </div>
         )}
         <div className="jd-segmented" style={{ marginLeft: 'auto' }}>
           {[['all','Tout'],['journal','📔 Journal'],['documentation','📄 Doc.']].map(([v,l]) => (

@@ -4,6 +4,41 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 136 — 2026-08-02 — Filtre par élément + frictions (CDC workspace Modélisme)
+
+Suite au CDC utilisateur « Workspace Modélisme ferroviaire », qui identifie une lacune
+prioritaire et trois frictions.
+
+**Filtre par élément** (priorité haute du CDC) — nouveau `ElementFilterPicker.jsx` :
+multi-select plat (sémantique OR, sans hiérarchie ni direction), même habillage que
+`HierarchyPicker`. Branché en **Bibliothèque**, **Calendrier** et **fiche objet**
+(`ObjetDetail`), sur les éléments présents dans le jeu de notes courant. 100% côté
+client (les 3 endpoints notes renvoient déjà `elements[]`), persisté en URL
+(`ef=id,id…`) pour Biblio/Calendrier. Les exports de liste en héritent automatiquement
+(le filtre agit en amont de `groups`/`exportSections`).
+
+**Frictions :**
+- **Picker mobile qui ne se ferme pas** : deux causes distinctes.
+  `ElementPicker` (éléments) refermait puis se **rouvrait aussitôt** — `select()`
+  refocalisait l'input, dont `onFocus` réouvre le menu. Le refocus est désormais réservé
+  au desktop (`useIsMobile`). `HierarchyPicker` en mode `multi` (objets/thèmes de
+  `NoteForm`) ne fermait **jamais** après sélection (comportement multi-select normal,
+  mais frictionnel sur mobile où on choisit le plus souvent un seul item) : ferme
+  désormais après chaque sélection **sur mobile uniquement** ; le mode `single` (filtres)
+  fermait déjà dans tous les cas.
+- **Éditeur de schéma — bouton « Ajouter »** déplacé en **fin de liste** (là où la
+  nouvelle ligne apparaît) au lieu d'en tête : évite le double-scroll
+  ajouter→remonter→éditer→redescendre. Focus auto sur le libellé du nouveau champ.
+- **Export workspace incomplet** (soupçon confirmé) : `jd_schema_donnees` était
+  **absent** de l'export complet (JSON et CSV/ZIP), alors que objets/thèmes/éléments/
+  catégories y sont. Ajouté (`schemas_donnees` en JSON, `schemas_donnees.csv` en ZIP).
+  Bug annexe découvert au passage : `notes.csv` sérialisait `donnees_etendues` (JSONB)
+  en `[object Object]` — corrigé (JSON.stringify avant cellule CSV), de même pour
+  `champs` du nouveau `schemas_donnees.csv`. Pas de véritable **import** de workspace
+  complet (jamais implémenté ; seuls `objets.csv`/`themes.csv` ont un import dédié).
+
+---
+
 ## Doc — 2026-07-23 — Mise à jour V2.1 (données étendues) dans tous les documents
 
 Passe de documentation après la Vague 4. Aucun changement de code.

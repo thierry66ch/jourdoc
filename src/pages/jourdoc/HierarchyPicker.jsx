@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import { buildPathMap } from './hooks'
+import { buildPathMap, useIsMobile } from './hooks'
 
 function buildSortPath(items) {
   const map = new Map(items.map(i => [i.id, i]))
@@ -37,6 +37,7 @@ export default function HierarchyPicker({
   const searchRef = useRef(null)
   const listRef = useRef(null)
   const scrollToRef = useRef(false) // true = navigation clavier/recherche, scroll autorisé
+  const isMobile = useIsMobile()
   const pathMap = useMemo(() => buildPathMap(items), [items])
   const sortPathMap = useMemo(() => buildSortPath(items), [items])
 
@@ -109,6 +110,10 @@ export default function HierarchyPicker({
     } else {
       const arr = value ?? []
       onChange(arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id])
+      // Sur mobile, on sélectionne le plus souvent un seul objet/thème : fermer tout de
+      // suite évite le clic à côté systématique. Rouvrir pour en ajouter d'autres reste
+      // un tap sur le trigger. Desktop inchangé (utile pour enchaîner plusieurs choix).
+      if (isMobile) close()
     }
   }
 

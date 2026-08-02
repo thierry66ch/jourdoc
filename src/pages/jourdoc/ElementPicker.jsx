@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader } from './hooks'
+import { authHeader, useIsMobile } from './hooks'
 
 /**
  * Sélecteur d'éléments plat (non hiérarchique) avec création inline.
@@ -14,6 +14,7 @@ export default function ElementPicker({ value = [], onChange, wsId, token }) {
   const [highlightIdx, setHighlightIdx] = useState(0)
   const inputRef = useRef(null)
   const dropRef  = useRef(null)
+  const isMobile = useIsMobile()
 
   const loadElements = useCallback(() => {
     fetch(API_ROUTES.JD_ELEMENTS(wsId), { headers: authHeader(token) })
@@ -41,7 +42,10 @@ export default function ElementPicker({ value = [], onChange, wsId, token }) {
   function select(id) {
     onChange([...value, id])
     setSearch(''); setOpen(false); setHighlightIdx(0)
-    inputRef.current?.focus()
+    // Sur desktop, on rend le focus pour enchaîner la saisie d'un autre élément.
+    // Sur mobile, ce refocus rouvrait aussitôt le menu (onFocus → setOpen(true)) :
+    // le sélecteur ne se fermait donc jamais vraiment sans taper à côté.
+    if (!isMobile) inputRef.current?.focus()
   }
 
   function remove(id) { onChange(value.filter(v => v !== id)) }

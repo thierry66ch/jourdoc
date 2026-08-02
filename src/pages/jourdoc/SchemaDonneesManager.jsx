@@ -5,7 +5,7 @@
 // (ex. un schéma objet-only et un schéma nature-only qui se chevauchent). Le simulateur
 // répond à « pour ce contexte, lequel s'applique ? » sans rejouer l'algorithme de tête.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
@@ -32,6 +32,7 @@ export default function SchemaDonneesManager() {
 
   const [schemas, setSchemas] = useState([])
   const [edit, setEdit] = useState(null)      // null | objet en cours d'édition
+  const champLabelRefs = useRef([])           // focus auto du nouveau champ ajouté
   const [msg, setMsg] = useState('')
 
   const load = useCallback(async () => {
@@ -60,6 +61,13 @@ export default function SchemaDonneesManager() {
 
   // ── Édition des champs ──
   const majChamp = (i, patch) => setEdit(e => ({ ...e, champs: e.champs.map((c, j) => j === i ? { ...c, ...patch } : c) }))
+  // Le bouton « Ajouter » est en FIN de liste (là où la nouvelle ligne apparaît) : évite
+  // le double-scroll ajouter→remonter→éditer→redescendre. Focus auto sur son libellé.
+  function ajouterChamp() {
+    const idx = edit.champs.length
+    setEdit(x => ({ ...x, champs: [...x.champs, { cle: '', label: '', type: 'texte_court' }] }))
+    requestAnimationFrame(() => champLabelRefs.current[idx]?.focus())
+  }
   const bouger = (i, d) => setEdit(e => {
     const a = [...e.champs], j = i + d
     if (j < 0 || j >= a.length) return e
@@ -141,18 +149,13 @@ export default function SchemaDonneesManager() {
           </div>
 
           <div className="form-field">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label className="form-label">Champs ({edit.champs.length})</label>
-              <button type="button" className="jd-auto-btn"
-                onClick={() => setEdit(x => ({ ...x, champs: [...x.champs, { cle: '', label: '', type: 'texte_court' }] }))}>
-                ✚ Ajouter un champ
-              </button>
-            </div>
+            <label className="form-label">Champs ({edit.champs.length})</label>
 
             {edit.champs.map((ch, i) => (
               <div key={i} className="jd-schema-champ">
                 <div className="jd-schema-champ__head">
                   <input className="input" placeholder="Libellé (ex. Goût)" value={ch.label}
+                    ref={el => { champLabelRefs.current[i] = el }}
                     onChange={e => majChamp(i, { label: e.target.value, cle: ch.cle || slug(e.target.value) })} />
                   <select className="input" value={ch.type} onChange={e => majChamp(i, { type: e.target.value })}>
                     {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
@@ -185,6 +188,11 @@ export default function SchemaDonneesManager() {
                 </div>
               </div>
             ))}
+
+            <button type="button" className="jd-auto-btn" style={{ marginTop: '.5rem' }}
+              onClick={ajouterChamp}>
+              ✚ Ajouter un champ
+            </button>
           </div>
 
           <label className="media-picker__toggle">

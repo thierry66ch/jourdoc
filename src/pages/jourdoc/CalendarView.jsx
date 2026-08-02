@@ -9,6 +9,7 @@ import CalendarWeek from './CalendarWeek'
 import CalendarYear from './CalendarYear'
 import ObjectMatrix from './ObjectMatrix'
 import HierarchyPicker from './HierarchyPicker'
+import ElementFilterPicker from './ElementFilterPicker'
 import ExportListModal from './ExportListModal'
 import { GROUPABLES, valeursDe, champsSchemaCommun, filtrerParDonnee } from './donneesUtils'
 
@@ -38,6 +39,9 @@ export default function CalendarView() {
   const [objetDirection, setObjetDirection] = useState(() => searchParams.get('od') || 'both')
   const [themeFilter,    setThemeFilter]    = useState(() => { const v = searchParams.get('tf'); return v ? Number(v) : null })
   const [themeDirection, setThemeDirection] = useState(() => searchParams.get('td') || 'both')
+  const [elementFilter,  setElementFilter]  = useState(() => {
+    const v = searchParams.get('ef'); return v ? v.split(',').map(Number).filter(Boolean) : []
+  })
 
   // Exploitation des données étendues sur le journal : filtre + export (Vague 4).
   const [schemas, setSchemas] = useState([])
@@ -50,8 +54,9 @@ export default function CalendarView() {
     const p = { mode, anchor }
     if (objetFilter) { p.of = String(objetFilter); if (objetDirection !== 'both') p.od = objetDirection }
     if (themeFilter) { p.tf = String(themeFilter); if (themeDirection !== 'both') p.td = themeDirection }
+    if (elementFilter.length) p.ef = elementFilter.join(',')
     setSearchParams(p, { replace: true })
-  }, [mode, anchor, objetFilter, objetDirection, themeFilter, themeDirection, setSearchParams])
+  }, [mode, anchor, objetFilter, objetDirection, themeFilter, themeDirection, elementFilter, setSearchParams])
 
   const currentMode = MODES.find(m => m.key === mode) ?? MODES[0]
   const { from, to } = useMemo(() => getRange(anchor, currentMode.period), [anchor, currentMode])
@@ -86,18 +91,32 @@ export default function CalendarView() {
     return result
   }, [notes, objets, themes, objetFilter, objetDirection, themeFilter, themeDirection])
 
+  // Éléments proposés au filtre : présents dans le jeu de notes courant (objet/thème).
+  const elementsDispo = useMemo(() => {
+    const seen = new Map()
+    for (const n of baseFilteredNotes) for (const e of (n.elements ?? [])) if (!seen.has(e.id)) seen.set(e.id, e)
+    return [...seen.values()]
+  }, [baseFilteredNotes])
+
+  // Filtre par élément — étiquette plate, sémantique OR.
+  const baseFilteredNotesEl = useMemo(() => {
+    if (!elementFilter.length) return baseFilteredNotes
+    const set = new Set(elementFilter)
+    return baseFilteredNotes.filter(n => n.elements?.some(e => set.has(e.id)))
+  }, [baseFilteredNotes, elementFilter])
+
   // Champs filtrables : seulement si un filtre objet/thème est actif ET que les notes
   // partagent un unique schéma (mêmes conditions que la Bibliothèque).
   const champsFiltrables = useMemo(() =>
     (objetFilter || themeFilter)
-      ? (champsSchemaCommun(baseFilteredNotes, schemas) ?? []).filter(c => GROUPABLES.has(c.type))
+      ? (champsSchemaCommun(baseFilteredNotesEl, schemas) ?? []).filter(c => GROUPABLES.has(c.type))
       : [],
-    [baseFilteredNotes, schemas, objetFilter, themeFilter])
+    [baseFilteredNotesEl, schemas, objetFilter, themeFilter])
   const champFiltre = champsFiltrables.find(c => c.cle === filtreDonneeCle) || null
 
   const filteredNotes = useMemo(
-    () => filtrerParDonnee(baseFilteredNotes, champFiltre, filtreDonneeVal),
-    [baseFilteredNotes, champFiltre, filtreDonneeVal])
+    () => filtrerParDonnee(baseFilteredNotesEl, champFiltre, filtreDonneeVal),
+    [baseFilteredNotesEl, champFiltre, filtreDonneeVal])
 
   // Plus de contexte filtrable → on retire le filtre par donnée.
   useEffect(() => {
@@ -183,6 +202,17 @@ export default function CalendarView() {
               </div>
             )}
           </div>
+
+          {/* Filtre élément (étiquette plate, multi-select) */}
+          {elementsDispo.length > 0 && (
+            <div className="cal-filter-row">
+              <span className="cal-filter-label">🔩 Élément</span>
+              <div className="cal-filter-picker">
+                <ElementFilterPicker items={elementsDispo} value={elementFilter}
+                  onChange={setElementFilter} placeholder="Filtrer par élément…" />
+              </div>
+            </div>
+          )}
 
           {/* Filtre par donnée étendue — visible quand les notes filtrées partagent un schéma */}
           {champsFiltrables.length > 0 && (

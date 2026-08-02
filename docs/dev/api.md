@@ -186,13 +186,23 @@ Filtre thème via `EXISTS (jd_note_theme)`. Exclut les notes `nature IS NULL`
 
 `GET /:wsId/export?format=json|csv&medias=0|1`
 
-- **JSON** : `{ workspace, objets, themes, elements, notes, medias }` ; chaque note
-  embarque `objets[]`, `themes[]`, `elements[]`, `medias[]`, `liens[]`.
-- **CSV (ZIP)** : référentiels `objets.csv`, `themes.csv`, `elements.csv`, `notes.csv`,
+- **JSON** : `{ workspace, objets, themes, elements, doc_categories, doc_statuts,
+  schemas_donnees, notes, medias }` ; chaque note embarque `objets[]`, `themes[]`,
+  `elements[]`, `medias[]`, `liens[]`.
+- **CSV (ZIP)** : référentiels `objets.csv`, `themes.csv`, `elements.csv`,
+  `doc_categories.csv`, `doc_statuts.csv`, `schemas_donnees.csv`, `notes.csv`,
   `medias.csv` + liaisons `note_objets.csv`, `note_themes.csv`, `note_elements.csv`,
   `note_medias.csv`, `liens_notes.csv`. Avec `medias=1`, les fichiers binaires
   (récupérés depuis WebDAV) sont inclus dans le ZIP, plus un **`notes.html`**
   autonome (images du contenu réécrites vers les fichiers locaux).
+- **Colonnes JSONB** (`schema_donnees.champs`, `notes.donnees_etendues`) sont
+  **sérialisées en JSON texte** pour la cellule CSV (sinon `String()` sur un objet
+  produit `[object Object]`).
+
+> **Pas d'import de workspace complet.** L'export ci-dessus est à sens unique
+> (archive/backup). Seuls `objets.csv` et `themes.csv` ont un **import** dédié
+> (`POST /:wsId/import/objets` / `/import/themes`, cf. plus haut) ; il n'existe pas
+> de ré-import de `schemas_donnees` ou des notes.
 
 ### Export complet (HTML lisible) — généré côté navigateur
 

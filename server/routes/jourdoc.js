@@ -2103,12 +2103,13 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const { format = 'json', medias: withMediasParam = '0' } = c.req.query()
   const withMedias = withMediasParam === '1'
 
-  const [objets, themes, elements, docCategories, docStatuts, rawNotes, rawMedias] = await Promise.all([
+  const [objets, themes, elements, docCategories, docStatuts, schemasDonnees, rawNotes, rawMedias] = await Promise.all([
     sql`SELECT * FROM jd_objets        WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_themes        WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_elements      WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_doc_categorie WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_doc_statut    WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_schema_donnees WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_notes         WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_medias        WHERE workspace_id=${wsId}`,
   ])
@@ -2128,7 +2129,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const date = new Date().toISOString().slice(0, 10)
 
   if (format === 'json') {
-    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, doc_categories: docCategories, doc_statuts: docStatuts, notes, medias: rawMedias }, null, 2)
+    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, doc_categories: docCategories, doc_statuts: docStatuts, schemas_donnees: schemasDonnees, notes, medias: rawMedias }, null, 2)
     c.header('Content-Type', 'application/json')
     c.header('Content-Disposition', contentDisposition('attachment', `${slug}-${date}.json`))
     return c.body(payload)
@@ -2193,13 +2194,20 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     sql`SELECT note_id,media_id FROM jd_note_media WHERE note_id=${n.id}`
   ))).flat()
 
+  // Colonnes JSONB : sérialisées en texte pour la cellule CSV, sinon `String()` sur un
+  // objet/tableau produit « [object Object] » illisible (constaté aussi sur notes.csv
+  // via donnees_etendues, préexistant à l'ajout des schémas — corrigé au passage).
+  const schemasDonneesCsv = schemasDonnees.map(s => ({ ...s, champs: JSON.stringify(s.champs) }))
+  const rawNotesCsv = rawNotes.map(n => ({ ...n, donnees_etendues: n.donnees_etendues ? JSON.stringify(n.donnees_etendues) : '' }))
+
   const zipFiles = [
     { name: 'objets.csv',        data: toCsv(objets) },
     { name: 'themes.csv',        data: toCsv(themes) },
     { name: 'elements.csv',      data: toCsv(elements) },
     { name: 'doc_categories.csv', data: toCsv(docCategories) },
     { name: 'doc_statuts.csv',    data: toCsv(docStatuts) },
-    { name: 'notes.csv',         data: toCsv(rawNotes) },
+    { name: 'schemas_donnees.csv', data: toCsv(schemasDonneesCsv) },
+    { name: 'notes.csv',         data: toCsv(rawNotesCsv) },
     { name: 'note_objets.csv',   data: toCsv(noteObjets) },
     { name: 'note_themes.csv',   data: toCsv(noteThemes) },
     { name: 'note_elements.csv', data: toCsv(noteElements) },

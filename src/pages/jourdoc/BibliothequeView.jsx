@@ -5,6 +5,7 @@ import { API_ROUTES } from '@pogil/shared'
 import { useJdData, authHeader, docCategorieBadgeStyle } from './hooks'
 import { getRelated } from './calUtils'
 import HierarchyPicker from './HierarchyPicker'
+import ElementFilterPicker from './ElementFilterPicker'
 import NoteCard from './NoteCard'
 import ExportListModal from './ExportListModal'
 import { GROUPABLES, valeursDe, sousGroupes, champsSchemaCommun, filtrerParDonnee } from './donneesUtils'
@@ -52,6 +53,10 @@ export default function BibliothequeView() {
   const [objetDir, setObjetDir]       = useState(() => params.get('od') || 'both')
   const [themeFilter, setThemeFilter] = useState(() => { const v = params.get('tf'); return v ? Number(v) : null })
   const [themeDir, setThemeDir]       = useState(() => params.get('td') || 'both')
+  // Filtre par élément (étiquette plate, multi-select, sémantique OR).
+  const [elementFilter, setElementFilter] = useState(() => {
+    const v = params.get('ef'); return v ? v.split(',').map(Number).filter(Boolean) : []
+  })
 
   useEffect(() => { localStorage.setItem('biblio_density', density) }, [density])
 
@@ -64,8 +69,9 @@ export default function BibliothequeView() {
     if (selStatut != null) p.st = String(selStatut)
     if (objetFilter) { p.of = String(objetFilter); if (objetDir !== 'both') p.od = objetDir }
     if (themeFilter) { p.tf = String(themeFilter); if (themeDir !== 'both') p.td = themeDir }
+    if (elementFilter.length) p.ef = elementFilter.join(',')
     setParams(p, { replace: true })
-  }, [q, sort, selCat, selStatut, objetFilter, objetDir, themeFilter, themeDir, setParams])
+  }, [q, sort, selCat, selStatut, objetFilter, objetDir, themeFilter, themeDir, elementFilter, setParams])
 
   // Schémas du workspace : pour proposer leurs champs comme critères de tri.
   useEffect(() => {
@@ -136,12 +142,27 @@ export default function BibliothequeView() {
     return list
   }, [notes, q, objetFilter, objetDir, themeFilter, themeDir, objets, themes, searchDepth])
 
+  // Éléments proposés au filtre : ceux présents dans le jeu de notes courant
+  // (recherche + objet/thème), avant que le filtre élément lui-même ne le réduise.
+  const elementsDispo = useMemo(() => {
+    const seen = new Map()
+    for (const n of baseFiltres) for (const e of (n.elements ?? [])) if (!seen.has(e.id)) seen.set(e.id, e)
+    return [...seen.values()]
+  }, [baseFiltres])
+
+  // 1 bis) Filtre par élément — étiquette plate, sémantique OR (au moins un des sélectionnés).
+  const baseFiltresElement = useMemo(() => {
+    if (!elementFilter.length) return baseFiltres
+    const set = new Set(elementFilter)
+    return baseFiltres.filter(n => n.elements?.some(e => set.has(e.id)))
+  }, [baseFiltres, elementFilter])
+
   // 2) Champs exploitables (tri/groupe/filtre). Deux conditions cumulatives :
   //    a) un filtre objet/thème est ACTIF — on suit le « contexte de filtrage courant » ;
   //    b) toutes les notes relèvent du MÊME schéma — pas d'exploitation croisée (CDC §7).
   const champsTriables = useMemo(() =>
-    (objetFilter || themeFilter) ? champsSchemaCommun(baseFiltres, schemas) : null,
-    [baseFiltres, schemas, objetFilter, themeFilter])
+    (objetFilter || themeFilter) ? champsSchemaCommun(baseFiltresElement, schemas) : null,
+    [baseFiltresElement, schemas, objetFilter, themeFilter])
 
   // Champs groupables/filtrables : uniquement les types à valeurs discrètes.
   const champsGroupables = useMemo(
@@ -150,8 +171,8 @@ export default function BibliothequeView() {
   const champFiltre = champsGroupables.find(c => c.cle === filtreDonneeCle) || null
 
   // 3) Filtre par donnée (après les champs triables, pour ne pas réduire leurs options).
-  const filtres = useMemo(() => filtrerParDonnee(baseFiltres, champFiltre, filtreDonneeVal),
-    [baseFiltres, champFiltre, filtreDonneeVal])
+  const filtres = useMemo(() => filtrerParDonnee(baseFiltresElement, champFiltre, filtreDonneeVal),
+    [baseFiltresElement, champFiltre, filtreDonneeVal])
 
   // 4) Tri : sur une donnée étendue si demandé, sinon tri usuel (récent / A→Z).
   const matched = useMemo(() => {
@@ -329,6 +350,15 @@ export default function BibliothequeView() {
             </div>
           )}
         </div>
+        {elementsDispo.length > 0 && (
+          <div className="biblio__filter">
+            <span className="biblio__filter-label">🔩 Élément</span>
+            <div className="biblio__filter-picker">
+              <ElementFilterPicker items={elementsDispo} value={elementFilter}
+                onChange={setElementFilter} placeholder="Filtrer par élément…" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Légende / filtre par catégorie */}

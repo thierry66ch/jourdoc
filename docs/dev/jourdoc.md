@@ -102,12 +102,25 @@ avec croix de retrait. Prop `filterMode` :
 - `scroll` — défile jusqu'à la 1ère correspondance (liste complète) ;
 - `filter` — réduit la liste aux seuls éléments correspondants.
 Le mode effectif vient de `pickerMode` (réglage workspace, distinct mobile/desktop).
+**Mobile (`useIsMobile`)** : en mode `multi`, une sélection **ferme** le dropdown (le
+cas courant est un seul objet/thème ; rouvrir pour en ajouter reste un tap sur le
+trigger). Le mode `single` fermait déjà dans tous les cas.
 
 **`ObjetManager.jsx` / `ThemeManager.jsx`** — arbre inline (afficher, renommer,
 ajouter enfant, changer de parent), import CSV. Le picker de parent reste en `scroll`.
 
 **`ElementPicker.jsx` / `ElementManager.jsx`** — sélection plate avec création
-inline ; fusion d'éléments (`/elements/merge`).
+inline ; fusion d'éléments (`/elements/merge`). Le refocus après sélection (pour
+enchaîner la saisie) est réservé au **desktop** : sur mobile il rouvrait aussitôt le
+menu (`onFocus` → `setOpen(true)`), empêchant toute vraie fermeture.
+
+**`ElementFilterPicker.jsx`** — variante **filtre** des éléments : multi-select plat
+(sémantique OR, sans hiérarchie ni direction), même habillage visuel que
+`HierarchyPicker` (`.jd-picker`). Branché en Bibliothèque, Calendrier et fiche objet
+(`ObjetDetail`), sur les éléments **présents dans le jeu de notes courant** (comme le
+filtre thème de la fiche objet). Filtre purement client (les 3 endpoints notes
+renvoient déjà `elements[]` via `withData`), persisté en URL (`ef=id,id…`) pour
+Bibliothèque/Calendrier.
 
 **`DocCategorieManager.jsx`** (dans WorkspaceManager) — CRUD des catégories de
 documentation : nom + emoji + couleur (`<input type=color>`) + réordonnancement (↑↓).

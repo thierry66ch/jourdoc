@@ -205,6 +205,8 @@ un **état**… puis retrouver toutes les notes portant cette étiquette.
   liaisons sur l'étiquette cible).
 - **Administration** : liste des éléments avec compteur d'utilisation, renommage inline,
   suppression (si plus utilisé).
+- **Filtre** (multi-select plat, sémantique OR) dans la Bibliothèque, le Calendrier et la
+  fiche objet — sur les éléments présents dans le jeu de notes courant.
 
 > Les éléments participent au **titre auto-généré** ? Non : le titre reste composé des
 > objets et thèmes ; les éléments servent au marquage/regroupement, pas au titre.
