@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import { uploadFile, downloadFile, deleteFile, listFiles, listDir, getTextFile, putTextFile } from '../../packages/storage/index.js'
-import { tsStamp, importedFilename, pastedFilename, pastedOriginalName } from '../lib/mediaName.js'
+import { tsStamp, importedFilename, pastedFilename, pastedOriginalName, dateFromFilename } from '../lib/mediaName.js'
 
 const jourdoc = new Hono()
 
@@ -1113,7 +1113,9 @@ jourdoc.post('/:wsId/medias', async (c) => {
       const rawBuf = Buffer.from(await file.arrayBuffer())
       const exifDate = isMd ? null : await extractExifDate(rawBuf)
       const clientDate = (typeof clientDates[i] === 'string' && clientDates[i]) || null
-      const datePrise = exifDate ?? clientDate ?? fallbackDate
+      // Repli sur le nom de fichier (EXIF strippé mais date dans le nom) avant le jour même.
+      const nameDate = pasted ? null : dateFromFilename(file.name)
+      const datePrise = exifDate ?? clientDate ?? nameDate ?? fallbackDate
 
       const { buf, outExt, size } = isMd
         ? { buf: rawBuf, outExt: 'md', size: rawBuf.length }

@@ -194,13 +194,26 @@ ShareTarget. Un HEIC non convertible (échec) est signalé (`undecodable[]`).
 Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamiques,
 défense en profondeur) :
 - **HEIC** → `heic-convert` d'abord (sharp ne supporte pas HEIC sur Vercel Lambda),
-- resize via **sharp**, date EXIF via **exifreader** (`await`) — repli sur `dates[i]` puis
-  `date_prise` si l'EXIF a été effacé côté client.
+- resize via **sharp**, date EXIF via **exifreader** (`await`) — repli sur `dates[i]`, puis
+  sur la **date déduite du nom de fichier** (`dateFromFilename`, ex. `20260804 …`), puis
+  `date_prise`. Motif : des HEIC renommés/retravaillés perdent leur EXIF mais gardent la
+  date dans le nom — l'EXIF serveur échoue alors (l'upload direct s'appuie sur l'EXIF lu
+  **côté client**, seul le scan inbox lisait l'EXIF côté serveur).
 - Fichier envoyé sur **KDrive WebDAV** ; `jd_medias.fichier` = chemin WebDAV complet.
+
+**MediaGallery** : galerie groupée par jour (date de prise), filtres type + liés/non liés
+(serveur). Case **« tout sélectionner ce jour »** dans l'en-tête de groupe (sélection
+respectant les filtres). Le scan inbox applique le même repli EXIF → nom → jour.
 
 **Module storage** (`packages/storage/index.js`) : `uploadFile`, `downloadFile`,
 `listFiles`, `deleteFile`, `listInbox`, `moveFromInbox`. Le proxy
 `GET /:wsId/medias/:id/file` télécharge depuis WebDAV et sert le binaire.
+**Résolution des dossiers de workspace** (`resolveWsPath`) : en DB le segment ws est
+toujours le **numéro** (`uploads/2/…`) ; juste avant l'appel WebDAV, le module traduit ce
+numéro vers le **dossier réel** sur KDrive, ce qui autorise un dossier renommé par
+préfixe numérique (`uploads/2 Modélisme/…`). Un dossier exactement numérique prime ; cache
+5 min par base ; retours **canoniques** (DB inchangée, rename-safe). La queue de chemin
+(sous-dossiers clipper/assets) est préservée.
 
 **Inbox** (`server/routes/inbox.js`) : `GET /:wsId/inbox` liste, `POST /:wsId/inbox/scan`
 importe les fichiers déposés (sous-dossier `WEBDAV_PATH_INBOX/{wsId}/`). Selon l'extension :

@@ -43,6 +43,61 @@ async function ensureDir(client, dirPath) {
   }
 }
 
+// ─── Résolution des dossiers de workspace ──────────────────────────────────────
+//
+// En base, le dossier d'un workspace est TOUJOURS son numéro (`uploads/2/…`). Mais
+// l'utilisateur peut renommer physiquement le dossier sur KDrive en préfixant le numéro
+// (`uploads/2 Modélisme/…`) pour s'y retrouver. On traduit donc, juste avant l'appel
+// WebDAV, le segment numérique vers le dossier réel, tout en gardant le chemin canonique
+// (numérique) côté appelant/DB → aucune migration, insensible aux renommages ultérieurs.
+
+const WS_CACHE_TTL = 5 * 60 * 1000
+const wsFolderCache = new Map()  // base → { at, map: Map<number, {exact?, named?}> }
+
+function basePaths() {
+  return [process.env.WEBDAV_PATH_UPLOADS, process.env.WEBDAV_PATH_INBOX, process.env.WEBDAV_PATH_EXTDOCS]
+    .filter(Boolean)
+}
+
+// Map numéro → nom réel du sous-dossier de `base` (dossiers dont le nom commence par des
+// chiffres). On préfère un dossier EXACTEMENT numérique (protège les données existantes) ;
+// sinon la variante nommée. Cache court par base (les renommages sont rares).
+async function wsFolderMap(client, base) {
+  const cached = wsFolderCache.get(base)
+  if (cached && Date.now() - cached.at < WS_CACHE_TTL) return cached.map
+  const map = new Map()
+  try {
+    const items = await client.getDirectoryContents(base)
+    for (const it of items) {
+      if (it.type !== 'directory') continue
+      const m = it.basename.match(/^(\d+)/)
+      if (!m) continue
+      const n = Number(m[1])
+      const entry = map.get(n) || {}
+      if (it.basename === m[1]) entry.exact = it.basename
+      else if (!entry.named || it.basename.length < entry.named.length) entry.named = it.basename
+      map.set(n, entry)
+    }
+  } catch { /* base absente ou non listable → pas de résolution (repli numérique) */ }
+  wsFolderCache.set(base, { at: Date.now(), map })
+  return map
+}
+
+// Traduit le segment de workspace (numérique) d'un chemin vers le dossier réel.
+// Ne touche qu'un segment PUREMENT numérique juste après une base connue ; préserve la
+// queue (sous-dossiers clipper/assets…). No-op si le dossier n'est pas renommé.
+async function resolveWsPath(client, path) {
+  const base = basePaths().find(b => path === b || path.startsWith(b + '/'))
+  if (!base) return path
+  const m = path.slice(base.length).match(/^\/(\d+)(\/.*|$)/)
+  if (!m) return path  // pas de segment ws numérique (base seule, ou déjà nommé)
+  const n = Number(m[1]), tail = m[2] || ''
+  const entry = (await wsFolderMap(client, base)).get(n)
+  const actual = entry?.exact ?? entry?.named
+  if (!actual || actual === m[1]) return path
+  return `${base}/${actual}${tail}`
+}
+
 // ─── API publique ─────────────────────────────────────────────────────────────
 
 /**
@@ -55,10 +110,10 @@ async function ensureDir(client, dirPath) {
  */
 export async function uploadFile(appPath, filename, buffer, mimetype) {
   const client = getClient()
-  await ensureDir(client, appPath)
-  const fullPath = joinPath(appPath, filename)
-  await client.putFileContents(fullPath, buffer, { overwrite: true })
-  return fullPath
+  const realDir = await resolveWsPath(client, appPath)
+  await ensureDir(client, realDir)
+  await client.putFileContents(joinPath(realDir, filename), buffer, { overwrite: true })
+  return joinPath(appPath, filename)   // chemin CANONIQUE (numérique) pour la DB
 }
 
 /**
@@ -69,8 +124,8 @@ export async function uploadFile(appPath, filename, buffer, mimetype) {
  */
 export async function downloadFile(appPath, filename) {
   const client = getClient()
-  const fullPath = joinPath(appPath, filename)
-  const buffer = await client.getFileContents(fullPath)
+  const realDir = await resolveWsPath(client, appPath)
+  const buffer = await client.getFileContents(joinPath(realDir, filename))
   return Buffer.from(buffer)
 }
 
@@ -82,7 +137,7 @@ export async function downloadFile(appPath, filename) {
 export async function listFiles(appPath) {
   const client = getClient()
   try {
-    const items = await client.getDirectoryContents(appPath)
+    const items = await client.getDirectoryContents(await resolveWsPath(client, appPath))
     return items.filter(i => i.type === 'file').map(i => ({
       filename: i.basename,
       basename: i.basename,
@@ -104,7 +159,7 @@ export async function listFiles(appPath) {
 export async function listDir(appPath) {
   const client = getClient()
   try {
-    const items = await client.getDirectoryContents(appPath)
+    const items = await client.getDirectoryContents(await resolveWsPath(client, appPath))
     return items.map(i => ({ name: i.basename, type: i.type, size: i.size, mime: i.mime }))
   } catch (e) {
     if (e.message?.includes('404')) return []
@@ -119,8 +174,8 @@ export async function listDir(appPath) {
  */
 export async function deleteFile(appPath, filename) {
   const client = getClient()
-  const fullPath = joinPath(appPath, filename)
-  await client.deleteFile(fullPath)
+  const realDir = await resolveWsPath(client, appPath)
+  await client.deleteFile(joinPath(realDir, filename))
 }
 
 /**
@@ -131,7 +186,7 @@ export async function deleteFile(appPath, filename) {
  */
 export async function deletePath(fullPath) {
   const client = getClient()
-  await client.deleteFile(fullPath)
+  await client.deleteFile(await resolveWsPath(client, fullPath))
 }
 
 /**
@@ -154,11 +209,11 @@ export async function listInbox(inboxPath) {
  */
 export async function moveFromInbox(inboxPath, filename, destPath, destName) {
   const client = getClient()
-  await ensureDir(client, destPath)
-  const src  = joinPath(inboxPath, filename)
-  const dest = joinPath(destPath, destName)
-  await client.moveFile(src, dest)
-  return dest
+  const realDest = await resolveWsPath(client, destPath)
+  const realInbox = await resolveWsPath(client, inboxPath)
+  await ensureDir(client, realDest)
+  await client.moveFile(joinPath(realInbox, filename), joinPath(realDest, destName))
+  return joinPath(destPath, destName)   // chemin CANONIQUE (numérique) pour la DB
 }
 
 /**
@@ -168,7 +223,7 @@ export async function moveFromInbox(inboxPath, filename, destPath, destName) {
  */
 export async function getTextFile(fullPath) {
   const client = getClient()
-  const content = await client.getFileContents(fullPath, { format: 'text' })
+  const content = await client.getFileContents(await resolveWsPath(client, fullPath), { format: 'text' })
   return content
 }
 
@@ -179,7 +234,7 @@ export async function getTextFile(fullPath) {
  */
 export async function putTextFile(fullPath, content) {
   const client = getClient()
-  const dir = fullPath.substring(0, fullPath.lastIndexOf('/'))
-  await ensureDir(client, dir)
-  await client.putFileContents(fullPath, content, { overwrite: true })
+  const realPath = await resolveWsPath(client, fullPath)
+  await ensureDir(client, realPath.substring(0, realPath.lastIndexOf('/')))
+  await client.putFileContents(realPath, content, { overwrite: true })
 }

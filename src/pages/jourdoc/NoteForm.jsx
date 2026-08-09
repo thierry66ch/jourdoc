@@ -216,10 +216,17 @@ export default function NoteForm() {
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Objet/thème PRINCIPAL en tête (objet_principal_id / 1er thème), puis les autres dans
+  // l'ordre de l'arbre. Tri stable.
+  const principalFirst = (items, principalId) =>
+    [...items].sort((a, b) => (b.id === principalId) - (a.id === principalId))
+  const objetsForTitle = () => principalFirst(objets.filter(o => form.objet_ids.includes(o.id)), form.objet_principal_id)
+  const themesForTitle = () => principalFirst(themes.filter(t => form.theme_ids.includes(t.id)), form.theme_ids[0])
+
   // Titre court compact : noms courts, « objets → thèmes », cap à 3 par groupe.
   function computeTitreAlt() {
-    const selectedObjets = objets.filter(o => form.objet_ids.includes(o.id))
-    const selectedThemes = themes.filter(t => form.theme_ids.includes(t.id))
+    const selectedObjets = objetsForTitle()
+    const selectedThemes = themesForTitle()
     const cap = names => names.length === 0 ? '' : names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')}…`
     return [
       cap(selectedObjets.map(o => o.nom_court || o.nom.slice(0, 3))),
@@ -228,10 +235,10 @@ export default function NoteForm() {
   }
 
   function autoTitle() {
-    const selectedObjets = objets.filter(o => form.objet_ids.includes(o.id))
-    const selectedThemes = themes.filter(t => form.theme_ids.includes(t.id))
+    const selectedObjets = objetsForTitle()
+    const selectedThemes = themesForTitle()
 
-    // Titre complet : tous les noms
+    // Titre complet : tous les noms (principal en tête)
     const parts = []
     if (selectedObjets.length) parts.push(selectedObjets.map(o => o.nom).join(', '))
     if (selectedThemes.length) parts.push(selectedThemes.map(t => t.nom).join(', '))

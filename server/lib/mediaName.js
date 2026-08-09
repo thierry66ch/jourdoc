@@ -37,3 +37,18 @@ export function pastedFilename(ext, ts, index = 0, total = 1) {
 export function pastedOriginalName(ts) {
   return `${ts.slice(0, 8)}_Pasted_image_${ts.slice(8)}`
 }
+
+// Date de prise de vue déduite du NOM de fichier → 'YYYY-MM-DD' ou null.
+// Repli quand l'EXIF est absent (fréquent sur des HEIC renommés/retravaillés dont l'EXIF
+// a été strippé, mais dont le nom conserve la date, ex. « 20260804 [label] 103705.heic »).
+// Reconnaît une date en TÊTE : YYYYMMDD, YYYY-MM-DD ou YYYY_MM_DD.
+export function dateFromFilename(name) {
+  const s = String(name || '')
+  const m = s.match(/^(\d{4})[-_]?(\d{2})[-_]?(\d{2})(?:\D|$)/)
+  if (!m) return null
+  const [, y, mo, d] = m
+  const Y = +y, M = +mo, D = +d
+  if (M < 1 || M > 12 || D < 1 || D > 31) return null
+  if (Y < 1990 || Y > 2100) return null
+  return `${y}-${mo}-${d}`
+}

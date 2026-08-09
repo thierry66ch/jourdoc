@@ -193,6 +193,17 @@ export default function MediaGallery() {
     setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
+  // Sélectionne/désélectionne tous les médias d'un jour (tels qu'affichés = filtres type et
+  // liés/non liés déjà appliqués côté serveur).
+  function toggleDay(items) {
+    setSelected(s => {
+      const n = new Set(s)
+      const allSelected = items.every(m => n.has(m.id))
+      for (const m of items) allSelected ? n.delete(m.id) : n.add(m.id)
+      return n
+    })
+  }
+
   // 1. Créer une note avec la date de la 1ère image sélectionnée
   function createNote() {
     const ids = [...selected]
@@ -327,6 +338,13 @@ export default function MediaGallery() {
         groups.map(([date, items]) => (
           <div key={date} className="media-group">
             <h3 className="media-group__title">
+              <label className="media-group__all" title="Tout sélectionner ce jour"
+                onClick={e => e.stopPropagation()}>
+                <input type="checkbox"
+                  checked={items.every(m => selected.has(m.id))}
+                  ref={el => { if (el) el.indeterminate = items.some(m => selected.has(m.id)) && !items.every(m => selected.has(m.id)) }}
+                  onChange={() => toggleDay(items)} />
+              </label>
               {fmtDate(date)}
               <span className="media-group__count">{items.length}</span>
             </h3>

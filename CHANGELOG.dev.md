@@ -4,6 +4,25 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 137 — 2026-08-09 — 4 améliorations (médias, titre, dossiers WebDAV)
+
+- **Médias — sélection d'un jour entier** : case « tout sélectionner ce jour » dans
+  l'en-tête de groupe (respecte les filtres type + liés/non liés). État `indeterminate`
+  quand la sélection est partielle.
+- **Inbox — date EXIF perdue** : cause = des HEIC renommés/retravaillés (label ajouté)
+  ont **perdu leur EXIF**, mais gardent la date dans le nom (`20260804 [..] 103705.heic`).
+  Nouveau `dateFromFilename()` (repli EXIF → **nom** → jour même), appliqué au scan inbox
+  ET à l'upload direct. Tag `DateTimeDigitized` ajouté au scan (alignement).
+- **Titre auto — objet/thème principal en tête** : `autoTitle`/`computeTitreAlt` placent
+  l'objet principal (`objet_principal_id`) et le 1er thème avant les autres (tri stable).
+- **Dossiers WebDAV avec nom** : `storage/index.js` résout le segment de workspace
+  (numérique en DB) vers le dossier réel sur KDrive juste avant l'appel (`resolveWsPath`),
+  autorisant un dossier renommé par préfixe (`uploads/2 Modélisme/`). Dossier exactement
+  numérique prioritaire (protège l'existant), cache 5 min/base, retours canoniques (DB
+  inchangée, rename-safe), queue de chemin préservée. Logique + repli date-nom testés.
+
+---
+
 ## Build 136 — 2026-08-02 — Filtre par élément + frictions (CDC workspace Modélisme)
 
 Suite au CDC utilisateur « Workspace Modélisme ferroviaire », qui identifie une lacune

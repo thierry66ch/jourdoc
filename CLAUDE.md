@@ -143,6 +143,13 @@ Le proxy dérive `dir` et `filename` par `lastIndexOf('/')`.
 
 **Sous-dossiers par workspace** : uploads à `WEBDAV_PATH_UPLOADS/{wsId}/`,
 inbox à `WEBDAV_PATH_INBOX/{wsId}/`, fichiers liés à `WEBDAV_PATH_EXTDOCS/{wsId}/`.
+En **base**, le segment de workspace est TOUJOURS le numéro (`uploads/2/…`). Mais
+`storage/index.js` **résout** ce numéro vers le dossier réel sur KDrive juste avant chaque
+appel WebDAV (`resolveWsPath`) : l'utilisateur peut renommer physiquement le dossier en
+préfixant le numéro (`uploads/2 Modélisme/…`) et JourDoc ne tient compte que de la **tête
+numérique**. Un dossier exactement numérique prime (protège les données existantes) ; cache
+5 min par base. Les fonctions storage renvoient le chemin **canonique numérique** (DB
+inchangée, insensible aux renommages ultérieurs).
 
 **Images relatives d'un MD** (lié ou importé) : servies par le proxy
 `GET /:wsId/medias/:id/relfile?rel=&t=`, relatif au **dossier réel** du média

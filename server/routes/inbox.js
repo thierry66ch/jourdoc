@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import sql from '../../db/db.js'
 import { listInbox, downloadFile, uploadFile, deleteFile, moveFromInbox } from '../../packages/storage/index.js'
-import { tsStamp, importedFilename } from '../lib/mediaName.js'
+import { tsStamp, importedFilename, dateFromFilename } from '../lib/mediaName.js'
 
 const inbox = new Hono()
 
@@ -158,14 +158,17 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
       let typeMedia = mimetype.startsWith('image/') || ['jpg','jpeg','png','gif','webp','heic','heif','avif'].includes(origExt) ? 'photo' : 'pdf'
       let transformed = false
 
-      // Extraction date EXIF avant traitement
+      // Date de prise : EXIF d'abord, puis repli sur le NOM de fichier (les HEIC
+      // renommés/retravaillés perdent souvent leur EXIF mais gardent la date dans le nom),
+      // puis le jour même en dernier recours.
       let datePrise = null
       try {
         const { default: ExifReader } = await import('exifreader')
         const tags = ExifReader.load(buffer, { expanded: false })
-        const raw = (tags['DateTimeOriginal'] ?? tags['DateTime'])?.description
+        const raw = (tags['DateTimeOriginal'] ?? tags['DateTime'] ?? tags['DateTimeDigitized'])?.description
         if (raw && /^\d{4}:\d{2}:\d{2}/.test(raw)) datePrise = raw.slice(0, 10).replace(/:/g, '-')
       } catch { /* EXIF optionnel */ }
+      if (!datePrise) datePrise = dateFromFilename(file.filename)
       if (!datePrise) datePrise = new Date().toISOString().slice(0, 10)
 
       // Traitement image
