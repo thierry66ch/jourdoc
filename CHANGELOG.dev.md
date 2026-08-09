@@ -4,6 +4,24 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 138 — 2026-08-09 — Date de prise : priorité au nom + correctif rétroactif
+
+Suite aux retours : la conversion HEIC→JPEG serveur (sharp) **perd l'EXIF** dans le fichier
+stocké (l'inbox HEIC les a pourtant), et l'utilisateur préfère de toute façon dater par le
+**nom** (captures d'écran mal datées par l'EXIF de capture).
+- **Priorité au nom de fichier** (avant l'EXIF) pour la date de prise : inbox ET upload
+  direct. Ordre : nom → EXIF (client puis serveur) → repli. Images collées exclues.
+- **Correctif rétroactif** : 5 photos (ws 3, HEIC renommés datés du jour d'import) remises à
+  leur date de nom. ⚠️ Le 1er dry-run signalait 57 écarts, dont **46 faux positifs** dus au
+  piège #3 (colonne DATE lue via `new Date().toISOString()` → décalage UTC de −1 j) —
+  comparaison refaite via `TO_CHAR(date_prise,'YYYY-MM-DD')` en SQL. Les 6 images collées
+  restantes exclues (leur `date_prise` = date de note, plus juste que la date de collage).
+  UPDATE ciblé par id (5 lignes), non destructif.
+- *Réserve notée : sharp perd EXIF/IPTC (dont géotag) à la conversion HEIC→JPEG — non
+  bloquant pour la date, mais le géotag n'est pas conservé dans le JPEG stocké.*
+
+---
+
 ## Build 137 — 2026-08-09 — 4 améliorations (médias, titre, dossiers WebDAV)
 
 - **Médias — sélection d'un jour entier** : case « tout sélectionner ce jour » dans

@@ -194,16 +194,18 @@ ShareTarget. Un HEIC non convertible (échec) est signalé (`undecodable[]`).
 Upload : `POST /:wsId/medias` (multipart). Traitement serveur (imports dynamiques,
 défense en profondeur) :
 - **HEIC** → `heic-convert` d'abord (sharp ne supporte pas HEIC sur Vercel Lambda),
-- resize via **sharp**, date EXIF via **exifreader** (`await`) — repli sur `dates[i]`, puis
-  sur la **date déduite du nom de fichier** (`dateFromFilename`, ex. `20260804 …`), puis
-  `date_prise`. Motif : des HEIC renommés/retravaillés perdent leur EXIF mais gardent la
-  date dans le nom — l'EXIF serveur échoue alors (l'upload direct s'appuie sur l'EXIF lu
-  **côté client**, seul le scan inbox lisait l'EXIF côté serveur).
+- **Date de prise** — priorité au **nom de fichier** (`dateFromFilename`, une date en tête
+  ex. `20260804 …` est intentionnelle et fiable, y compris pour une capture d'écran datée
+  du travail plutôt que de la capture), puis EXIF (client `dates[i]` puis serveur
+  `exifreader`), puis `date_prise`/jour. **Images collées exclues** (`pasted` → pas de date
+  de nom, on garde la date de la note). *Note : la conversion HEIC→JPEG serveur (sharp)
+  perd l'EXIF/IPTC dans le fichier stocké — sans impact sur la date grâce à la priorité au
+  nom, mais le géotag n'est pas conservé dans le JPEG.*
 - Fichier envoyé sur **KDrive WebDAV** ; `jd_medias.fichier` = chemin WebDAV complet.
 
 **MediaGallery** : galerie groupée par jour (date de prise), filtres type + liés/non liés
 (serveur). Case **« tout sélectionner ce jour »** dans l'en-tête de groupe (sélection
-respectant les filtres). Le scan inbox applique le même repli EXIF → nom → jour.
+respectant les filtres). Le scan inbox applique la même priorité nom → EXIF → jour.
 
 **Module storage** (`packages/storage/index.js`) : `uploadFile`, `downloadFile`,
 `listFiles`, `deleteFile`, `listInbox`, `moveFromInbox`. Le proxy

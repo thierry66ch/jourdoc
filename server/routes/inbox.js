@@ -158,17 +158,18 @@ inbox.post('/:wsId/inbox/scan', async (c) => {
       let typeMedia = mimetype.startsWith('image/') || ['jpg','jpeg','png','gif','webp','heic','heif','avif'].includes(origExt) ? 'photo' : 'pdf'
       let transformed = false
 
-      // Date de prise : EXIF d'abord, puis repli sur le NOM de fichier (les HEIC
-      // renommés/retravaillés perdent souvent leur EXIF mais gardent la date dans le nom),
-      // puis le jour même en dernier recours.
-      let datePrise = null
-      try {
-        const { default: ExifReader } = await import('exifreader')
-        const tags = ExifReader.load(buffer, { expanded: false })
-        const raw = (tags['DateTimeOriginal'] ?? tags['DateTime'] ?? tags['DateTimeDigitized'])?.description
-        if (raw && /^\d{4}:\d{2}:\d{2}/.test(raw)) datePrise = raw.slice(0, 10).replace(/:/g, '-')
-      } catch { /* EXIF optionnel */ }
-      if (!datePrise) datePrise = dateFromFilename(file.filename)
+      // Date de prise : le NOM DE FICHIER prime (choix utilisateur — une date en tête du
+      // nom est intentionnelle et fiable, ex. une capture d'écran datée du travail plutôt
+      // que de la capture), puis l'EXIF, puis le jour même en dernier recours.
+      let datePrise = dateFromFilename(file.filename)
+      if (!datePrise) {
+        try {
+          const { default: ExifReader } = await import('exifreader')
+          const tags = ExifReader.load(buffer, { expanded: false })
+          const raw = (tags['DateTimeOriginal'] ?? tags['DateTime'] ?? tags['DateTimeDigitized'])?.description
+          if (raw && /^\d{4}:\d{2}:\d{2}/.test(raw)) datePrise = raw.slice(0, 10).replace(/:/g, '-')
+        } catch { /* EXIF optionnel */ }
+      }
       if (!datePrise) datePrise = new Date().toISOString().slice(0, 10)
 
       // Traitement image

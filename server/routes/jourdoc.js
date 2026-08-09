@@ -1111,11 +1111,12 @@ jourdoc.post('/:wsId/medias', async (c) => {
       const isMd = MARKDOWN_EXTS.has(ext)
       const typeMedia = ext === 'pdf' ? 'pdf' : isMd ? 'markdown' : 'photo'
       const rawBuf = Buffer.from(await file.arrayBuffer())
-      const exifDate = isMd ? null : await extractExifDate(rawBuf)
-      const clientDate = (typeof clientDates[i] === 'string' && clientDates[i]) || null
-      // Repli sur le nom de fichier (EXIF strippé mais date dans le nom) avant le jour même.
+      // Le NOM DE FICHIER prime (date en tête du nom = intentionnelle, ex. capture d'écran
+      // datée du travail), puis l'EXIF (client puis serveur), puis le repli.
       const nameDate = pasted ? null : dateFromFilename(file.name)
-      const datePrise = exifDate ?? clientDate ?? nameDate ?? fallbackDate
+      const clientDate = (typeof clientDates[i] === 'string' && clientDates[i]) || null
+      const exifDate = (isMd || nameDate) ? null : await extractExifDate(rawBuf)
+      const datePrise = nameDate ?? clientDate ?? exifDate ?? fallbackDate
 
       const { buf, outExt, size } = isMd
         ? { buf: rawBuf, outExt: 'md', size: rawBuf.length }
