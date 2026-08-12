@@ -75,8 +75,8 @@ export default function JourDocJournal() {
         </div>
       )}
 
-      {/* FAB nouvelle note */}
-      <button className="jd-fab" onClick={() => navigate(`/jourdoc/${wsId}/new`)} title="Nouvelle note">
+      {/* FAB nouvelle note — pré-réglée sur le jour affiché dans le journal */}
+      <button className="jd-fab" onClick={() => navigate(`/jourdoc/${wsId}/new`, { state: { note_date: date } })} title="Nouvelle note">
         +
       </button>
     </div>

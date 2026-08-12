@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 139 — 2026-08-12 — Fix : nouvelle note du journal à une date antérieure
+
+- Le FAB « + » du journal (`JourDocJournal.jsx`) naviguait vers `/new` sans transmettre la
+  date affichée → la note retombait sur `today()` (repli de `NoteForm` ligne 85). Corrigé :
+  `navigate('/new', { state: { note_date: date } })`. Le calendrier passait déjà `note_date`.
+
+---
+
 ## Build 138 — 2026-08-09 — Date de prise : priorité au nom + correctif rétroactif
 
 Suite aux retours : la conversion HEIC→JPEG serveur (sharp) **perd l'EXIF** dans le fichier
