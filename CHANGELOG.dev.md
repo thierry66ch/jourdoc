@@ -4,6 +4,27 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 141 — 2026-10-06 — Fix (suite) : bon endpoint de complétions Todoist
+
+Le build 140 visait `GET /tasks/completed/by_completion_date`, qui ne liste que les
+tâches **clôturées** (one-shot) — les occurrences **récurrentes** (tâche restée ouverte)
+n'y figurent pas. Résultat : `completedSet` vide pour les récurrentes → repli sur
+l'ancienne heuristique → report encore pris pour accomplissement, et récurrente cochée
+non détectée.
+
+- `fetchCompletedTaskIds` interroge désormais `GET /api/v1/tasks/completed` (événements
+  de complétion, récurrences incluses) et lit `task_id`. Vérifié : respecte `since`,
+  renvoie les complétions récurrentes avec le bon id.
+- La détection n'exige **plus** l'avance d'échéance : un sync antérieur a pu déjà stocker
+  la date avancée (plus d'« avance » visible). Le signal fiable est la **complétion seule**
+  depuis le dernier sync ; la fenêtre (`todoist_synced_at`) empêche la re-détection.
+- **Premier sync = ligne de base** (Set vide) : pas de rattrapage de l'historique, donc
+  aucune proposition de consigner des complétions anciennes.
+- Validé sur données réelles (ws « Ménage ») : récurrentes cochées → détectées ;
+  report / tâches planifiées → ignorés.
+
+---
+
 ## Build 140 — 2026-10-06 — Fix : report d'une tâche récurrente ≠ « à consigner »
 
 Effet de bord du mécanisme « récurrence accomplie » : reporter de quelques jours une
