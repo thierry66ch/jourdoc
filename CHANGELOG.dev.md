@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 142 — 2026-10-06 — Fix build Vercel : Node 24 (20.x arrêté)
+
+Vercel a arrêté Node 20.x ; le build échouait (« Node.js Version "20.x" is discontinued »).
+Les builds 140/141 n'étaient donc **jamais déployés**. `package.json` → `engines.node`
+passé de `>=20 <21` à **`24.x`**. (Build local OK sous Node 20, pas d'`engine-strict`.)
+
+---
+
 ## Build 141 — 2026-10-06 — Fix (suite) : bon endpoint de complétions Todoist
 
 Le build 140 visait `GET /tasks/completed/by_completion_date`, qui ne liste que les
