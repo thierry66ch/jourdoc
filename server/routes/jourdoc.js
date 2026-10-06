@@ -1497,6 +1497,29 @@ function extractTask(data) {
   return data
 }
 
+// Ids des tâches ayant une complétion Todoist (y compris récurrente) depuis
+// `sinceISO`. Un simple report de date n'y figure pas → sert à distinguer une
+// occurrence réellement accomplie d'un report. Renvoie un Set<string>, ou
+// `null` si l'endpoint est indisponible (→ repli sur l'ancienne heuristique).
+async function fetchCompletedTaskIds(token, sinceISO) {
+  try {
+    const until = new Date().toISOString()
+    const url = `${TODOIST_API}/tasks/completed/by_completion_date`
+      + `?since=${encodeURIComponent(sinceISO)}&until=${encodeURIComponent(until)}&limit=200`
+    const res = await fetch(url, { headers: todoistAuthHeader(token) })
+    if (!res.ok) return null
+    const data = await res.json()
+    const items = Array.isArray(data) ? data : (data.items ?? data.results ?? [])
+    const hasTaskId = items.some(it => it?.task_id != null || it?.v2_task_id != null)
+    const set = new Set()
+    for (const it of items) {
+      const id = hasTaskId ? (it.task_id ?? it.v2_task_id) : it?.id
+      if (id != null) set.add(String(id))
+    }
+    return set
+  } catch { return null }
+}
+
 function notePublicUrl(c, wsId, noteId) {
   const proto = c.req.header('x-forwarded-proto') || 'https'
   const host  = c.req.header('x-forwarded-host') || c.req.header('host') || 'localhost'
@@ -1590,25 +1613,32 @@ async function detailsForRowById(wsId, noteId, rowId, token) {
 
 jourdoc.get('/:wsId/todoist', wsCheck, async (c) => {
   const wsId = c.get('wsId')
-  const [ws] = await sql`SELECT todoist_token, todoist_project_id, todoist_project_nom FROM workspaces WHERE id=${wsId}`
+  const [ws] = await sql`SELECT todoist_token, todoist_project_id, todoist_project_nom, todoist_synced_at FROM workspaces WHERE id=${wsId}`
   return c.json({
     configured:  Boolean(ws?.todoist_token),
     project_id:  ws?.todoist_project_id  ?? null,
     project_nom: ws?.todoist_project_nom ?? null,
-    last_sync_at: syncTimestamps.get(wsId) ?? null,
+    last_sync_at: syncTimestamps.get(wsId) ?? (ws?.todoist_synced_at ? new Date(ws.todoist_synced_at).toISOString() : null),
   })
 })
 
 jourdoc.post('/:wsId/todoist/sync', wsCheck, async (c) => {
   try {
     const wsId = c.get('wsId')
-    const [ws] = await sql`SELECT todoist_token FROM workspaces WHERE id=${wsId}`
+    const [ws] = await sql`SELECT todoist_token, todoist_synced_at FROM workspaces WHERE id=${wsId}`
     if (!ws?.todoist_token) return c.json({ ok: false, error: 'Todoist non configuré' })
 
     const rows = await sql`
       SELECT id, note_id, todoist_id, due FROM jd_note_todoist
       WHERE workspace_id=${wsId} AND (done IS NULL OR done = FALSE)
     `
+
+    // Complétions Todoist survenues depuis le dernier sync (repli : 7 jours).
+    // Un report de date n'y figure pas → évite le faux « à consigner ».
+    const sinceISO = ws.todoist_synced_at
+      ? new Date(ws.todoist_synced_at).toISOString()
+      : new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()
+    const completedSet = await fetchCompletedTaskIds(ws.todoist_token, sinceISO)
 
     let completed = 0, errors = 0
     const touched = new Set()
@@ -1627,7 +1657,13 @@ jourdoc.post('/:wsId/todoist/sync', wsCheck, async (c) => {
         const currentDue = task?.due?.date ?? null
         const prio = task?.priority ?? null
         const taskContent = task?.content ?? null
-        const isRecurring = !isDone && row.due && currentDue && currentDue > row.due
+        // Occurrence récurrente accomplie = l'échéance a avancé ET une complétion
+        // Todoist existe depuis le dernier sync. Si l'endpoint des complétions est
+        // indisponible (completedSet null), repli sur l'ancienne heuristique (avance
+        // seule). Un report manuel avance l'échéance mais n'est PAS une complétion.
+        const dueAdvanced = Boolean(row.due && currentDue && currentDue > row.due)
+        const completedNow = completedSet ? completedSet.has(String(row.todoist_id)) : dueAdvanced
+        const isRecurring = !isDone && dueAdvanced && completedNow
         const u = computeUrgence(currentDue, prio)
         if (isRecurring) {
           await sql`UPDATE jd_note_todoist SET due=${currentDue}, priority=${prio}, recurrence_done=TRUE, content=${taskContent}, urgence=${u} WHERE id=${row.id}`
@@ -1643,7 +1679,11 @@ jourdoc.post('/:wsId/todoist/sync', wsCheck, async (c) => {
 
     const syncedAt = new Date().toISOString()
     syncTimestamps.set(wsId, syncedAt)
-    return c.json({ ok: true, synced: rows.length, completed, errors, synced_at: syncedAt })
+    await sql`UPDATE workspaces SET todoist_synced_at=${syncedAt} WHERE id=${wsId}`
+    return c.json({
+      ok: true, synced: rows.length, completed, errors, synced_at: syncedAt,
+      completions_vues: completedSet ? completedSet.size : null, // null = endpoint indisponible
+    })
   } catch (e) {
     return c.json({ ok: false, error: String(e?.message ?? e) }, 500)
   }

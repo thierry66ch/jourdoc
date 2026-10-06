@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS workspaces (
   jd_picker_mode_desktop TEXT DEFAULT 'scroll',
   todoist_token         TEXT,
   todoist_project_id    TEXT,
-  todoist_project_nom   TEXT
+  todoist_project_nom   TEXT,
+  todoist_synced_at     TIMESTAMPTZ
 );
 
 CREATE TABLE IF NOT EXISTS user_app_access (

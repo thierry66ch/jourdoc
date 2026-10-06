@@ -4,6 +4,24 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 140 — 2026-10-06 — Fix : report d'une tâche récurrente ≠ « à consigner »
+
+Effet de bord du mécanisme « récurrence accomplie » : reporter de quelques jours une
+tâche récurrente en retard faisait avancer l'échéance, et le sync concluait à tort que
+l'occurrence avait été accomplie (`recurrence_done=TRUE` → proposition de consigner).
+
+- `POST /:wsId/todoist/sync` : la détection ne repose plus sur la seule **avance de
+  l'échéance**. Elle exige désormais aussi une **vraie complétion Todoist** depuis le
+  dernier sync, lue via `GET /api/v1/tasks/completed/by_completion_date` (helper
+  `fetchCompletedTaskIds`). Un report n'y figure pas → plus de faux positif.
+- Dernier sync persisté par workspace (`workspaces.todoist_synced_at`, migration `013`)
+  pour borner la fenêtre des complétions examinées (repli : 7 jours).
+- Repli sûr : si l'endpoint des complétions est indisponible, retour à l'ancienne
+  heuristique (avance d'échéance) → aucune régression. La réponse du sync expose
+  `completions_vues` (null = endpoint indisponible) pour diagnostic.
+
+---
+
 ## Build 139 — 2026-08-12 — Fix : nouvelle note du journal à une date antérieure
 
 - Le FAB « + » du journal (`JourDocJournal.jsx`) naviguait vers `/new` sans transmettre la
