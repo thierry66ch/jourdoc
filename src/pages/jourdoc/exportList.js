@@ -54,7 +54,7 @@ function metaLines(n, withLinks) {
   meta.push(`Type : ${TYPE_LABEL[n.type] || n.type}${n.nature ? ` · ${NATURE_LABEL[n.nature] || n.nature}` : ''}`)
   const d = shownDate(n)
   if (d)               meta.push(`Date : ${d}`)
-  if (n.categorie)     meta.push(`Catégorie : ${n.categorie}`)
+  if (n.categorie)     meta.push(`Catégories : ${n.categorie}`)
   if (n.statut)        meta.push(`Statut : ${n.statut}`)
   if (n.doc_auteur)    meta.push(`Auteur : ${n.doc_auteur}`)
   if (n.doc_reference) meta.push(`Référence : ${n.doc_reference}`)
@@ -203,7 +203,7 @@ function documentCsv({ wsId, secs, champsDonnees }) {
   for (const k of presents) cols.push(k)  // hors-schéma / imprévus, dans l'ordre d'apparition
 
   const entetes = [
-    'ID', 'Titre', 'Titre court', 'Date de création', 'Date (journal)', 'Type', 'Catégorie',
+    'ID', 'Titre', 'Titre court', 'Date de création', 'Date (journal)', 'Type', 'Catégories',
     'Objets', 'Éléments', 'Thèmes', 'Auteur', 'Source', 'Référence', 'URL de la note',
     'Liens (IDs)', 'Nb pièces jointes',
     ...cols.map(k => (champsDonnees?.[k]?.label) || k),
@@ -212,7 +212,7 @@ function documentCsv({ wsId, secs, champsDonnees }) {
   const origin = (typeof location !== 'undefined' && location.origin) || ''
   const ligne = n => [
     n.id, n.titre || '', n.titre_alt || '',
-    (n.created_at || '').slice(0, 10), n.date || '', n.type || '', n.categorie || '',
+    (n.created_at || '').slice(0, 10), n.date || '', n.type || '', (n.categories || []).join(' | '),
     (n.objets || []).join(LI), (n.elements || []).join(LI), (n.themes || []).join(LI),
     n.doc_auteur || '', n.source_url || '', n.doc_reference || '',
     `${origin}/jourdoc/${wsId}/notes/${n.id}`,

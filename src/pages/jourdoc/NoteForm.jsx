@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { useJdData, authHeader, mediaUrl, noteVisual } from './hooks'
+import { useJdData, authHeader, mediaUrl, noteVisual, natureSuggeree, categorieApplicable } from './hooks'
+import CategoriePicker from './CategoriePicker'
 import HierarchyPicker from './HierarchyPicker'
 import ElementPicker from './ElementPicker'
 import MediaPicker from './MediaPicker'
@@ -61,7 +62,7 @@ export default function NoteForm() {
   const { token } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const { objets, themes, docCategories, docStatuts, pickerMode } = useJdData(wsId, token)
+  const { objets, themes, categories, docStatuts, pickerMode } = useJdData(wsId, token)
   const isEdit = Boolean(noteId)
 
   // Médias pré-sélectionnés depuis la galerie (navigation state)
@@ -70,7 +71,9 @@ export default function NoteForm() {
   const [form, setForm] = useState({
     type:      location.state?.type    ?? 'journal',
     nature:    location.state?.nature  ?? 'observation',
-    doc_categorie_id: location.state?.doc_categorie_id ?? null,
+    // Catégories ordonnées (journal : « Interventions », documentation : « Apports »).
+    categorie_ids: location.state?.categorie_ids
+      ?? (location.state?.doc_categorie_id ? [location.state.doc_categorie_id] : []),
     doc_statut_id: null,
     doc_auteur:    '',
     doc_reference: '',
@@ -173,7 +176,7 @@ export default function NoteForm() {
         setForm({
           type: note.type,
           nature: note.nature ?? 'observation',
-          doc_categorie_id: note.doc_categorie_id ?? null,
+          categorie_ids: (note.categories ?? []).map(c => c.id),
           doc_statut_id: note.doc_statut_id ?? null,
           doc_auteur:    note.doc_auteur ?? '',
           doc_reference: note.doc_reference ?? '',
@@ -216,33 +219,34 @@ export default function NoteForm() {
       })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Objet/thème PRINCIPAL en tête (objet_principal_id / 1er thème), puis les autres dans
-  // l'ordre de l'arbre. Tri stable.
+  // Objet PRINCIPAL en tête (objet_principal_id), puis les autres dans l'ordre de l'arbre.
+  // Tri stable. Catégories : dans l'ordre de la liaison (la 1re mène).
   const principalFirst = (items, principalId) =>
     [...items].sort((a, b) => (b.id === principalId) - (a.id === principalId))
   const objetsForTitle = () => principalFirst(objets.filter(o => form.objet_ids.includes(o.id)), form.objet_principal_id)
-  const themesForTitle = () => principalFirst(themes.filter(t => form.theme_ids.includes(t.id)), form.theme_ids[0])
+  const themesForTitle = () => themes.filter(t => form.theme_ids.includes(t.id))
+  const categoriesForTitle = () => form.categorie_ids.map(id => categories.find(c => c.id === id)).filter(Boolean)
 
-  // Titre court compact : noms courts, « objets → thèmes », cap à 3 par groupe.
+  // Format « catégories — objets → thèmes » (spec §6.3). Sans catégorie : « objets → thèmes ».
+  const assembleTitre = (cats, objs, ths) => {
+    const suite = [objs, ths].filter(Boolean).join(' → ')
+    return cats ? (suite ? `${cats} — ${suite}` : cats) : suite
+  }
+
+  // Titre court compact : noms courts, même règle, cap à 3 par groupe.
   function computeTitreAlt() {
-    const selectedObjets = objetsForTitle()
-    const selectedThemes = themesForTitle()
     const cap = names => names.length === 0 ? '' : names.length <= 3 ? names.join(', ') : `${names.slice(0, 3).join(', ')}…`
-    return [
-      cap(selectedObjets.map(o => o.nom_court || o.nom.slice(0, 3))),
-      cap(selectedThemes.map(t => t.nom_court || t.nom.slice(0, 4))),
-    ].filter(Boolean).join(' → ')
+    return assembleTitre(
+      cap(categoriesForTitle().map(c => c.nom_court || c.nom.slice(0, 4))),
+      cap(objetsForTitle().map(o => o.nom_court || o.nom.slice(0, 3))),
+      cap(themesForTitle().map(t => t.nom_court || t.nom.slice(0, 4))),
+    )
   }
 
   function autoTitle() {
-    const selectedObjets = objetsForTitle()
-    const selectedThemes = themesForTitle()
-
-    // Titre complet : tous les noms (principal en tête)
-    const parts = []
-    if (selectedObjets.length) parts.push(selectedObjets.map(o => o.nom).join(', '))
-    if (selectedThemes.length) parts.push(selectedThemes.map(t => t.nom).join(', '))
-    const titre = parts.join(' → ')
+    const join = items => items.map(x => x.nom).join(', ')
+    // Titre complet : tous les noms (objet principal en tête)
+    const titre = assembleTitre(join(categoriesForTitle()), join(objetsForTitle()), join(themesForTitle()))
 
     // Ne pas écraser un titre / titre court déjà saisi : ne remplir que les champs vides.
     setForm(f => ({
@@ -343,7 +347,7 @@ export default function NoteForm() {
     const p = new URLSearchParams()
     if (form.objet_principal_id) p.set('objet_id', form.objet_principal_id)
     if (form.theme_ids[0])      p.set('theme_id', form.theme_ids[0])
-    if (form.type === 'documentation' && form.doc_categorie_id) p.set('doc_categorie_id', form.doc_categorie_id)
+    if (form.categorie_ids.length) p.set('categorie_ids', form.categorie_ids.join(','))
     if (form.type === 'journal' && form.nature) p.set('nature', form.nature)
     let annule = false
     fetch(`${API_ROUTES.JD_SCHEMA_RESOLVE(wsId)}?${p}`, { headers: authHeader(token) })
@@ -351,12 +355,29 @@ export default function NoteForm() {
       .then(d => { if (!annule) setSchema(d.schema ?? null) })
       .catch(() => { if (!annule) setSchema(null) })
     return () => { annule = true }
-  }, [wsId, token, form.objet_principal_id, form.theme_ids, form.type, form.doc_categorie_id, form.nature])
+  }, [wsId, token, form.objet_principal_id, form.theme_ids, form.type, form.categorie_ids, form.nature])
+
+  // Saisie dans les deux sens (spec §6.1) : catégories puis nature → la nature suit les
+  // catégories choisies (nature_defaut, ou mixte si observation + activité). Nature puis
+  // catégories → la liste proposée se filtre (CategoriePicker).
+  function changerCategories(ids) {
+    setForm(f => {
+      if (f.type !== 'journal') return { ...f, categorie_ids: ids }
+      const cats = ids.map(id => categories.find(c => c.id === id)).filter(Boolean)
+      const ajout = ids.find(id => !f.categorie_ids.includes(id))
+      const sugg = natureSuggeree(cats)
+      // On ne touche à la nature qu'à l'AJOUT d'une catégorie, et seulement si elle n'est
+      // pas déjà compatible avec toutes les catégories (ou si la suggestion est « mixte »).
+      const incompatible = cats.some(c => !categorieApplicable(c, 'journal', f.nature))
+      const nature = ajout && sugg && (incompatible || sugg === 'mixte' || cats.length === 1) ? sugg : f.nature
+      return { ...f, categorie_ids: ids, nature }
+    })
+  }
 
   // Contexte déterminant le schéma (pour l'affichage compact sous le titre du bloc).
-  const multiCtx = form.objet_ids.length > 1 || form.theme_ids.length > 1
+  const multiCtx = form.objet_ids.length > 1
   const nomObjetPrincipal = objets.find(o => o.id === form.objet_principal_id)?.nom ?? ''
-  const nomThemePrincipal = themes.find(t => t.id === form.theme_ids[0])?.nom ?? ''
+  const nomsCategories = categoriesForTitle().map(c => c.nom).join(', ')
 
   // Source des mentions « @ » : objets + thèmes (locaux) + notes (recherche)
   async function mentionItems(query) {
@@ -394,9 +415,8 @@ export default function NoteForm() {
       const body = {
         ...form,
         nature: form.type === 'journal' ? form.nature : null,
-        doc_categorie_id: form.type === 'documentation' ? form.doc_categorie_id : null,
         source_url: form.source_url || null,
-        // Si le titre court n'est pas rempli, l'auto-générer (objets → thèmes, version courte).
+        // Si le titre court n'est pas rempli, l'auto-générer (catégories — objets → thèmes, court).
         titre_alt: (form.titre_alt.trim() || computeTitreAlt()) || null,
         // Tableau [{cle, valeur}] → objet { cle: valeur } ; libellés vides ignorés.
         donnees_etendues: Object.fromEntries(
@@ -485,29 +505,15 @@ export default function NoteForm() {
           )}
         </div>
 
-        {/* Catégorie (documentation) */}
+        {/* Catégories — multi, ordonnées, filtrées par le contexte (type + nature) */}
+        <CategoriePicker categories={categories} value={form.categorie_ids}
+          onChange={changerCategories} type={form.type} nature={form.nature}
+          onManage={() => navigate(`/jourdoc/${wsId}/settings`)} />
+
+        {/* Statut (documentation) */}
         {form.type === 'documentation' && (
           <div className="form-field">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label className="form-label">Catégorie</label>
-              <button type="button" className="jd-auto-btn"
-                onClick={() => navigate(`/jourdoc/${wsId}/settings`)}>⚙️ Gérer</button>
-            </div>
-            <div className="jd-segmented" style={{ flexWrap: 'wrap' }}>
-              <button type="button"
-                className={`jd-seg-btn${form.doc_categorie_id == null ? ' active' : ''}`}
-                onClick={() => setForm(f => ({ ...f, doc_categorie_id: null }))}>— Aucune</button>
-              {docCategories.map(cat => (
-                <button key={cat.id} type="button"
-                  className={`jd-seg-btn${form.doc_categorie_id === cat.id ? ' active' : ''}`}
-                  onClick={() => setForm(f => ({ ...f, doc_categorie_id: cat.id }))}>
-                  {cat.icon} {cat.nom}
-                </button>
-              ))}
-            </div>
-
-            {/* Statut (sous la catégorie) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '.75rem' }}>
               <label className="form-label" style={{ margin: 0 }}>Statut</label>
               <button type="button" className="jd-auto-btn"
                 onClick={() => navigate(`/jourdoc/${wsId}/settings`)}>⚙️ Gérer</button>
@@ -612,7 +618,7 @@ export default function NoteForm() {
               {schema && (
                 <div className="jd-de-ctx__ligne">
                   déterminant : <b>{nomObjetPrincipal || '—'}</b>
-                  {nomThemePrincipal && <> → <b>{nomThemePrincipal}</b></>}
+                  {nomsCategories && <> × <b>{nomsCategories}</b></>}
                   <button type="button" className="jd-de-ctx__aide" title="Comment le schéma est choisi"
                     onClick={() => setAideCtx(a => !a)}>?</button>
                 </div>
@@ -631,31 +637,16 @@ export default function NoteForm() {
                       </select>
                     </label>
                   )}
-                  {form.theme_ids.length > 1 && (
-                    <label className="jd-de-ctx__item">
-                      <span>🏷️ Thème principal</span>
-                      {/* Le thème principal est le 1er de la liste (notes.theme_id) :
-                          le choisir ici réordonne theme_ids pour le placer en tête. */}
-                      <select className="input" value={form.theme_ids[0] ?? ''}
-                        onChange={e => {
-                          const id = Number(e.target.value)
-                          setForm(f => ({ ...f, theme_ids: [id, ...f.theme_ids.filter(t => t !== id)] }))
-                        }}>
-                        {form.theme_ids.map(id => (
-                          <option key={id} value={id}>{themes.find(x => x.id === id)?.nom ?? `#${id}`}</option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
                 </div>
               )}
 
               {aideCtx && (
                 <p className="jd-de-ctx__texte">
-                  Le schéma est choisi d'après l'<b>objet</b> et le <b>thème principaux</b>
-                  {' '}(par défaut les premiers sélectionnés). Un schéma défini sur un objet ou
-                  un thème s'applique aussi à leurs <b>enfants</b> ; le contexte le plus
-                  <b> proche</b> l'emporte.
+                  Le schéma est choisi d'après l'<b>objet principal</b> (par défaut le premier
+                  sélectionné) et <b>chaque catégorie</b> : une note à plusieurs catégories
+                  réunit les champs de leurs schémas (une clé commune n'apparaît qu'une fois).
+                  Un schéma défini sur un objet s'applique aussi à ses <b>enfants</b> ; le
+                  contexte le plus <b>proche</b> l'emporte.
                 </p>
               )}
             </div>

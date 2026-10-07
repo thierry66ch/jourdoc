@@ -79,7 +79,7 @@ export default function ClipperPreview({
         <div style={recapRow}><span style={k}>Titre · </span>{title}</div>
         {titreAlt && <div style={recapRow}><span style={k}>Titre court · </span>{titreAlt}</div>}
         <div style={recapRow}><span style={k}>Workspace · </span>{wsName}</div>
-        {cat && <div style={recapRow}><span style={k}>Catégorie · </span>{cat}</div>}
+        {cat && <div style={recapRow}><span style={k}>Apport · </span>{cat}</div>}
         {objs.length > 0 && <div style={recapRow}><span style={k}>Objets · </span>{objs.join(', ')}</div>}
         {thms.length > 0 && <div style={recapRow}><span style={k}>Thèmes · </span>{thms.join(', ')}</div>}
         <div style={{ ...recapRow, wordBreak: 'break-all' }}><span style={k}>Source · </span>{pageUrl}</div>

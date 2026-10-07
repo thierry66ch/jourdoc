@@ -43,6 +43,7 @@ export const API_ROUTES = {
   JD_MEDIA_NOTES:  (wsId, mediaId) => `/api/jourdoc/${wsId}/medias/${mediaId}/notes`,
   JD_IMPORT_OBJETS:   (wsId) => `/api/jourdoc/${wsId}/import/objets`,
   JD_IMPORT_THEMES:   (wsId) => `/api/jourdoc/${wsId}/import/themes`,
+  JD_IMPORT_CATEGORIES: (wsId) => `/api/jourdoc/${wsId}/import/categories`,
   JD_WORKSPACES:      () => `/api/jourdoc/workspaces`,
   JD_WS_MEMBERS:      (wsId) => `/api/jourdoc/${wsId}/members`,
   JD_WS_MEMBER:       (wsId, uid) => `/api/jourdoc/${wsId}/members/${uid}`,
@@ -72,8 +73,10 @@ export const API_ROUTES = {
   JD_ELEMENTS:             (wsId) => `/api/jourdoc/${wsId}/elements`,
   JD_ELEMENT:              (wsId, id) => `/api/jourdoc/${wsId}/elements/${id}`,
   JD_ELEMENTS_MERGE:       (wsId) => `/api/jourdoc/${wsId}/elements/merge`,
-  JD_DOC_CATEGORIES:       (wsId) => `/api/jourdoc/${wsId}/doc-categories`,
-  JD_DOC_CATEGORIE:        (wsId, id) => `/api/jourdoc/${wsId}/doc-categories/${id}`,
+  // Catégories unifiées (journal « Interventions » + documentation « Apports »)
+  JD_CATEGORIES:           (wsId) => `/api/jourdoc/${wsId}/categories`,
+  JD_CATEGORIE:            (wsId, id) => `/api/jourdoc/${wsId}/categories/${id}`,
+  JD_CATEGORIES_REORDER:   (wsId) => `/api/jourdoc/${wsId}/categories/reorder`,
   JD_DOC_STATUTS:          (wsId) => `/api/jourdoc/${wsId}/doc-statuts`,
   JD_DOC_STATUT:           (wsId, id) => `/api/jourdoc/${wsId}/doc-statuts/${id}`,
 }

@@ -22,7 +22,7 @@ export default function ClipperMeta({
 
       {docCategories.length > 0 && (
         <>
-          <label style={S.label}>Catégorie</label>
+          <label style={S.label}>Apport</label>
           <select
             style={S.field}
             value={docCategorieId ?? ''}

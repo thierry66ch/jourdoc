@@ -211,6 +211,64 @@ CREATE TABLE IF NOT EXISTS jd_note_todoist (
   UNIQUE (note_id, todoist_id)
 );
 
+-- Catégories unifiées (migration 014) : journal (« Interventions ») + documentation
+-- (« Apports »), portée déclarée, N par note. Remplace jd_doc_categorie (conservée, gelée).
+CREATE TABLE IF NOT EXISTS jd_categorie (
+  id                       SERIAL PRIMARY KEY,
+  workspace_id             INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  parent_id                INTEGER REFERENCES jd_categorie(id) ON DELETE SET NULL,
+  nom                      TEXT    NOT NULL,
+  nom_court                TEXT,
+  icon                     TEXT,
+  couleur                  TEXT,
+  applique_observation     BOOLEAN NOT NULL DEFAULT TRUE,
+  applique_activite        BOOLEAN NOT NULL DEFAULT TRUE,
+  applique_documentation   BOOLEAN NOT NULL DEFAULT TRUE,
+  nature_defaut            TEXT,
+  ordre                    INTEGER NOT NULL DEFAULT 0,
+  actif                    BOOLEAN NOT NULL DEFAULT TRUE,
+  origine_doc_categorie_id INTEGER,
+  origine_theme_id         INTEGER,
+  created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT cat_nom_unique_ws UNIQUE (workspace_id, nom),
+  CONSTRAINT cat_portee_non_vide CHECK (applique_observation OR applique_activite OR applique_documentation),
+  CONSTRAINT cat_nature_defaut_valide CHECK (nature_defaut IS NULL OR nature_defaut IN ('observation','activite','mixte')),
+  CONSTRAINT cat_nature_defaut_coherente CHECK (
+    nature_defaut IS NULL
+    OR (nature_defaut = 'observation' AND applique_observation)
+    OR (nature_defaut = 'activite'    AND applique_activite)
+    OR (nature_defaut = 'mixte'       AND applique_observation AND applique_activite))
+);
+
+CREATE TABLE IF NOT EXISTS jd_note_categorie (
+  note_id      INTEGER NOT NULL REFERENCES jd_notes(id)     ON DELETE CASCADE,
+  categorie_id INTEGER NOT NULL REFERENCES jd_categorie(id) ON DELETE CASCADE,
+  ordre        INTEGER NOT NULL DEFAULT 0,      -- 1re = couleur de pastille + tête du titre
+  PRIMARY KEY (note_id, categorie_id)
+);
+
+-- Schémas de données étendues (migrations 012 + 014) : contexte objet × thème × catégorie × nature.
+CREATE TABLE IF NOT EXISTS jd_schema_donnees (
+  id               SERIAL PRIMARY KEY,
+  workspace_id     INTEGER NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+  nom              TEXT NOT NULL,
+  objet_id         INTEGER REFERENCES jd_objets(id) ON DELETE CASCADE,
+  theme_id         INTEGER REFERENCES jd_themes(id) ON DELETE CASCADE,
+  categorie_id     INTEGER REFERENCES jd_categorie(id) ON DELETE CASCADE,
+  doc_categorie_id INTEGER REFERENCES jd_doc_categorie(id) ON DELETE CASCADE,  -- gelée (rollback 014)
+  nature           TEXT CHECK (nature IN ('observation', 'activite', 'mixte')),
+  champs           JSONB NOT NULL DEFAULT '[]'::jsonb,
+  actif            BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT uniq_schema_contexte
+    UNIQUE NULLS NOT DISTINCT (workspace_id, objet_id, theme_id, categorie_id, nature)
+);
+
+-- Colonnes de jd_notes ajoutées par les migrations 012 et 014.
+ALTER TABLE jd_notes ADD COLUMN IF NOT EXISTS objet_principal_id INTEGER REFERENCES jd_objets(id) ON DELETE SET NULL;
+ALTER TABLE jd_notes ADD COLUMN IF NOT EXISTS schema_donnees_id  INTEGER REFERENCES jd_schema_donnees(id) ON DELETE SET NULL;
+ALTER TABLE jd_notes ADD COLUMN IF NOT EXISTS schema_donnees_ids INTEGER[];   -- cache de fusion (014)
+
 -- ─────────────────────────────────────────────
 -- Index utiles
 -- ─────────────────────────────────────────────
@@ -229,3 +287,7 @@ CREATE INDEX IF NOT EXISTS idx_jd_medias_workspace ON jd_medias(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_elements_ws      ON jd_elements(workspace_id);
 CREATE INDEX IF NOT EXISTS idx_jd_note_todoist_note ON jd_note_todoist(note_id);
 CREATE INDEX IF NOT EXISTS idx_jd_note_todoist_ws   ON jd_note_todoist(workspace_id);
+CREATE INDEX IF NOT EXISTS idx_categorie_ws        ON jd_categorie (workspace_id, actif);
+CREATE INDEX IF NOT EXISTS idx_categorie_parent    ON jd_categorie (parent_id);
+CREATE INDEX IF NOT EXISTS idx_note_categorie_cat  ON jd_note_categorie (categorie_id);
+CREATE INDEX IF NOT EXISTS idx_jd_schema_donnees_ws ON jd_schema_donnees (workspace_id);

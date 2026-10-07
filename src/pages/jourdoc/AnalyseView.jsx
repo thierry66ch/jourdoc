@@ -17,7 +17,9 @@ export default function AnalyseView() {
   const { wsId } = useParams()
   const { token } = useAuth()
   const navigate  = useNavigate()
-  const { objets, themes, pickerMode } = useJdData(wsId, token)
+  const { objets, themes, categories, pickerMode } = useJdData(wsId, token)
+  // Interventions = catégories de portée journal (l'analyse ne porte que sur le journal).
+  const interventions = categories.filter(c => c.applique_observation || c.applique_activite)
   const [params, setParams] = useSearchParams()
 
   // Filtres persistés dans l'URL → restaurés au retour depuis une note (comme la biblio).
@@ -26,14 +28,17 @@ export default function AnalyseView() {
   const [themeFilter,    setThemeFilter]    = useState(() => { const v = params.get('tf'); return v ? Number(v) : null })
   const [themeDir,       setThemeDir]       = useState(() => params.get('td') || 'both')
   const [nature,         setNature]         = useState(() => params.get('nat') || 'both')
+  // Filtre catégories : multi, sémantique « au moins une des catégories sélectionnées ».
+  const [catFilter,      setCatFilter]      = useState(() => (params.get('cat') || '').split(',').map(Number).filter(Boolean))
 
   useEffect(() => {
     const p = {}
     if (objetFilter) { p.of = String(objetFilter); if (objetDir !== 'both') p.od = objetDir }
     if (themeFilter) { p.tf = String(themeFilter); if (themeDir !== 'both') p.td = themeDir }
     if (nature !== 'both') p.nat = nature
+    if (catFilter.length) p.cat = catFilter.join(',')
     setParams(p, { replace: true })
-  }, [objetFilter, objetDir, themeFilter, themeDir, nature, setParams])
+  }, [objetFilter, objetDir, themeFilter, themeDir, nature, catFilter, setParams])
   const [notes,          setNotes]          = useState([])
   const [loading,        setLoading]        = useState(false)
   const [exportOpen,     setExportOpen]     = useState(false)
@@ -81,7 +86,7 @@ export default function AnalyseView() {
     clearTimeout(hideTimer.current)
   }, [])
 
-  const hasFilter = objetFilter != null || themeFilter != null
+  const hasFilter = objetFilter != null || themeFilter != null || catFilter.length > 0
 
   useEffect(() => {
     if (!hasFilter) { setNotes([]); return }
@@ -89,12 +94,13 @@ export default function AnalyseView() {
     if (objetFilter) { params.set('objet_id', objetFilter); params.set('objet_dir', objetDir) }
     if (themeFilter) { params.set('theme_id', themeFilter); params.set('theme_dir', themeDir) }
     if (nature !== 'both') params.set('nature', nature)
+    if (catFilter.length) params.set('categorie_ids', catFilter.join(','))
     setLoading(true)
     fetch(`${API_ROUTES.JD_ANALYSE(wsId)}?${params}`, { headers: authHeader(token) })
       .then(r => r.json())
       .then(d => setNotes(d.notes ?? []))
       .finally(() => setLoading(false))
-  }, [wsId, token, objetFilter, objetDir, themeFilter, themeDir, nature])
+  }, [wsId, token, objetFilter, objetDir, themeFilter, themeDir, nature, catFilter])
 
   const byYearBucket = useMemo(() => {
     const map = new Map()
@@ -169,6 +175,24 @@ export default function AnalyseView() {
           )}
         </div>
 
+        {interventions.length > 0 && (
+          <div className="jd-analyse__filter-row">
+            <span className="jd-analyse__filter-label">Interventions</span>
+            <div className="jd-cat-picker__options">
+              {interventions.map(c => {
+                const on = catFilter.includes(c.id)
+                return (
+                  <button key={c.id} type="button" className="jd-cat-option"
+                    style={on ? { background: c.couleur || 'var(--accent)', color: '#fff', borderStyle: 'solid', borderColor: c.couleur || 'var(--accent)' } : undefined}
+                    onClick={() => setCatFilter(l => on ? l.filter(x => x !== c.id) : [...l, c.id])}>
+                    {c.icon || '🏷️'} {c.nom}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="jd-analyse__filter-row">
           <span className="jd-analyse__filter-label">Nature</span>
           <div className="jd-segmented">
@@ -191,7 +215,7 @@ export default function AnalyseView() {
       {!hasFilter && (
         <div className="empty-state" style={{ marginTop: '2rem' }}>
           <div className="empty-state__icon">📊</div>
-          <p>Sélectionnez au moins un objet ou un thème pour visualiser l'historique pluriannuel.</p>
+          <p>Sélectionnez au moins un objet, un thème ou une intervention pour visualiser l'historique pluriannuel.</p>
         </div>
       )}
 

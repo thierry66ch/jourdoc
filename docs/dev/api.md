@@ -75,14 +75,24 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | PUT/DELETE | `/jourdoc/:wsId/elements/:id` | Renommer / supprimer |
 | POST | `/jourdoc/:wsId/elements/merge` | Fusionner deux éléments |
 
-### Catégories de documentation
+### Catégories (unifiées journal + documentation — migration 014)
 
 | Méthode | Route | Description |
 |---|---|---|
-| GET | `/jourdoc/:wsId/doc-categories` | Liste (ordonnée) + `note_count` |
-| POST | `/jourdoc/:wsId/doc-categories` | Créer `{ nom, icon, couleur }` |
-| PUT | `/jourdoc/:wsId/doc-categories/:id` | Modifier `{ nom, icon, couleur, ordre }` |
-| DELETE | `/jourdoc/:wsId/doc-categories/:id` | Supprimer (FK `SET NULL` sur les notes) |
+| GET | `/jourdoc/:wsId/categories` | Liste complète (ordonnée, actives et inactives) : `id, nom, nom_court, icon, couleur, ordre, actif, applique_observation, applique_activite, applique_documentation, nature_defaut` + `note_count` |
+| POST | `/jourdoc/:wsId/categories` | Créer `{ nom, nom_court?, icon?, couleur?, applique_*?, nature_defaut?, actif? }` — `400` si portée vide ou `nature_defaut` incompatible |
+| PUT | `/jourdoc/:wsId/categories/:id` | Modifier (mêmes champs + `ordre?`) — `409` si nom pris |
+| POST | `/jourdoc/:wsId/categories/reorder` | `{ ids: [...] }` → `ordre` = position |
+| DELETE | `/jourdoc/:wsId/categories/:id` | Supprimer — `409` si portée par des notes (désactiver plutôt) |
+| POST | `/jourdoc/:wsId/import/categories` | Import CSV `{ csv }` (format `categories.csv` : `nom;emoji;couleur;applique_observation;applique_activite;applique_documentation;nature_defaut;ordre`) — upsert par nom |
+| GET | `/jourdoc/:wsId/doc-categories` | **Compat** anciens clients : catégories actives de portée documentation |
+
+Notes : `POST/PUT /notes` acceptent **`categorie_ids`** (tableau **ordonné**, journal et
+documentation). L'ancien `doc_categorie_id` reste accepté en repli (traduit via
+`origine_doc_categorie_id`). Les notes renvoyées portent **`categories`** (ordonnées) et un
+alias `doc_categorie` = la 1re. `GET /notes?categorie_id=1,2` et
+`GET /analyse?categorie_ids=1,2` filtrent sur « au moins une ». Logique dans
+`server/lib/categories.js`.
 | GET/POST/PUT/DELETE | `/jourdoc/:wsId/doc-statuts[/:id]` | Référentiel des statuts de doc (même schéma que les catégories) |
 
 ### Schémas de données étendues (V2.1)
@@ -90,18 +100,24 @@ Les routes `:wsId/*` passent par `wsCheck` (vérifie `user_workspace_access`).
 | Méthode | Route | Description |
 |---|---|---|
 | GET | `/jourdoc/:wsId/schemas-donnees` | Liste des schémas (+ noms de contexte, `notes_count`) |
-| POST | `/jourdoc/:wsId/schemas-donnees` | Créer `{ nom, objet_id?, theme_id?, doc_categorie_id?, nature?, champs[], actif }` — `409` si le contexte est déjà pris (contrainte unique) |
-| PUT | `/jourdoc/:wsId/schemas-donnees/:id` | Modifier (mêmes champs, même `409`) |
+| POST | `/jourdoc/:wsId/schemas-donnees` | Créer `{ nom, objet_id?, theme_id?, categorie_id?, nature?, champs[], actif }` — `409` si le contexte est déjà pris (contrainte unique) **ou** si une `cle` existe ailleurs dans le workspace avec un type / des options / une unité / une échelle différents (validateur `conflitCles`, condition de la fusion). Recalcule le cache `schema_donnees_ids` des notes |
+| PUT | `/jourdoc/:wsId/schemas-donnees/:id` | Modifier (mêmes champs, mêmes `409`) |
 | DELETE | `/jourdoc/:wsId/schemas-donnees/:id` | Supprimer (les données déjà saisies restent, deviennent « hors schéma ») |
-| GET | `/jourdoc/:wsId/schemas-donnees/resolve?objet_id=&theme_id=&doc_categorie_id=&nature=` | **Résout** le schéma applicable à un contexte → `{ schema }` ou `{ schema: null }`. Déclaré **avant** `/:id`. Utilisé par l'éditeur de note en direct |
+| GET | `/jourdoc/:wsId/schemas-donnees/resolve?objet_id=&theme_id=&categorie_ids=1,2&nature=` | **Résout et fusionne** les schémas applicables → `{ schema: { id, nom, champs[], schemas[] } }` ou `{ schema: null }` (chaque champ porte `_schema`, l'id du schéma d'origine). Déclaré **avant** `/:id`. Utilisé par l'éditeur de note en direct et le simulateur |
 
-> **Résolution** (`resolveSchemaDonnees`) : parmi les schémas dont chaque axe non-joker
-> matche (objet/thème via **chaîne d'ancêtres** `ancestorChain`, profondeur du workspace),
+> **Résolution** (`pickSchema`, `server/lib/categories.js`, en mémoire) : parmi les schémas dont chaque axe non-joker
+> matche (objet/thème via **chaîne d'ancêtres**, profondeur du workspace),
 > tri par **spécificité** (nb d'axes non-joker) ↓, puis **distance d'ancêtre** ↑ *(uniquement
 > pour les schémas à axe hiérarchique — un schéma nature/catégorie seul a une distance ∞ pour
 > ne pas gagner indûment)*, puis **priorité** objet > thème > (catégorie|nature). Une note
-> `mixte` est matchée par les schémas `observation`/`activite`. Le résultat est mis en cache
-> dans `jd_notes.schema_donnees_id`, recalculé à chaque POST/PUT de note.
+> `mixte` est matchée par les schémas `observation`/`activite`.
+>
+> **Fusion** (`fusionSchemas`) : une résolution **par catégorie** de la note (dans l'ordre),
+> repli sur le joker (`categorie_id NULL`) si aucune ne résout ; union des champs
+> **dédupliqués par `cle`** (1re occurrence = position). Mono-catégorie = comportement
+> d'avant. Cache : `jd_notes.schema_donnees_ids` (+ `schema_donnees_id` = le 1er, compat),
+> recalculé au POST/PUT de note et à toute modification de schéma (`recalcSchemasNotes`).
+> La fiche (`GET /notes/:id`) recalcule la fusion à la lecture.
 
 ### Notes
 

@@ -86,16 +86,38 @@ Compte unique, login 2 étapes par OTP email. Colonnes `otp_code`, `otp_expires`
 ### `jd_schema_donnees` (schémas de données étendues — V2.1)
 Définit les **champs proposés** pour les données étendues d'une note, selon un **contexte**
 de 4 axes tous nullables (`NULL` = joker « quel que soit… ») : `objet_id`, `theme_id`,
-`doc_categorie_id` (documentation), `nature` (journal). `champs` (JSONB) = tableau de
+`categorie_id` (→ `jd_categorie`, migration 014), `nature` (journal). `doc_categorie_id`
+est **gelée** (rollback de 014, plus lue ni écrite). `champs` (JSONB) = tableau de
 définitions `{ cle, label, type, … }` (types : `texte_court`, `texte_long`, `nombre`,
 `decimal`, `echelle` [min/max], `select` [options], `booleen`, `date`). `actif` (BOOLEAN).
 
-> **Unicité** : `UNIQUE NULLS NOT DISTINCT (workspace_id, objet_id, theme_id, doc_categorie_id, nature)`
+> **Unicité** : `UNIQUE NULLS NOT DISTINCT (workspace_id, objet_id, theme_id, categorie_id, nature)`
 > — le `NULLS NOT DISTINCT` (PG ≥ 15) est **indispensable** : sans lui, deux schémas
 > identiques comportant un joker seraient acceptés (les NULL sont distincts par défaut).
 > Migration `012`.
 
-### `jd_doc_categorie` / `jd_doc_statut` (référentiels documentation)
+### `jd_categorie` / `jd_note_categorie` (catégories unifiées — migration 014)
+Référentiel **unique** par workspace pour le journal (**« Interventions »** : ce qu'on a fait
+ou constaté) et la documentation (**« Apports »** : ce que le document apporte). Chaque
+catégorie déclare sa **portée** par trois booléens `applique_observation` /
+`applique_activite` / `applique_documentation` (défaut `TRUE`, **portée vide interdite**) et
+une `nature_defaut` facultative (cohérente avec la portée, contrainte CHECK) qui ne sert que
+lorsque la portée journal est ambiguë. Autres colonnes : `nom` (unique/ws), `nom_court`
+(titre court auto), `icon`, `couleur`, `ordre`, `actif` (préférer la désactivation à la
+suppression), `parent_id` (posé, **non exploité**), `origine_doc_categorie_id` /
+`origine_theme_id` (traçabilité de la migration, sans FK).
+
+`jd_note_categorie (note_id, categorie_id, ordre)` : **N catégories par note**, sans
+catégorie principale — `ordre` est une convention d'**affichage** (la 1re donne la couleur de
+pastille et mène le titre). Pas de FK `categorie_id` sur `jd_notes`.
+
+Modèle à quatre axes orthogonaux : **objet** (sur quoi ?), **catégorie** (ce qu'on a fait /
+ce que ça apporte), **thèmes** (de quoi ça parle ?), **éléments** (marquage transversal).
+Spec : `docs/chantiers/categories/MIGRATION-categories.md`.
+
+### `jd_doc_categorie` (gelée) / `jd_doc_statut` (référentiels documentation)
+> `jd_doc_categorie` et `jd_notes.doc_categorie_id` sont **gelées** depuis la migration 014
+> (rollback) : plus lues ni écrites, à supprimer après validation en usage réel.
 Référentiels ouverts par workspace : sous-natures (`jd_doc_categorie`) et statuts
 (`jd_doc_statut`) des notes `documentation`. Même schéma : `id` · `workspace_id`
 (CASCADE) · `nom` · `icon` (emoji) · `couleur` (hex) · `ordre` · `created_at` ·
@@ -109,8 +131,8 @@ Conseil/Descriptif/Manuel/Norme/Exemple ; statuts : Brouillon/Validé/Obsolète)
 | `workspace_id` | → `workspaces.id` | CASCADE |
 | `type` | TEXT CHECK | `journal` \| `documentation` |
 | `nature` | TEXT CHECK | `observation` \| `activite` \| `mixte` \| NULL (documentation). `mixte` = « Observ.→Activité » : apparaît dans les filtres Observations **et** Activités (migration `010`) |
-| `theme_id` | → `jd_themes.id` | **legacy** — conservé, = 1er thème (voir liaison `jd_note_theme`) |
-| `doc_categorie_id` | → `jd_doc_categorie.id` | `ON DELETE SET NULL` — catégorie (documentation) |
+| `theme_id` | → `jd_themes.id` | **legacy** — conservé, = 1er thème (voir liaison `jd_note_theme`) ; sert encore d'axe thème à la résolution des schémas |
+| `doc_categorie_id` | → `jd_doc_categorie.id` | **gelée** (014) — remplacée par `jd_note_categorie` |
 | `doc_statut_id` | → `jd_doc_statut.id` | `ON DELETE SET NULL` — statut (documentation) |
 | `doc_auteur` / `doc_reference` | TEXT | documentation : auteur/source, date de réf. / version |
 | `titre` | TEXT | obligatoire, auto-générable |
@@ -180,6 +202,7 @@ import('./db/db.js').then(async ({ default: sql }) => {
 - `010_nature_mixte.sql` — élargit `CHECK (nature IN (…))` avec `'mixte'` (nature « Observ.→Activité »)
 - `011_donnees_etendues.sql` — `jd_notes.donnees_etendues` JSONB (V2.1, phase A)
 - `012_schemas_donnees.sql` — table `jd_schema_donnees` (contrainte `UNIQUE NULLS NOT DISTINCT`) + `jd_notes.objet_principal_id` + `jd_notes.schema_donnees_id` (V2.1, phase B)
+- `014_categories_unifiees.sql` — tables `jd_categorie` + `jd_note_categorie`, `jd_schema_donnees.categorie_id` (unicité reconstruite sur cet axe), `jd_notes.schema_donnees_ids` (cache de fusion) ; reprise des catégories de documentation de **tous** les workspaces. Exécutée par **`db/migrate-categories.js`** (rapport en lecture seule par défaut, `--apply` : sauvegarde JSON dans `../mig_data/`, 014, puis par workspace configuré l'extraction des interventions — racine de thèmes → catégories, une transaction par workspace —, alignement du référentiel, recalcul des caches). Appliquée le 2026-10-07 (ws 3 Trains, ws 6 Ménage). (`013` = `todoist_synced_at`.)
 
 **Convention** : nouvelle évolution de schéma → fichier de migration numéroté
 **et** mise à jour de `schema.sql` (référence d'un schéma vierge).

@@ -2,12 +2,11 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { mediaUrl, docCategorieBadgeStyle } from './hooks'
+import { mediaUrl } from './hooks'
+import CategorieBadges from './CategorieBadges'
 import Lightbox from './Lightbox'
 import MarkdownModal from './MarkdownModal'
 
-const NATURE_ICON = { observation: '👁', activite: '⚡', mixte: '🔀' }
-const TYPE_ICON   = { journal: '📔', documentation: '📄' }
 
 const PRIO_COLOR = { 4: '#db4035', 3: '#ff9933', 2: '#4073ff', 1: '#aaa' }
 const PRIO_LABEL = { 4: 'P1', 3: 'P2', 2: 'P3', 1: 'P4' }
@@ -36,16 +35,7 @@ export default function NoteCard({ note, contextNoteIds, showDate = false }) {
     <div className="jd-note-card" onClick={() => navigate(`/jourdoc/${wsId}/notes/${note.id}`,
     contextNoteIds?.length ? { state: { noteIds: contextNoteIds } } : undefined)}>
       <div className="jd-note-card__top">
-        {note.type === 'documentation' && note.doc_categorie ? (
-          <span className="jd-badge jd-badge--doc-cat" style={docCategorieBadgeStyle(note.doc_categorie.couleur)}>
-            {note.doc_categorie.icon || '📄'} {note.doc_categorie.nom}
-          </span>
-        ) : (
-          <span className={`jd-badge jd-badge-${note.nature ?? note.type}`}>
-            {note.nature ? NATURE_ICON[note.nature] : TYPE_ICON[note.type]}
-            {note.nature ?? note.type}
-          </span>
-        )}
+        <CategorieBadges note={note} max={3} />
         {note.doc_statut && (
           <span className="jd-badge jd-badge--doc-cat" style={{ color: note.doc_statut.couleur, borderColor: note.doc_statut.couleur }}>
             {note.doc_statut.icon} {note.doc_statut.nom}

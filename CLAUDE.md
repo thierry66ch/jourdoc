@@ -359,8 +359,18 @@ Fonctionnalités opérationnelles :
   (→ créer une note / annexer à une note existante / importer dans la médiathèque).
   Android + Chrome (WebAPK) uniquement. Voir `docs/dev/clipper.md`.
 
+- **Catégories unifiées et multiples** (build 143, migration 014) : référentiel unique
+  `jd_categorie` (journal « Interventions » + documentation « Apports »), **portée** déclarée
+  (observation/activité/documentation), N catégories par note (`jd_note_categorie`, ordre =
+  affichage), **fusion** des schémas de données étendues par clé. Les interventions ne sont
+  plus des thèmes. Logique dans `server/lib/categories.js` ; migration rejouable
+  `db/migrate-categories.js`. `jd_doc_categorie` / `doc_categorie_id` **gelées** (rollback) —
+  ne plus les utiliser. Jardin (ws 1/2) : interventions encore mêlées aux thèmes-sujets →
+  mapping manuel à faire avant migration. Voir `docs/chantiers/categories/`.
+
 Workspaces existants :
 
 - id=1 : "Jardin (test)" — workspace de test conservé
 - id=2 : workspace de production principal
-- id=3 : autre workspace de production
+- id=3 : « Trains » (modélisme) — catégories migrées le 2026-10-07
+- id=6 : « Ménage » — catégories migrées le 2026-10-07

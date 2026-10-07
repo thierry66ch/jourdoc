@@ -39,12 +39,19 @@ export function sousGroupes(items, champ) {
   return out
 }
 
-// Champs du schéma COMMUN à toutes les notes (ou null si elles n'en partagent pas un seul).
+// Champs des schémas COMMUNS à toutes les notes : même ensemble de schémas appliqués
+// (cache schema_donnees_ids, fusion multi-catégories) → union des champs dédupliqués par clé,
+// dans l'ordre des schémas. null si les notes n'appliquent pas toutes les mêmes schémas.
 export function champsSchemaCommun(notes, schemas) {
-  const ids = new Set(notes.map(n => n.schema_donnees_id).filter(Boolean))
-  if (ids.size !== 1) return null
-  const s = schemas.find(x => x.id === [...ids][0])
-  return Array.isArray(s?.champs) && s.champs.length ? s.champs : null
+  const cle = n => (n.schema_donnees_ids ?? (n.schema_donnees_id ? [n.schema_donnees_id] : [])).join(',')
+  const sigs = new Set(notes.map(cle))
+  if (sigs.size !== 1) return null
+  const ids = [...sigs][0].split(',').filter(Boolean).map(Number)
+  const champs = []
+  for (const id of ids)
+    for (const ch of (schemas.find(x => x.id === id)?.champs ?? []))
+      if (ch?.cle && !champs.some(c => c.cle === ch.cle)) champs.push(ch)
+  return champs.length ? champs : null
 }
 
 // Filtre une liste de notes sur la valeur d'un champ (gère le booléen « Non » = vide).

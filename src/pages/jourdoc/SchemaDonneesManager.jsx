@@ -22,13 +22,14 @@ const NATURES = [['', '— toutes —'], ['observation', '👁 Observation'], ['
 const slug = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40)
 
-const vide = () => ({ nom: '', objet_id: null, theme_id: null, doc_categorie_id: null, nature: '', champs: [], actif: true })
+const vide = () => ({ nom: '', objet_id: null, theme_id: null, categorie_id: null, nature: '', champs: [], actif: true })
 
 export default function SchemaDonneesManager() {
   const { wsId } = useParams()
   const navigate = useNavigate()
   const { token } = useAuth()
-  const { objets, themes, docCategories, pickerMode } = useJdData(wsId, token)
+  const { objets, themes, categories, pickerMode } = useJdData(wsId, token)
+  const catEdit = categories.find(c => c.id === edit?.categorie_id)
 
   const [schemas, setSchemas] = useState([])
   const [edit, setEdit] = useState(null)      // null | objet en cours d'édition
@@ -79,7 +80,7 @@ export default function SchemaDonneesManager() {
     const b = []
     if (s.objet_nom) b.push(`🌿 ${s.objet_nom}`)
     if (s.theme_nom) b.push(`🏷️ ${s.theme_nom}`)
-    if (s.categorie_nom) b.push(`📄 ${s.categorie_nom}`)
+    if (s.categorie_nom) b.push(`🗂️ ${s.categorie_nom}`)
     if (s.nature) b.push(`${s.nature === 'observation' ? '👁' : s.nature === 'activite' ? '⚡' : '🔀'} ${s.nature}`)
     return b.length ? b : ['— tous contextes —']
   }
@@ -100,7 +101,7 @@ export default function SchemaDonneesManager() {
       </div>
 
       <Simulateur wsId={wsId} token={token} objets={objets} themes={themes}
-        docCategories={docCategories} pickerMode={pickerMode} />
+        categories={categories} pickerMode={pickerMode} />
 
       {/* ── Éditeur ── */}
       {edit && (
@@ -130,22 +131,30 @@ export default function SchemaDonneesManager() {
               onChange={v => setEdit(x => ({ ...x, theme_id: v }))}
               nullable nullLabel="— tout thème —" placeholder="Thème…" filterMode={pickerMode} />
             <div style={{ display: 'flex', gap: '.4rem', marginTop: '.4rem', flexWrap: 'wrap' }}>
-              <select className="input" style={{ flex: 1, minWidth: '140px' }} value={edit.doc_categorie_id ?? ''}
-                onChange={e => setEdit(x => ({ ...x, doc_categorie_id: e.target.value ? Number(e.target.value) : null }))}>
-                <option value="">— toute catégorie (doc.) —</option>
-                {docCategories.map(c => <option key={c.id} value={c.id}>{c.icon || '📄'} {c.nom}</option>)}
+              <select className="input" style={{ flex: 1, minWidth: '140px' }} value={edit.categorie_id ?? ''}
+                onChange={e => setEdit(x => ({ ...x, categorie_id: e.target.value ? Number(e.target.value) : null }))}>
+                <option value="">— toute catégorie —</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.icon || '🏷️'} {c.nom}{c.actif ? '' : ' (inactive)'}</option>)}
               </select>
               <select className="input" style={{ flex: 1, minWidth: '140px' }} value={edit.nature ?? ''}
                 onChange={e => setEdit(x => ({ ...x, nature: e.target.value }))}>
                 {NATURES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
-            {edit.doc_categorie_id && edit.nature && (
+            {catEdit && edit.nature && !(
+              edit.nature === 'observation' ? catEdit.applique_observation
+              : edit.nature === 'activite' ? catEdit.applique_activite
+              : (catEdit.applique_observation || catEdit.applique_activite)) && (
               <p className="msg msg-error" style={{ marginTop: '.4rem', fontSize: '.8rem' }}>
-                ⚠️ Catégorie (documentation) et nature (journal) s'excluent : ce schéma ne
+                ⚠️ La catégorie « {catEdit.nom} » ne s'applique pas à cette nature : ce schéma ne
                 s'appliquera à aucune note.
               </p>
             )}
+            <p className="jd-schema-aide" style={{ marginTop: '.4rem' }}>
+              🗂️ Une note à <b>plusieurs catégories</b> réunit les champs du schéma de chacune
+              (une clé commune n'apparaît qu'une fois). Une même <b>clé</b> doit donc avoir partout
+              le même type, les mêmes options et la même unité — l'enregistrement le vérifie.
+            </p>
           </div>
 
           <div className="form-field">
@@ -257,10 +266,10 @@ function OptionsInput({ value, onChange }) {
 }
 
 // ── Simulateur de résolution ──────────────────────────────────
-function Simulateur({ wsId, token, objets, themes, docCategories, pickerMode }) {
+function Simulateur({ wsId, token, objets, themes, categories, pickerMode }) {
   const [objetId, setObjetId] = useState(null)
   const [themeId, setThemeId] = useState(null)
-  const [catId, setCatId] = useState(null)
+  const [catIds, setCatIds] = useState([])   // ordonnées (ordre de clic)
   const [nature, setNature] = useState('')
   const [res, setRes] = useState(undefined)   // undefined = pas encore testé
 
@@ -268,12 +277,12 @@ function Simulateur({ wsId, token, objets, themes, docCategories, pickerMode }) 
     const p = new URLSearchParams()
     if (objetId) p.set('objet_id', objetId)
     if (themeId) p.set('theme_id', themeId)
-    if (catId)   p.set('doc_categorie_id', catId)
+    if (catIds.length) p.set('categorie_ids', catIds.join(','))
     if (nature)  p.set('nature', nature)
     if (![...p].length) { setRes(undefined); return }
     fetch(`${API_ROUTES.JD_SCHEMA_RESOLVE(wsId)}?${p}`, { headers: authHeader(token) })
       .then(r => r.json()).then(d => setRes(d.schema ?? null)).catch(() => setRes(null))
-  }, [wsId, token, objetId, themeId, catId, nature])
+  }, [wsId, token, objetId, themeId, catIds, nature])
 
   return (
     <div className="ws-manager__section">
@@ -287,10 +296,10 @@ function Simulateur({ wsId, token, objets, themes, docCategories, pickerMode }) 
       <HierarchyPicker items={themes} value={themeId} onChange={setThemeId}
         nullable nullLabel="— aucun thème —" placeholder="Thème…" filterMode={pickerMode} />
       <div style={{ display: 'flex', gap: '.4rem', marginTop: '.4rem', flexWrap: 'wrap' }}>
-        <select className="input" style={{ flex: 1, minWidth: '140px' }} value={catId ?? ''}
-          onChange={e => setCatId(e.target.value ? Number(e.target.value) : null)}>
-          <option value="">— aucune catégorie —</option>
-          {docCategories.map(c => <option key={c.id} value={c.id}>{c.icon || '📄'} {c.nom}</option>)}
+        <select className="input" style={{ flex: 1, minWidth: '140px' }} value=""
+          onChange={e => { const id = Number(e.target.value); if (id) setCatIds(l => l.includes(id) ? l : [...l, id]) }}>
+          <option value="">{catIds.length ? '+ ajouter une catégorie' : '— aucune catégorie —'}</option>
+          {categories.filter(c => !catIds.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.icon || '🏷️'} {c.nom}</option>)}
         </select>
         <select className="input" style={{ flex: 1, minWidth: '140px' }} value={nature}
           onChange={e => setNature(e.target.value)}>
@@ -298,10 +307,19 @@ function Simulateur({ wsId, token, objets, themes, docCategories, pickerMode }) 
         </select>
       </div>
 
+      {catIds.length > 0 && (
+        <div className="jd-cat-picker__choisies" style={{ marginTop: '.4rem' }}>
+          {catIds.map(id => { const c = categories.find(x => x.id === id); return c && (
+            <span key={id} className="jd-cat-chip" style={{ background: `${c.couleur || '#d97706'}22`, color: c.couleur || '#d97706' }}>
+              {c.icon || '🏷️'} {c.nom}
+              <button type="button" className="jd-cat-chip__btn" onClick={() => setCatIds(l => l.filter(x => x !== id))}>×</button>
+            </span>) })}
+        </div>
+      )}
       <div className="jd-schema-sim__res">
         {res === undefined ? <span className="muted">Choisissez au moins un critère.</span>
           : res === null ? <span>⚠️ Aucun schéma — la note utilisera la <b>saisie libre</b>.</span>
-          : <span>✅ Schéma appliqué : <b>{res.nom}</b> ({(res.champs ?? []).length} champ(s))</span>}
+          : <span>✅ {(res.schemas?.length ?? 1) > 1 ? 'Schémas fusionnés' : 'Schéma appliqué'} : <b>{res.nom}</b> ({(res.champs ?? []).length} champ(s))</span>}
       </div>
     </div>
   )

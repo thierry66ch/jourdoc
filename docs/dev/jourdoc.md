@@ -38,17 +38,23 @@ montage et sur `visibilitychange` (throttle 1 min/workspace via `sessionStorage`
 - Ordre des champs : **Objets → Éléments → Thèmes**.
 - `HierarchyPicker` en **mode multi** pour objets **et** thèmes (state `objet_ids[]`,
   `theme_ids[]`) ; `ElementPicker` pour les éléments.
-- **Auto-titre** : titre complet = `objets(', ') → thèmes(', ')` (tous les noms) ;
-  titre alternatif (calendrier compact) = noms courts, **max 3** par groupe, au-delà
-  les **3 premiers suivis de « … »** — pour objets et thèmes.
+- **Auto-titre** : titre complet = `catégories(', ') — objets(', ') → thèmes(', ')` (tous
+  les noms, catégories dans l'ordre de la liaison) ; titre alternatif (calendrier compact) =
+  noms courts, **max 3** par groupe, au-delà les **3 premiers suivis de « … »**.
 - Contenu : `RichTextEditor` (Tiptap), zone **redimensionnable verticalement**.
 - **Images de l'éditeur HTML** : collage/dépôt → **upload en pièce jointe** (proxy média,
   plus de base64) via `onImageUpload` ; bouton 🖼 pour insérer une image déjà jointe.
   `src` stocké = `/api/jourdoc/{wsId}/medias/{id}/file` **sans token** ; affichage via le
   proxy authentifié (nodeView `resolveImg` en édition, `resolveContentImages` en lecture).
   Les anciennes images base64 restent affichées telles quelles.
-- Journal → sélecteur **Nature** (observation / activité / **🔀 mixte**) ; documentation
-  → sélecteur **Catégorie** (liste `docCategories` du workspace, + lien « Gérer »).
+- Journal → sélecteur **Nature** (observation / activité / **🔀 mixte**).
+- **Catégories** (`CategoriePicker.jsx`, juste sous type/nature) : multi-sélection
+  **ordonnée** (★ met en tête : couleur + tête du titre), libellé contextuel **« Apports »**
+  (doc) / **« Interventions »** (journal), propositions **filtrées par la portée**
+  (`categoriesPourContexte`). Saisie dans les **deux sens** : nature puis catégories (la liste
+  se filtre) ou catégories puis nature (`natureSuggeree` : `nature_defaut`, ou `mixte` si
+  une catégorie d'observation + une d'activité). Une catégorie devenue hors contexte reste
+  affichée, signalée ⚠️ (jamais retirée en silence).
 - MediaPicker filtré par date ; section Todoist si le workspace est configuré.
 - **Joindre une photo (mobile)** : boutons **📷 Photo** (`capture="environment"`) et
   **🖼️ Galerie** (`multiple`) → pipeline `prepareUploadFiles` (resize + HEIC + date EXIF,
@@ -61,7 +67,11 @@ montage et sur `visibilitychange` (throttle 1 min/workspace via `sessionStorage`
 éléments, fil de notes, Todoist). `refreshNote()` évite `window.location.reload()`.
 Lightbox photos + PDF (iframe). Navigation contextuelle + swipe.
 
-**`NoteCard.jsx`** — compact : badge nature/type, **chips thèmes (multi)**, objets,
+**`CategorieBadges.jsx`** — badges partagés (NoteCard, NoteView) : nature (journal) puis
+catégories dans l'ordre. **`noteVisual()`** (`hooks.js`) : la **1re catégorie** donne icône +
+couleur (pastilles calendrier, matrices, chips) ; sans catégorie → nature / 📄.
+
+**`NoteCard.jsx`** — compact : badges nature + catégories (max 3), **chips thèmes (multi)**, objets,
 éléments, vignettes médias, chip Todoist. Prop `showDate`.
 
 ## Données étendues (V2.1)
@@ -70,24 +80,29 @@ Champ structuré par note (`jd_notes.donnees_etendues`, objet `{cle:valeur}`), d
 **forme dépend du contexte** via des **schémas** (`jd_schema_donnees`, cf. `database.md` /
 `api.md`).
 
-- **Résolution (serveur)** : `resolveSchemaDonnees(wsId, {objetId, themeId, docCategorieId,
-  nature})` dans `jourdoc.js`. Le contexte vient de l'**objet principal**
-  (`jd_notes.objet_principal_id`) et du **thème principal** (`jd_notes.theme_id`, 1er thème).
-  Helper `ancestorChain()` partagé (extrait de `/analyse`). Tri : spécificité ↓, distance
-  d'ancêtre ↑ (∞ pour un schéma sans axe hiérarchique), priorité objet > thème >
-  catégorie/nature. Cache dans `schema_donnees_id`, recalculé au POST/PUT note.
+- **Résolution + fusion (serveur)** : `server/lib/categories.js` — `pickSchema` (un
+  contexte, une catégorie au plus ; pur, en mémoire) et `fusionSchemas` (une résolution par
+  catégorie de la note, union des champs dédupliqués par `cle`, repli joker). Contexte :
+  **objet principal** (`objet_principal_id`), 1er thème (`theme_id`, axe conservé mais plus
+  exposé à la saisie), **catégories** (`jd_note_categorie`), nature. Tri : spécificité ↓,
+  distance d'ancêtre ↑ (∞ sans axe hiérarchique), priorité objet > thème > catégorie/nature.
+  Cache `schema_donnees_ids` (+ `schema_donnees_id` = 1er), recalculé au POST/PUT note et à
+  chaque modification de schéma. **Validateur** `conflitCles` : une même `cle` doit avoir
+  partout le même type/options/unité/échelle (sinon `409`), condition de la fusion.
 - **`DonneesEtenduesForm.jsx`** — formulaire dynamique : rend les 8 types de champs
-  (texte court/long, nombre, décimal, échelle en étoiles, liste, oui/non, date) + section
+  (texte court/long, nombre, décimal, échelle en étoiles, liste, oui/non, date) ; plusieurs
+  schémas fusionnés → **sections repliables par catégorie d'origine** (`_schema`) ; + section
   **« hors schéma »** (valeurs d'un autre contexte, conservées et éditables — aucune perte).
 - **`NoteForm`** : résout le schéma **en direct** (`GET …/schemas-donnees/resolve`) au
-  changement de contexte ; repli sur la saisie libre si aucun schéma. Bloc compact
-  « déterminant : objet → thème » + sélecteurs d'objet/thème principal **seulement s'il y a
-  un choix** (plusieurs objets/thèmes). **`NoteView`** affiche le tableau **au-dessus du
-  corps** (libellés/ordre du schéma), masqué si aucune valeur.
+  changement de contexte (`categorie_ids`) ; repli sur la saisie libre si aucun schéma. Bloc
+  compact « déterminant : objet × catégories » + sélecteur d'objet principal **seulement s'il
+  y a un choix**. Le « thème principal » n'est plus exposé (les interventions ne sont plus
+  des thèmes). **`NoteView`** affiche le tableau **au-dessus du corps** (libellés/ordre,
+  intertitres par schéma si fusion), masqué si aucune valeur.
 - **`SchemaDonneesManager.jsx`** (page `/jourdoc/:wsId/schemas`, lien depuis Workspace ⚙️) —
   liste, éditeur de champs (types, unité, min/max, options, réordonnancement), activation, et
-  **simulateur** de résolution (choisir un contexte → schéma appliqué). Avertit si catégorie
-  **et** nature sont renseignées (axes mutuellement exclusifs).
+  **simulateur** de résolution (contexte avec **plusieurs catégories** → schémas fusionnés).
+  Avertit si la catégorie choisie ne s'applique pas à la nature choisie.
 - **Exploitation** : helpers partagés `donneesUtils.js` (`GROUPABLES`, `valeursDe`,
   `sousGroupes`, `champsSchemaCommun`, `filtrerParDonnee`). Bibliothèque : **tri / groupe /
   filtre** sur les types discrets (liste/échelle/oui-non), proposés seulement si le contexte
@@ -143,7 +158,8 @@ donnée (si le contexte filtré résout à un schéma unique) qui restreint les 
 les grilles ; bouton **📤 Exporter** de la période filtrée (liste plate, tri date).
 
 **`AnalyseView.jsx`** — 52 buckets hebdomadaires × N années. Filtres objet + thème +
-nature, **persistés en URL** (retour propre). Surlignage cross-année, marqueur semaine
+**interventions** (catégories de portée journal, multi, « au moins une ») + nature,
+**persistés en URL** (retour propre). Surlignage cross-année, marqueur semaine
 courante. **Clic sur une case** → popup d'aperçu (`createPortal`) **+ panneau de fiches
 `NoteCard` sous la grille** (comme le calendrier) : `/analyse` ne renvoyant que des notes
 minimales, les notes **enrichies** de la semaine sont récupérées à la volée via `/notes`
@@ -152,7 +168,9 @@ minimales, les notes **enrichies** de la semaine sont récupérées à la volée
 ## Bibliothèque
 
 **`BibliothequeView.jsx`** (`/bibliotheque`) — parcours de toute la documentation
-du workspace, **groupée en étagères par catégorie**. Charge `GET /notes?type=documentation`
+du workspace, **groupée en étagères par catégorie** (« Apports »). Un document apparaît
+sur **toutes** les étagères de ses catégories : les compteurs ne sont **pas une partition**
+(« 15 documents · 5 apports »), et la navigation précédent/suivant déduplique les ids. Charge `GET /notes?type=documentation`
 (pas de route dédiée). Recherche (titre + titre_alt + contenu HTML détaggé), tri
 (récent / A→Z), légende de catégories cliquables (chips colorées + compteurs, dont
 « Sans catégorie »). **Densité** cartes / compact (persistée en `localStorage`).

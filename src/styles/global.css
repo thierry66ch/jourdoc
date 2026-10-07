@@ -4065,3 +4065,46 @@ button, input, select, textarea { font: inherit; color: inherit }
   margin-left: .4rem; font-size: .72rem; background: var(--accent-bg); color: var(--accent);
   border-radius: var(--r-full); padding: .05em .5em;
 }
+
+/* ── Catégories unifiées (migration 014) ───────────────────── */
+
+/* Sélecteur de catégories (NoteForm) : choisies ordonnées + propositions filtrées */
+.jd-cat-picker__choisies { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .45rem }
+.jd-cat-chip {
+  display: inline-flex; align-items: center; gap: .25rem;
+  padding: .2rem .35rem .2rem .55rem; border: 1px solid transparent; border-radius: 999px;
+  font-size: .8125rem; font-weight: 600;
+}
+.jd-cat-chip--tete { box-shadow: 0 0 0 2px currentColor inset }
+.jd-cat-chip--hors { opacity: .6; border-style: dashed }
+.jd-cat-chip__btn {
+  border: none; background: transparent; color: inherit; cursor: pointer;
+  font-size: .85rem; line-height: 1; padding: 0 .15rem; opacity: .7;
+}
+.jd-cat-chip__btn:hover { opacity: 1 }
+.jd-cat-picker__options { display: flex; flex-wrap: wrap; gap: .3rem }
+.jd-cat-option {
+  border: 1px dashed var(--border); background: var(--surface); color: var(--text-muted);
+  border-radius: 999px; padding: .2rem .6rem; font-size: .78rem; cursor: pointer;
+}
+.jd-cat-option:hover { color: var(--text); border-style: solid }
+.jd-cat-picker__vide { font-size: .78rem; color: var(--text-subtle); margin: 0 }
+
+/* Données étendues fusionnées : une section repliable par schéma d'origine */
+.jd-de-groupe { border: 1px solid var(--border); border-radius: var(--r); padding: .35rem .6rem; margin: .4rem 0 }
+.jd-de-groupe > summary { cursor: pointer; font-size: .8125rem; font-weight: 700; color: var(--text-muted) }
+.jd-de-groupe__meta { font-weight: 400; margin-left: .5rem; font-size: .75rem; color: var(--text-subtle) }
+.jd-de-groupe > .jd-de-form { margin-top: .45rem }
+.jd-donnees-table__groupe th {
+  background: var(--surface); color: var(--text-subtle); font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .04em; padding-top: .35rem; padding-bottom: .25rem;
+}
+
+/* Gestion des catégories (réglages) : portée + nature par défaut sous la ligne */
+.cat-mgr-row { flex-wrap: wrap }
+.cat-mgr-row--inactive { opacity: .55 }
+.cat-mgr-portee { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .7rem; flex-basis: 100%; padding-left: 2.9rem; font-size: .78rem; color: var(--text-muted) }
+.cat-mgr-portee label { display: inline-flex; align-items: center; gap: .25rem; cursor: pointer }
+.cat-mgr-portee select { font-size: .78rem; padding: .15rem .3rem }
+.cat-mgr-court { width: 4.5rem; padding: .4rem .45rem; font-size: .8rem }
+.cat-mgr-filtre { margin-bottom: .6rem }

@@ -46,7 +46,7 @@ function noteHtml(n, mediaById, wsName) {
   const meta = []
   meta.push(`<b>Type</b> : ${esc(TYPE_LABEL[n.type] || n.type)}${n.nature ? ` · ${esc(n.nature)}` : ''}`)
   if (n.date)          meta.push(`<b>Date</b> : ${esc(n.date)}`)
-  if (n.categorie)     meta.push(`<b>Catégorie</b> : ${esc(n.categorie)}`)
+  if (n.categorie)     meta.push(`<b>Catégories</b> : ${esc(n.categorie)}`)
   if (n.statut)        meta.push(`<b>Statut</b> : ${esc(n.statut)}`)
   if (n.doc_auteur)    meta.push(`<b>Auteur</b> : ${esc(n.doc_auteur)}`)
   if (n.doc_reference) meta.push(`<b>Référence</b> : ${esc(n.doc_reference)}`)
@@ -97,10 +97,12 @@ function indexHtml(manifest) {
   }
   if (docs.length) {
     const byCat = new Map()
+    // Un document figure sous CHACUN de ses apports (comme les étagères de la Bibliothèque).
     for (const n of docs) {
-      const k = n.categorie || '(sans catégorie)'
-      if (!byCat.has(k)) byCat.set(k, [])
-      byCat.get(k).push(n)
+      for (const k of (n.categories?.length ? n.categories : ['(sans apport)'])) {
+        if (!byCat.has(k)) byCat.set(k, [])
+        byCat.get(k).push(n)
+      }
     }
     const cats = [...byCat.keys()].sort((a, b) => a.localeCompare(b))
     sections.push(`<h2>Documentation</h2>${cats.map(k =>

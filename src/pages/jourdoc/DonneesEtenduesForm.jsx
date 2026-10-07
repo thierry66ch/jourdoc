@@ -82,21 +82,42 @@ export default function DonneesEtenduesForm({ schema, donnees, setDonnees }) {
     }
   }
 
+  const renderListe = list => (
+    <div className="jd-de-form">
+      {list.map(champ => (
+        <div key={champ.cle} className="jd-de-champ">
+          <label className="jd-de-champ__label">
+            {champ.label || champ.cle}
+            {champ.unite && !TYPES_NUM.has(champ.type) ? ` (${champ.unite})` : ''}
+          </label>
+          <div className="jd-de-champ__input">{renderChamp(champ)}</div>
+        </div>
+      ))}
+    </div>
+  )
+
+  // Note à plusieurs catégories : schémas FUSIONNÉS → champs groupés par schéma d'origine
+  // (`_schema`), en sections repliables (une note à 4 catégories peut dépasser 30 champs).
+  const schemas = Array.isArray(schema?.schemas) ? schema.schemas : []
+  const groupes = schemas.length > 1
+    ? schemas.map(s => ({ s, list: champs.filter(ch => ch._schema === s.id) })).filter(g => g.list.length)
+    : null
+
   return (
     <>
-      {champs.length > 0 && (
-        <div className="jd-de-form">
-          {champs.map(champ => (
-            <div key={champ.cle} className="jd-de-champ">
-              <label className="jd-de-champ__label">
-                {champ.label || champ.cle}
-                {champ.unite && !TYPES_NUM.has(champ.type) ? ` (${champ.unite})` : ''}
-              </label>
-              <div className="jd-de-champ__input">{renderChamp(champ)}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {champs.length > 0 && !groupes && renderListe(champs)}
+      {groupes && groupes.map(({ s, list }) => {
+        const remplis = list.filter(ch => String(getVal(ch.cle)).trim() !== '').length
+        return (
+          <details key={s.id} className="jd-de-groupe" open>
+            <summary>
+              {s.categorie_nom || s.nom}
+              <span className="jd-de-groupe__meta">{s.categorie_nom ? `${s.nom} · ` : ''}{remplis}/{list.length}</span>
+            </summary>
+            {renderListe(list)}
+          </details>
+        )
+      })}
 
       {/* Valeurs ne relevant pas du schéma courant — conservées et éditables */}
       {horsSchema.length > 0 && (

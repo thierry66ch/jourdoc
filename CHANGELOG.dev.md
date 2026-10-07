@@ -4,6 +4,55 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 143 — 2026-10-07 — Catégories unifiées et multiples (chantier Modélisme)
+
+Spec : `docs/chantiers/categories/` (README-handoff, MIGRATION-categories, CDC-Workspace-Modelisme).
+Les « interventions » du journal étaient des **thèmes** (racine `Interventions`, 1er thème
+= déterminant du schéma) : erreur de cardinalité. Elles deviennent des **catégories**, dans
+un référentiel **unifié** avec celles de la documentation, **multi-valuées**, dont les schémas
+de données étendues **fusionnent**.
+
+**Base (migration 014 + `db/migrate-categories.js`, appliquées en prod)**
+- `jd_categorie` (portée `applique_observation/activite/documentation`, portée vide
+  interdite, `nature_defaut` cohérente, `nom_court`, `actif`, `parent_id` posé non exploité,
+  traçabilité `origine_*`) + `jd_note_categorie (note, categorie, ordre)`.
+- `jd_schema_donnees.categorie_id` (unicité reconstruite sur cet axe) ;
+  `jd_notes.schema_donnees_ids` (cache de fusion). `jd_doc_categorie` / `doc_categorie_id`
+  **gelées** (rollback), à supprimer après validation.
+- Reprise des catégories doc de **tous** les workspaces (46 notes doc). Extraction des
+  interventions : **Trains** (15 interventions, 3 notes multi-interventions conservées
+  telles quelles, schéma 30 basculé sur `Inspection`) et **Ménage** (5, sous-thème aplati) ;
+  racines `Interventions` supprimées. Trains aligné sur `categories.csv` : Conseil → Tutoriel,
+  Produits → Produit, Manuel désactivé, + Schéma et esquisse, Plan, Contrôle technique ;
+  Inspection, Décision, Décret, Projet conservées (arbitrage). Sauvegardes JSON dans
+  `../mig_data/backup-categories-*.json`.
+- Restent sans catégorie (arbitrage humain, §4.1) : #28 « Panne télécommande sans fil »
+  (Trains), #206 « test » (Ménage).
+
+**Serveur** — `server/lib/categories.js` (nouveau) : CRUD/validation, import CSV, résolution
+en mémoire (`pickSchema`) + **fusion** (`fusionSchemas` : un schéma par catégorie, union
+dédupliquée par `cle`, repli joker) + recalcul en lot des caches, **validateur de clés**
+(`conflitCles`, 409). Routes `/categories` (+ `reorder`, `import/categories`),
+`/doc-categories` en lecture compat ; notes : `categorie_ids` (repli `doc_categorie_id`
+traduit), réponses `categories` + alias `doc_categorie` ; filtres `categorie_id` (liste) et
+`/analyse?categorie_ids=`. Exports : `categories.csv` / `note_categories.csv`, colonne
+« Catégories » (`A | B`). Clipper : catégories de portée doc.
+
+**Front** — `CategoriePicker` (multi ordonné, libellé « Apports » / « Interventions »,
+filtré par portée, saisie dans les deux sens via `natureSuggeree`, hors-contexte signalé),
+`CategorieBadges`, `CategorieManager` (réglages : portée, nature par défaut, actif, nom court,
+ordre ; filtres journal/doc ; import CSV « Catégories »). Pastille = 1re catégorie
+(`noteVisual`). Titre auto `catégories — objets → thèmes`. Sélecteur « thème principal »
+retiré. Données étendues fusionnées groupées par catégorie (form + fiche). Bibliothèque :
+document sur toutes ses étagères (compteurs non partitionnants). Fiche objet/thème : filtre
+catégorie sur toutes les notes. Analyse : filtre interventions. Schémas : axe catégorie +
+simulateur multi-catégories.
+
+Validé : tests API bout en bout sur ws Trains (fusion, compat, validateurs, filtres —
+notes de test `T-` supprimées), parcours UI local (saisie, Bibliothèque, réglages).
+
+---
+
 ## Build 142 — 2026-10-06 — Fix build Vercel : Node 24 (20.x arrêté)
 
 Vercel a arrêté Node 20.x ; le build échouait (« Node.js Version "20.x" is discontinued »).

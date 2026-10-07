@@ -49,6 +49,15 @@ Traitement/Traitement antifongique;taf
 Récolte;rec
 Récolte/Cueillette;cui
 Observation;obs`,
+
+  // Catégories : liste plate (pas de hiérarchie) — portée en 0/1, nature_defaut vide ou
+  // observation / activite / mixte. Upsert par nom.
+  categories: `nom;emoji;couleur;applique_observation;applique_activite;applique_documentation;nature_defaut;ordre
+Norme;📐;#5B6B8C;0;0;1;;1
+Tutoriel;🔧;#4A8FA8;0;0;1;;2
+Dégât;⚠️;#C0504D;1;0;0;;10
+Entretien;🧰;#4A9B8E;0;1;0;;15
+Roulement;🚂;#2F7D5C;1;1;0;mixte;16`,
 }
 
 // Format 2 : nom + parent (utile quand les noms sont courts)
@@ -76,6 +85,7 @@ Récolte;;rec
 Cueillette;Récolte;cui
 Observation;;obs`,
 }
+EXAMPLES_PARENT.categories = EXAMPLES_PATH.categories   // pas de hiérarchie
 
 // Compatibilité avec le code existant
 const EXAMPLES = EXAMPLES_PATH
@@ -115,7 +125,9 @@ export default function CsvImporter({ wsId, token, type = 'objets', onDone }) {
     setError('')
     setResult(null)
     try {
-      const url = type === 'objets' ? API_ROUTES.JD_IMPORT_OBJETS(wsId) : API_ROUTES.JD_IMPORT_THEMES(wsId)
+      const url = type === 'objets' ? API_ROUTES.JD_IMPORT_OBJETS(wsId)
+        : type === 'categories' ? API_ROUTES.JD_IMPORT_CATEGORIES(wsId)
+        : API_ROUTES.JD_IMPORT_THEMES(wsId)
       const res = await fetch(url, {
         method: 'POST', headers: authHeader(token),
         body: JSON.stringify({ csv: csvText }),
@@ -145,14 +157,16 @@ export default function CsvImporter({ wsId, token, type = 'objets', onDone }) {
 
       {showExample && (
         <div className="csv-importer__example-block">
-          <div className="jd-segmented" style={{ marginBottom: '.5rem' }}>
+          {type !== 'categories' && <div className="jd-segmented" style={{ marginBottom: '.5rem' }}>
             <button type="button" className={`jd-seg-btn${exampleFormat === 'path' ? ' active' : ''}`}
               onClick={() => setExampleFormat('path')}>📂 Format chemin</button>
             <button type="button" className={`jd-seg-btn${exampleFormat === 'parent' ? ' active' : ''}`}
               onClick={() => setExampleFormat('parent')}>🔗 Format nom+parent</button>
-          </div>
+          </div>}
           <p style={{ fontSize: '.78rem', color: 'var(--text-muted)', marginBottom: '.375rem' }}>
-            {exampleFormat === 'path'
+            {type === 'categories'
+              ? 'Une ligne par catégorie. Portée : 1 = s\'applique (observation, activité, documentation). Une catégorie existante (même nom) est mise à jour.'
+              : exampleFormat === 'path'
               ? 'Chaque ligne contient le chemin complet depuis la racine, séparé par "/".'
               : 'Chaque ligne contient le nom de l\'élément et le nom de son parent direct (laisser vide pour la racine).'}
           </p>
@@ -234,7 +248,9 @@ export default function CsvImporter({ wsId, token, type = 'objets', onDone }) {
         <div className="csv-importer__result">
           <span className="csv-importer__result-ok">✅ {result.created} créé{result.created !== 1 ? 's' : ''}</span>
           {result.updated > 0 && (
-            <span className="csv-importer__result-upd">🔄 {result.updated} parent{result.updated !== 1 ? 's' : ''} mis à jour</span>
+            <span className="csv-importer__result-upd">🔄 {result.updated} {type === 'categories'
+              ? `catégorie${result.updated !== 1 ? 's mises' : ' mise'}`
+              : `parent${result.updated !== 1 ? 's' : ''} mis`} à jour</span>
           )}
           <span className="csv-importer__result-skip">⏭ {result.skipped} inchangé{result.skipped !== 1 ? 's' : ''}</span>
           {result.errors?.length > 0 && (

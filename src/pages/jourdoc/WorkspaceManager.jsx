@@ -5,6 +5,7 @@ import { API_ROUTES } from '@pogil/shared'
 import { authHeader } from './hooks'
 import { buildWorkspaceExport } from './exportWorkspace'
 import CsvImporter from './CsvImporter'
+import CategorieManager from './CategorieManager'
 import BadgeRefManager from './BadgeRefManager'
 
 const ROLE_LABEL = { owner: 'Propriétaire', member: 'Membre' }
@@ -650,18 +651,17 @@ export default function WorkspaceManager() {
         ))}
       </section>
 
-      {/* ── Catégories de documentation ── */}
+      {/* ── Catégories (unifiées journal + documentation) ── */}
       <section className="ws-manager__section">
-        <h3 className="ws-manager__title">📄 Catégories de documentation</h3>
+        <h3 className="ws-manager__title">🏷️ Catégories</h3>
         <p style={{ fontSize: '.8125rem', color: 'var(--text-muted)', marginBottom: '.75rem' }}>
-          Sous-natures des notes de type « documentation » (conseil, descriptif, manuel…).
-          Liste ouverte mais à garder courte. Chaque catégorie a une icône et une couleur,
-          affichées en badge sur les notes.
+          Ce que dit une note : <b>ce qu'on a fait ou constaté</b> au journal (« Interventions » :
+          entretien, essai, dégât…) ou <b>ce que le document apporte</b> en documentation
+          (« Apports » : norme, tutoriel, plan…). Une note peut en porter plusieurs ; la première
+          donne la couleur et mène le titre. La <b>portée</b> détermine où chaque catégorie est
+          proposée. Les thèmes, eux, disent <i>de quoi</i> ça parle.
         </p>
-        <BadgeRefManager wsId={wsId} token={token}
-          listRoute={API_ROUTES.JD_DOC_CATEGORIES} itemRoute={API_ROUTES.JD_DOC_CATEGORIE}
-          itemsKey="categories" defaultEmoji="🏷️" term="catégorie"
-          addPlaceholder="Nouvelle catégorie…" emptyLabel="Aucune catégorie." />
+        <CategorieManager wsId={wsId} token={token} />
       </section>
 
       {/* ── Statuts de documentation ── */}
@@ -758,7 +758,8 @@ export default function WorkspaceManager() {
       <section className="ws-manager__section">
         <h3 className="ws-manager__title">📥 Importer des données CSV</h3>
         <p style={{ fontSize: '.875rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-          Importez en masse des objets ou des thèmes depuis un fichier CSV. Les doublons sont ignorés.
+          Importez en masse des objets, des thèmes ou des catégories depuis un fichier CSV. Les doublons sont ignorés
+          (les catégories existantes, reconnues par leur nom, sont mises à jour).
         </p>
 
         <div className="ws-manager__import-tabs">
@@ -768,6 +769,9 @@ export default function WorkspaceManager() {
           <button
             className={`ws-manager__import-tab${importTab === 'themes' ? ' active' : ''}`}
             onClick={() => setImportTab('themes')}>🏷️ Thèmes</button>
+          <button
+            className={`ws-manager__import-tab${importTab === 'categories' ? ' active' : ''}`}
+            onClick={() => setImportTab('categories')}>🗂️ Catégories</button>
         </div>
 
         <CsvImporter key={importTab} wsId={wsId} token={token} type={importTab} onDone={() => setMsg(`Import ${importTab} terminé.`)} />

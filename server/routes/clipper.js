@@ -18,6 +18,7 @@ import { extractArticle, extractMeta } from '../lib/clipper/readability.js'
 import { htmlToMarkdown } from '../lib/clipper/turndown.js'
 import { downloadAndReplaceImages } from '../lib/clipper/images.js'
 import { fetchPage } from '../lib/clipper/fetchPage.js'
+import { categorieIdsFromBody, setNoteCategories, recalcSchemaNote } from '../lib/categories.js'
 import { slugify, domainSlug } from '../lib/clipper/slug.js'
 
 const clip = new Hono()
@@ -150,7 +151,8 @@ clip.get('/ws/:wsId/taxonomy', async (c) => {
   const [objets, themes, docCategories] = await Promise.all([
     sql`SELECT id, nom, nom_court, parent_id FROM jd_objets WHERE workspace_id = ${wsId} ORDER BY nom`,
     sql`SELECT id, nom, nom_court, parent_id FROM jd_themes WHERE workspace_id = ${wsId} ORDER BY nom`,
-    sql`SELECT id, nom, icon, couleur FROM jd_doc_categorie WHERE workspace_id = ${wsId} ORDER BY ordre, nom`,
+    // Catégories de portée documentation (« Apports »), actives — clé conservée pour le client.
+    sql`SELECT id, nom, icon, couleur FROM jd_categorie WHERE workspace_id = ${wsId} AND applique_documentation AND actif ORDER BY ordre, nom`,
   ])
   return c.json({ objets, themes, docCategories })
 })
@@ -211,15 +213,15 @@ clip.post('/', async (c) => {
   const theme_ids   = Array.isArray(body.theme_ids) ? body.theme_ids : []
   const objet_ids   = Array.isArray(body.objet_ids) ? body.objet_ids : []
   const element_ids = Array.isArray(body.element_ids) ? body.element_ids : []
-  const docCategorieId = body.doc_categorie_id ?? null
+  const categorieIds = (await categorieIdsFromBody(workspaceId, body)) ?? []
   // Body de la note : description de la page en bloc citation (en-tête).
   const desc = article.description || article.excerpt || ''
   const contenu = desc ? `<blockquote><p>${escapeHtml(desc)}</p></blockquote>` : null
 
   const titreAlt = (body.titre_alt || '').trim() || null
   const [note] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, theme_id, doc_categorie_id, titre, titre_alt, contenu, date, source_url)
-    VALUES (${workspaceId}, 'documentation', ${theme_ids[0] ?? null}, ${docCategorieId}, ${title}, ${titreAlt}, ${contenu}, ${today()}, ${url})
+    INSERT INTO jd_notes (workspace_id, type, theme_id, titre, titre_alt, contenu, date, source_url, objet_principal_id)
+    VALUES (${workspaceId}, 'documentation', ${theme_ids[0] ?? null}, ${title}, ${titreAlt}, ${contenu}, ${today()}, ${url}, ${objet_ids[0] ?? null})
     RETURNING id
   `
   const noteId = note.id
@@ -229,6 +231,8 @@ clip.post('/', async (c) => {
   for (const el of element_ids) await sql`INSERT INTO jd_note_element (note_id, element_id) VALUES (${noteId}, ${el}) ON CONFLICT DO NOTHING`
   await sql`INSERT INTO jd_note_media (note_id, media_id) VALUES (${noteId}, ${mediaId}) ON CONFLICT DO NOTHING`
   await sql`UPDATE jd_medias SET lie = TRUE WHERE id = ${mediaId}`
+  await setNoteCategories(workspaceId, noteId, categorieIds)
+  await recalcSchemaNote(workspaceId, noteId)
 
   return c.json({
     noteId,

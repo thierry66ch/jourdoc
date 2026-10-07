@@ -24,7 +24,7 @@ export default function BibliothequeView() {
   const { wsId } = useParams()
   const navigate = useNavigate()
   const { token } = useAuth()
-  const { objets, themes, docCategories, docStatuts, searchDepth, pickerMode } = useJdData(wsId, token)
+  const { objets, themes, categories, docStatuts, searchDepth, pickerMode } = useJdData(wsId, token)
   const [params, setParams] = useSearchParams()
 
   const [notes, setNotes]     = useState([])
@@ -195,11 +195,15 @@ export default function BibliothequeView() {
       : (b.date || '').localeCompare(a.date || '') || b.id - a.id)
   }, [filtres, sort, sortDonnee, sortDonneeDir, champsTriables])
 
+  // Catégories MULTIPLES : un document compte sur chacune de ses étagères → les compteurs
+  // ne forment pas une partition (leur somme peut dépasser le nombre de documents).
+  const catIds = n => (n.categories ?? []).map(c => c.id)
   const counts = useMemo(() => {
     const m = new Map(); let none = 0
     for (const n of matched) {
-      if (n.doc_categorie) m.set(n.doc_categorie.id, (m.get(n.doc_categorie.id) ?? 0) + 1)
-      else none++
+      const ids = catIds(n)
+      if (!ids.length) none++
+      for (const id of ids) m.set(id, (m.get(id) ?? 0) + 1)
     }
     return { m, none }
   }, [matched])
@@ -215,28 +219,33 @@ export default function BibliothequeView() {
 
   const groups = useMemo(() => {
     let visible = selCat == null ? matched
-      : matched.filter(n => selCat === '__none__' ? !n.doc_categorie : n.doc_categorie?.id === selCat)
+      : matched.filter(n => selCat === '__none__' ? !catIds(n).length : catIds(n).includes(selCat))
     if (selStatut != null) visible = visible.filter(n =>
       selStatut === '__none__' ? !n.doc_statut : n.doc_statut?.id === selStatut)
+    // Un document apparaît sur TOUTES les étagères de ses catégories (toutes, même
+    // désactivées ou hors portée doc : on montre ce que portent les notes).
+    // Catégorie filtrée → seule son étagère est affichée.
     const out = []
-    for (const c of docCategories) {
-      const items = visible.filter(n => n.doc_categorie?.id === c.id)
+    for (const c of categories) {
+      if (selCat != null && selCat !== c.id) continue
+      const items = visible.filter(n => catIds(n).includes(c.id))
       if (items.length) out.push({ key: String(c.id), cat: c, items })
     }
-    const noneItems = visible.filter(n => !n.doc_categorie)
-    if (noneItems.length) out.push({ key: '__none__', cat: null, items: noneItems })
+    const noneItems = visible.filter(n => !catIds(n).length)
+    if (noneItems.length && (selCat == null || selCat === '__none__')) out.push({ key: '__none__', cat: null, items: noneItems })
     return out
-  }, [matched, docCategories, selCat, selStatut])
+  }, [matched, categories, selCat, selStatut])
 
-  const flatIds = useMemo(() => groups.flatMap(g => g.items.map(n => n.id)), [groups])
-  const totalCats = docCategories.filter(c => counts.m.get(c.id)).length + (counts.none ? 1 : 0)
+  // Navigation précédent/suivant : un document présent sur plusieurs étagères n'y figure qu'une fois.
+  const flatIds = useMemo(() => [...new Set(groups.flatMap(g => g.items.map(n => n.id)))], [groups])
+  const totalCats = categories.filter(c => counts.m.get(c.id)).length + (counts.none ? 1 : 0)
 
   // Structure d'export reflétant l'AFFICHAGE : catégories, sous-groupes éventuels,
   // ordre courant. Sert à générer un export identique à l'écran (intertitres compris).
   const exportSections = useMemo(() => {
     const secs = []
     for (const g of groups) {
-      const catNom = g.cat ? `${g.cat.icon || '📄'} ${g.cat.nom}` : '📄 Sans catégorie'
+      const catNom = g.cat ? `${g.cat.icon || '📄'} ${g.cat.nom}` : '📄 Sans apport'
       if (champGroupe) {
         for (const sg of sousGroupes(g.items, champGroupe))
           secs.push({ titre: `${catNom} — ${champGroupe.label} : ${sg.label}`, ids: sg.items.map(n => n.id) })
@@ -271,7 +280,7 @@ export default function BibliothequeView() {
               <li key={n.id}>
                 <button type="button" className="biblio__row"
                   onClick={() => navigate(`/jourdoc/${wsId}/notes/${n.id}`, { state: { noteIds: flatIds } })}>
-                  <span className="biblio__row-dot" style={{ background: n.doc_categorie?.couleur || '#d97706' }} />
+                  <span className="biblio__row-dot" style={{ background: n.categories?.[0]?.couleur || '#d97706' }} />
                   <span className="biblio__row-title">{n.titre}</span>
                   {meta && <span className="biblio__row-meta">{meta}</span>}
                 </button>
@@ -293,7 +302,9 @@ export default function BibliothequeView() {
       <div className="biblio__head">
         <div>
           <h2 className="biblio__title">📚 Bibliothèque</h2>
-          <span className="biblio__sub">{matched.length} document{matched.length > 1 ? 's' : ''} · {totalCats} catégorie{totalCats > 1 ? 's' : ''}</span>
+          <span className="biblio__sub" title="Un document peut porter plusieurs apports : il figure alors sur plusieurs étagères.">
+            {matched.length} document{matched.length > 1 ? 's' : ''} · {totalCats} apport{totalCats > 1 ? 's' : ''}
+          </span>
         </div>
         <div className="biblio__tools">
           <input className="input biblio__search" placeholder="Rechercher (titre, contenu)…"
@@ -365,7 +376,7 @@ export default function BibliothequeView() {
       <div className="biblio__legend">
         <button type="button" className={`biblio__chip${selCat == null ? ' active' : ''}`}
           onClick={() => setSelCat(null)}>Toutes</button>
-        {docCategories.map(c => {
+        {categories.map(c => {
           const n = counts.m.get(c.id) ?? 0
           if (!n) return null
           const active = selCat === c.id
@@ -380,7 +391,7 @@ export default function BibliothequeView() {
         })}
         {counts.none > 0 && (
           <button type="button" className={`biblio__chip${selCat === '__none__' ? ' active' : ''}`}
-            onClick={() => toggleCat('__none__')}>— Sans catégorie <span className="biblio__chip-n">{counts.none}</span></button>
+            onClick={() => toggleCat('__none__')}>— Sans apport <span className="biblio__chip-n">{counts.none}</span></button>
         )}
       </div>
 
@@ -473,7 +484,7 @@ export default function BibliothequeView() {
               <button type="button" className="biblio__shelf-head" style={style}
                 onClick={() => toggleCollapse(g.key)}>
                 <span className="biblio__shelf-name">
-                  {g.cat ? `${g.cat.icon || '📄'} ${g.cat.nom}` : '📄 Sans catégorie'}
+                  {g.cat ? `${g.cat.icon || '📄'} ${g.cat.nom}` : '📄 Sans apport'}
                 </span>
                 <span className="biblio__shelf-count">{g.items.length}</span>
                 <span className="biblio__shelf-caret">{isCollapsed ? '▸' : '▾'}</span>

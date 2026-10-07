@@ -1,0 +1,20 @@
+nom;emoji;couleur;applique_observation;applique_activite;applique_documentation;nature_defaut;ordre
+Norme;📐;#5B6B8C;0;0;1;;1
+Tutoriel;🔧;#4A8FA8;0;0;1;;2
+Exemple;💡;#7E6BA8;0;0;1;;3
+Schéma et esquisse;✏️;#8C7A5B;0;0;1;;4
+Plan;📋;#5B8C7A;0;0;1;;5
+Descriptif;📄;#6B7280;0;0;1;;6
+Produit;🛒;#A8734A;0;0;1;;7
+Dégât;⚠️;#C0504D;1;0;0;;10
+Idée;💭;#D9A441;1;0;0;;11
+Visite;🚶;#8FA85B;1;0;0;;12
+Réflexion;🤔;#7A6BA8;0;1;0;;13
+Construction;🏗️;#4A7BA8;0;1;0;;14
+Entretien;🧰;#4A9B8E;0;1;0;;15
+Roulement;🚂;#2F7D5C;1;1;0;mixte;16
+Essai;🧪;#A86BA0;1;1;0;activite;17
+Contrôle technique;✅;#3E8E5A;1;1;0;activite;18
+Réparation;🔩;#B5793A;0;1;0;;19
+Rénovation;♻️;#6B8E3E;0;1;0;;20
+Achat;🛍️;#8E6B4A;0;1;0;;21

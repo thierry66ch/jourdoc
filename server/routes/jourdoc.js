@@ -4,6 +4,10 @@ import sql from '../../db/db.js'
 import { authMiddleware } from '../middleware/authMiddleware.js'
 import { uploadFile, downloadFile, deleteFile, listFiles, listDir, getTextFile, putTextFile } from '../../packages/storage/index.js'
 import { tsStamp, importedFilename, pastedFilename, pastedOriginalName, dateFromFilename } from '../lib/mediaName.js'
+import {
+  CAT_COLS, categoriesOfNotes, setNoteCategories, categorieIdsFromBody, seedCategories,
+  normalizeCategorie, importCategoriesRows, resolveSchemasFusion, recalcSchemaNote, recalcSchemasNotes, conflitCles,
+} from '../lib/categories.js'
 
 const jourdoc = new Hono()
 
@@ -202,6 +206,15 @@ jourdoc.post('/:wsId/import/themes', wsCheck, async (c) => {
   return c.json({ created: created.length, updated: updated.length, skipped: skipped.length, errors })
 })
 
+jourdoc.post('/:wsId/import/categories', wsCheck, async (c) => {
+  const wsId = c.get('wsId')
+  const { csv } = await c.req.json()
+  if (!csv?.trim()) return c.json({ error: 'CSV vide' }, 400)
+  const { rows } = parseCSV(csv)
+  const r = await importCategoriesRows(wsId, rows)
+  return c.json({ created: r.created.length, updated: r.updated.length, skipped: 0, errors: r.errors })
+})
+
 // ── WORKSPACES ───────────────────────────────────────────────
 
 async function ownerCheck(c, next) {
@@ -242,19 +255,10 @@ jourdoc.post('/workspaces', async (c) => {
   await sql`
     INSERT INTO user_app_access (user_id, app_id) VALUES (${userId}, ${app.id}) ON CONFLICT DO NOTHING
   `
-  await seedDocCategories(ws.id)
+  await seedCategories(ws.id)
   await seedDocStatuts(ws.id)
   return c.json({ id: ws.id, name: name.trim() }, 201)
 })
-
-// Catégories de documentation par défaut (nouveau workspace)
-async function seedDocCategories(wsId) {
-  await sql`INSERT INTO jd_doc_categorie (workspace_id, nom, icon, couleur, ordre)
-    SELECT ${wsId}, d.nom, d.icon, d.couleur, d.ordre FROM (VALUES
-      ('Conseil','💡','#f59e0b',1),('Descriptif','📋','#0ea5e9',2),
-      ('Manuel','📖','#8b5cf6',3),('Norme','📐','#ef4444',4),('Exemple','✨','#10b981',5)
-    ) AS d(nom,icon,couleur,ordre) ON CONFLICT (workspace_id, nom) DO NOTHING`
-}
 
 // Statuts de documentation par défaut (nouveau workspace)
 async function seedDocStatuts(wsId) {
@@ -338,19 +342,23 @@ function normalizeNote(note) {
   return { ...note, date: fmtDate(note.date) }
 }
 
-// Référentiels de documentation (catégorie / statut) pour affichage du badge
-async function docCategorie(id) {
-  if (!id) return null
-  const [cat] = await sql`SELECT id, nom, icon, couleur FROM jd_doc_categorie WHERE id = ${id}`
-  return cat ?? null
-}
+// Référentiel de statut de documentation pour affichage du badge
 async function docStatutRef(id) {
   if (!id) return null
   const [s] = await sql`SELECT id, nom, icon, couleur FROM jd_doc_statut WHERE id = ${id}`
   return s ?? null
 }
 
+// Catégories ordonnées d'une note + alias `doc_categorie` (= la 1re) pour les clients
+// qui n'affichent qu'un badge (compat ascendante).
+const withCats = (note, cats) => ({ ...note, categories: cats, doc_categorie: cats[0] ?? null })
+
+// Sous-requête JSON des catégories d'une note (alias de table `alias`), dans l'ordre.
+const CATS_JSON = alias => `(SELECT COALESCE(json_agg(json_build_object('id',c.id,'nom',c.nom,'nom_court',c.nom_court,'icon',c.icon,'couleur',c.couleur) ORDER BY nc.ordre, c.nom), '[]'::json)
+  FROM jd_note_categorie nc JOIN jd_categorie c ON c.id = nc.categorie_id WHERE nc.note_id = ${alias}.id)`
+
 async function withData(notes) {
+  const catMap = await categoriesOfNotes(notes.map(n => n.id))
   return Promise.all(notes.map(async note => {
     const [objets, themes, medias, elements] = await Promise.all([
       sql`SELECT o.id, o.nom, o.nom_court FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${note.id}`,
@@ -358,9 +366,8 @@ async function withData(notes) {
       sql`SELECT m.id, m.type_media, m.nom_original, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id WHERE nm.note_id = ${note.id} ORDER BY m.created_at LIMIT 6`,
       sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${note.id} ORDER BY e.nom`,
     ])
-    const doc_categorie = await docCategorie(note.doc_categorie_id)
     const doc_statut = await docStatutRef(note.doc_statut_id)
-    return { ...normalizeNote(note), objets, themes, medias, elements, doc_categorie, doc_statut }
+    return withCats({ ...normalizeNote(note), objets, themes, medias, elements, doc_statut }, catMap.get(note.id) ?? [])
   }))
 }
 
@@ -422,50 +429,82 @@ jourdoc.post('/:wsId/elements/merge', async (c) => {
   return c.json({ ok: true, target_id: targetId })
 })
 
-// ── CATÉGORIES DE DOCUMENTATION ──────────────────────────────
+// ── CATÉGORIES (unifiées : journal + documentation) ──────────
+//
+// Référentiel unique par workspace (migration 014). Chaque catégorie déclare sa portée :
+// observation / activité (journal, libellé « Interventions ») et documentation (« Apports »).
+// Suppression déconseillée (préférer actif = false) : elle retire la qualification des notes.
 
-jourdoc.get('/:wsId/doc-categories', async (c) => {
+jourdoc.get('/:wsId/categories', async (c) => {
   const wsId = c.get('wsId')
-  const categories = await sql`
-    SELECT dc.id, dc.nom, dc.icon, dc.couleur, dc.ordre,
-      (SELECT COUNT(*) FROM jd_notes n WHERE n.doc_categorie_id = dc.id) AS note_count
-    FROM jd_doc_categorie dc WHERE dc.workspace_id = ${wsId}
-    ORDER BY dc.ordre, dc.nom
-  `
+  const categories = await sql(`
+    SELECT ${CAT_COLS},
+      (SELECT COUNT(*) FROM jd_note_categorie nc WHERE nc.categorie_id = jd_categorie.id)::int AS note_count
+    FROM jd_categorie WHERE workspace_id = $1
+    ORDER BY ordre, nom`, [wsId])
   return c.json({ categories })
 })
 
-jourdoc.post('/:wsId/doc-categories', async (c) => {
+// Compat : anciens clients (PWA en cache) — catégories de portée documentation, actives.
+jourdoc.get('/:wsId/doc-categories', async (c) => {
   const wsId = c.get('wsId')
-  const { nom, icon, couleur } = await c.req.json()
-  if (!nom?.trim()) return c.json({ error: 'Nom requis' }, 400)
-  const [existing] = await sql`SELECT id FROM jd_doc_categorie WHERE workspace_id=${wsId} AND nom=${nom.trim()}`
+  const categories = await sql`
+    SELECT id, nom, icon, couleur, ordre,
+      (SELECT COUNT(*) FROM jd_note_categorie nc WHERE nc.categorie_id = jd_categorie.id)::int AS note_count
+    FROM jd_categorie WHERE workspace_id = ${wsId} AND applique_documentation AND actif
+    ORDER BY ordre, nom`
+  return c.json({ categories })
+})
+
+jourdoc.post('/:wsId/categories', async (c) => {
+  const wsId = c.get('wsId')
+  const { value, error } = normalizeCategorie(await c.req.json())
+  if (error) return c.json({ error }, 400)
+  const [existing] = await sql`SELECT id FROM jd_categorie WHERE workspace_id=${wsId} AND nom=${value.nom}`
   if (existing) return c.json({ id: existing.id, existing: true })
-  const [{ max }] = await sql`SELECT COALESCE(MAX(ordre),0) AS max FROM jd_doc_categorie WHERE workspace_id=${wsId}`
+  const [{ max }] = await sql`SELECT COALESCE(MAX(ordre),0) AS max FROM jd_categorie WHERE workspace_id=${wsId}`
   const [r] = await sql`
-    INSERT INTO jd_doc_categorie (workspace_id, nom, icon, couleur, ordre)
-    VALUES (${wsId}, ${nom.trim()}, ${icon ?? null}, ${couleur ?? null}, ${Number(max) + 1})
-    RETURNING id
-  `
+    INSERT INTO jd_categorie (workspace_id, nom, nom_court, icon, couleur, ordre, actif,
+      applique_observation, applique_activite, applique_documentation, nature_defaut)
+    VALUES (${wsId}, ${value.nom}, ${value.nom_court}, ${value.icon}, ${value.couleur}, ${Number(max) + 1}, ${value.actif},
+      ${value.applique_observation}, ${value.applique_activite}, ${value.applique_documentation}, ${value.nature_defaut})
+    RETURNING id`
   return c.json({ id: r.id }, 201)
 })
 
-jourdoc.put('/:wsId/doc-categories/:id', async (c) => {
+jourdoc.put('/:wsId/categories/:id', async (c) => {
   const wsId = c.get('wsId'); const id = Number(c.req.param('id'))
-  const { nom, icon, couleur, ordre } = await c.req.json()
-  if (!nom?.trim()) return c.json({ error: 'Nom requis' }, 400)
-  await sql`
-    UPDATE jd_doc_categorie
-    SET nom=${nom.trim()}, icon=${icon ?? null}, couleur=${couleur ?? null}, ordre=${ordre ?? 0}
-    WHERE id=${id} AND workspace_id=${wsId}
-  `
+  const body = await c.req.json()
+  const { value, error } = normalizeCategorie(body)
+  if (error) return c.json({ error }, 400)
+  try {
+    await sql`
+      UPDATE jd_categorie SET nom=${value.nom}, nom_court=${value.nom_court}, icon=${value.icon},
+        couleur=${value.couleur}, ordre=COALESCE(${body.ordre ?? null}, ordre), actif=${value.actif},
+        applique_observation=${value.applique_observation}, applique_activite=${value.applique_activite},
+        applique_documentation=${value.applique_documentation}, nature_defaut=${value.nature_defaut}
+      WHERE id=${id} AND workspace_id=${wsId}`
+  } catch (e) {
+    if (String(e.message).includes('cat_nom_unique_ws')) return c.json({ error: 'Une catégorie porte déjà ce nom.' }, 409)
+    throw e
+  }
   return c.json({ ok: true })
 })
 
-jourdoc.delete('/:wsId/doc-categories/:id', async (c) => {
+// Réordonnancement en bloc : { ids: [id…] } → ordre = position.
+jourdoc.post('/:wsId/categories/reorder', async (c) => {
+  const wsId = c.get('wsId')
+  const { ids = [] } = await c.req.json()
+  let i = 1
+  for (const id of ids) await sql`UPDATE jd_categorie SET ordre=${i++} WHERE id=${Number(id)} AND workspace_id=${wsId}`
+  return c.json({ ok: true })
+})
+
+jourdoc.delete('/:wsId/categories/:id', async (c) => {
   const wsId = c.get('wsId'); const id = Number(c.req.param('id'))
-  // FK ON DELETE SET NULL : les notes concernées deviennent « sans catégorie »
-  await sql`DELETE FROM jd_doc_categorie WHERE id=${id} AND workspace_id=${wsId}`
+  const [r] = await sql`SELECT COUNT(*)::int AS n FROM jd_note_categorie WHERE categorie_id=${id}`
+  if (r.n > 0) return c.json({ error: `Catégorie portée par ${r.n} note${r.n > 1 ? 's' : ''} — désactivez-la plutôt (les notes la conservent).` }, 409)
+  await sql`DELETE FROM jd_categorie WHERE id=${id} AND workspace_id=${wsId}`
   return c.json({ ok: true })
 })
 
@@ -788,25 +827,23 @@ jourdoc.get('/:wsId/notes/search', async (c) => {
   const q = c.req.query('q') ?? ''
   const exclude = Number(c.req.query('exclude') ?? 0)
   const like = `%${q}%`
-  const notes = await sql`
-    SELECT id, titre, titre_alt, type, nature, date, theme_id, doc_categorie_id,
-      (SELECT nom FROM jd_themes WHERE id = theme_id) AS theme_nom,
-      (SELECT json_build_object('id', dc.id, 'nom', dc.nom, 'icon', dc.icon, 'couleur', dc.couleur)
-        FROM jd_doc_categorie dc WHERE dc.id = jd_notes.doc_categorie_id) AS doc_categorie,
+  const notes = await sql(`
+    SELECT n.id, n.titre, n.titre_alt, n.type, n.nature, n.date, n.theme_id,
+      (SELECT nom FROM jd_themes WHERE id = n.theme_id) AS theme_nom,
+      ${CATS_JSON('n')} AS categories,
       (SELECT json_build_object('id', ds.id, 'nom', ds.nom, 'icon', ds.icon, 'couleur', ds.couleur)
-        FROM jd_doc_statut ds WHERE ds.id = jd_notes.doc_statut_id) AS doc_statut
-    FROM jd_notes
-    WHERE workspace_id = ${wsId} AND id != ${exclude || -1}
-      AND (titre ILIKE ${like} OR titre_alt ILIKE ${like})
-    ORDER BY date DESC, created_at DESC
-    LIMIT 25
-  `
-  return c.json({ notes: notes.map(normalizeNote) })
+        FROM jd_doc_statut ds WHERE ds.id = n.doc_statut_id) AS doc_statut
+    FROM jd_notes n
+    WHERE n.workspace_id = $1 AND n.id != $2
+      AND (n.titre ILIKE $3 OR n.titre_alt ILIKE $3)
+    ORDER BY n.date DESC, n.created_at DESC
+    LIMIT 25`, [wsId, exclude || -1, like])
+  return c.json({ notes: notes.map(n => withCats(normalizeNote(n), n.categories ?? [])) })
 })
 
 jourdoc.get('/:wsId/notes', async (c) => {
   const wsId = c.get('wsId')
-  const { type, nature, date_from, date_to, objet_id, theme_id } = c.req.query()
+  const { type, nature, date_from, date_to, objet_id, theme_id, categorie_id } = c.req.query()
 
   let query = `
     SELECT DISTINCT n.*, t.nom AS theme_nom
@@ -828,6 +865,12 @@ jourdoc.get('/:wsId/notes', async (c) => {
   if (date_to)   { query += ` AND n.date <= $${pi++}`;     params.push(date_to) }
   if (objet_id)  { query += ` AND no.objet_id = $${pi++}`; params.push(Number(objet_id)) }
   if (theme_id)  { query += ` AND EXISTS (SELECT 1 FROM jd_note_theme nt WHERE nt.note_id = n.id AND nt.theme_id = $${pi++})`; params.push(Number(theme_id)) }
+  // Catégories : « au moins une des catégories demandées » (liste séparée par virgules).
+  if (categorie_id) {
+    const ids = String(categorie_id).split(',').map(Number).filter(Boolean)
+    query += ` AND EXISTS (SELECT 1 FROM jd_note_categorie nc WHERE nc.note_id = n.id AND nc.categorie_id = ANY($${pi++}))`
+    params.push(ids)
+  }
   query += ' ORDER BY n.date DESC, n.created_at DESC'
 
   const notes = await sql(query, params)
@@ -844,28 +887,31 @@ jourdoc.get('/:wsId/notes/:id', async (c) => {
   `
   if (!note) return c.json({ error: 'Not found' }, 404)
 
-  const [objets, themes, medias, liens, liensEntrants, elements] = await Promise.all([
+  const [objets, themes, medias, liens, liensEntrants, elements, catMap] = await Promise.all([
     sql`SELECT o.id, o.nom, o.nom_court FROM jd_note_objet no JOIN jd_objets o ON o.id = no.objet_id WHERE no.note_id = ${id}`,
     sql`SELECT t.id, t.nom, t.nom_court FROM jd_note_theme nt JOIN jd_themes t ON t.id = nt.theme_id WHERE nt.note_id = ${id} ORDER BY t.nom`,
     sql`SELECT m.id, m.type_media, m.nom_original, m.fichier FROM jd_note_media nm JOIN jd_medias m ON m.id = nm.media_id WHERE nm.note_id = ${id} ORDER BY m.created_at`,
-    sql`SELECT nn.note_cible_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at,
-      (SELECT json_build_object('id',dc.id,'nom',dc.nom,'icon',dc.icon,'couleur',dc.couleur) FROM jd_doc_categorie dc WHERE dc.id = n.doc_categorie_id) AS doc_categorie
-      FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_cible_id WHERE nn.note_source_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
-    sql`SELECT nn.note_source_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at,
-      (SELECT json_build_object('id',dc.id,'nom',dc.nom,'icon',dc.icon,'couleur',dc.couleur) FROM jd_doc_categorie dc WHERE dc.id = n.doc_categorie_id) AS doc_categorie
-      FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_source_id WHERE nn.note_cible_id = ${id} ORDER BY n.date ASC, n.created_at ASC`,
+    sql(`SELECT nn.note_cible_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at,
+      ${CATS_JSON('n')} AS categories
+      FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_cible_id WHERE nn.note_source_id = $1 ORDER BY n.date ASC, n.created_at ASC`, [id]),
+    sql(`SELECT nn.note_source_id AS id, nn.type_lien, n.titre, n.titre_alt, n.type, n.nature, n.date, n.created_at,
+      ${CATS_JSON('n')} AS categories
+      FROM jd_note_note nn JOIN jd_notes n ON n.id = nn.note_source_id WHERE nn.note_cible_id = $1 ORDER BY n.date ASC, n.created_at ASC`, [id]),
     sql`SELECT e.id, e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id = ne.element_id WHERE ne.note_id = ${id} ORDER BY e.nom`,
+    categoriesOfNotes([id]),
   ])
 
-  const doc_categorie = await docCategorie(note.doc_categorie_id)
   const doc_statut = await docStatutRef(note.doc_statut_id)
-  const fmtN = n => ({ ...n, date: fmtDate(n.date) })
-  // Schéma de données appliqué (pour afficher les libellés et l'ordre des champs en fiche).
-  const [schemaDonnees] = note.schema_donnees_id
-    ? await sql`SELECT id, nom, champs FROM jd_schema_donnees WHERE id=${note.schema_donnees_id}`
-    : []
+  const fmtN = n => withCats({ ...n, date: fmtDate(n.date) }, n.categories ?? [])
+  const cats = catMap.get(id) ?? []
+  // Schémas appliqués, FUSIONNÉS (libellés, ordre et groupement des champs en fiche).
+  // Recalculés à la lecture : le cache peut être périmé (schéma modifié depuis).
+  const schemaDonnees = await resolveSchemasFusion(wsId, {
+    objetId: note.objet_principal_id, themeId: note.theme_id,
+    categorieIds: cats.map(x => x.id), nature: note.nature,
+  })
 
-  return c.json({ note: { ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements, doc_categorie, doc_statut, schema_donnees: schemaDonnees ?? null } })
+  return c.json({ note: withCats({ ...normalizeNote(note), objets, themes, medias, liens: liens.map(fmtN), liensEntrants: liensEntrants.map(fmtN), elements, doc_statut, schema_donnees: schemaDonnees }, cats) })
 })
 
 jourdoc.post('/:wsId/notes', async (c) => {
@@ -877,11 +923,13 @@ jourdoc.post('/:wsId/notes', async (c) => {
   const primaryTheme = theme_ids[0] ?? null
   // champs propres à la documentation (NULL pour le journal)
   const isDoc = type === 'documentation'
-  const docCategorieId = isDoc ? (body.doc_categorie_id ?? null) : null
   const docStatutId    = isDoc ? (body.doc_statut_id ?? null) : null
   const docAuteur      = isDoc ? (body.doc_auteur?.trim() || null) : null
   const docReference   = isDoc ? (body.doc_reference?.trim() || null) : null
   if (!titre) return c.json({ error: 'titre requis' }, 400)
+  // Catégories (journal ET documentation), ordonnées. doc_categorie_id n'est plus écrit
+  // (colonne gelée pour rollback, cf. migration 014).
+  const categorieIds = (await categorieIdsFromBody(wsId, body)) ?? []
 
   // Données étendues (Phase A) : objet { cle: valeur } libre, sans validation.
   const donneesEtendues = body.donnees_etendues && Object.keys(body.donnees_etendues).length
@@ -891,12 +939,13 @@ jourdoc.post('/:wsId/notes', async (c) => {
   const objetPrincipal = body.objet_principal_id ?? objet_ids[0] ?? null
 
   const [r] = await sql`
-    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_categorie_id, doc_statut_id, doc_auteur, doc_reference, titre, titre_alt, contenu, date, source_url, donnees_etendues, objet_principal_id)
-    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docCategorieId}, ${docStatutId}, ${docAuteur}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null}, ${donneesEtendues}::jsonb, ${objetPrincipal})
+    INSERT INTO jd_notes (workspace_id, type, nature, theme_id, doc_statut_id, doc_auteur, doc_reference, titre, titre_alt, contenu, date, source_url, donnees_etendues, objet_principal_id)
+    VALUES (${wsId}, ${type}, ${nature ?? null}, ${primaryTheme}, ${docStatutId}, ${docAuteur}, ${docReference}, ${titre}, ${titre_alt ?? null}, ${contenu ?? null}, ${date ?? null}, ${source_url ?? null}, ${donneesEtendues}::jsonb, ${objetPrincipal})
     RETURNING id
   `
   const noteId = r.id
 
+  await setNoteCategories(wsId, noteId, categorieIds)
   for (const themeId of theme_ids)
     await sql`INSERT INTO jd_note_theme (note_id, theme_id) VALUES (${noteId}, ${themeId}) ON CONFLICT DO NOTHING`
   for (const objetId of objet_ids)
@@ -925,14 +974,14 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
   const primaryTheme = theme_ids ? (theme_ids[0] ?? null) : (body.theme_id ?? null)
   // champs propres à la documentation (NULL pour le journal)
   const isDoc = type === 'documentation'
-  const docCategorieId = isDoc ? (body.doc_categorie_id ?? null) : null
   const docStatutId    = isDoc ? (body.doc_statut_id ?? null) : null
   const docAuteur      = isDoc ? (body.doc_auteur?.trim() || null) : null
   const docReference   = isDoc ? (body.doc_reference?.trim() || null) : null
+  const categorieIds = await categorieIdsFromBody(wsId, body)   // undefined → inchangées
 
   await sql`
     UPDATE jd_notes SET type=${type}, nature=${nature ?? null}, theme_id=${primaryTheme},
-      doc_categorie_id=${docCategorieId}, doc_statut_id=${docStatutId}, doc_auteur=${docAuteur}, doc_reference=${docReference},
+      doc_statut_id=${docStatutId}, doc_auteur=${docAuteur}, doc_reference=${docReference},
       titre=${titre}, titre_alt=${titre_alt ?? null}, contenu=${contenu ?? null},
       date=${date ?? null}, source_url=${source_url ?? null}, updated_at=NOW()
     WHERE id=${id} AND workspace_id=${wsId}
@@ -953,6 +1002,8 @@ jourdoc.put('/:wsId/notes/:id', async (c) => {
       ? JSON.stringify(body.donnees_etendues) : null
     await sql`UPDATE jd_notes SET donnees_etendues=${de}::jsonb WHERE id=${id} AND workspace_id=${wsId}`
   }
+
+  if (categorieIds !== undefined) await setNoteCategories(wsId, id, categorieIds)
 
   if (theme_ids !== undefined) {
     await sql`DELETE FROM jd_note_theme WHERE note_id = ${id}`
@@ -2049,12 +2100,11 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
     params,
   )
 
-  const [cats, stats, schemas] = await Promise.all([
-    sql`SELECT id, nom FROM jd_doc_categorie WHERE workspace_id=${wsId}`,
+  const [stats, schemas, catMap] = await Promise.all([
     sql`SELECT id, nom FROM jd_doc_statut    WHERE workspace_id=${wsId}`,
     sql`SELECT id, champs FROM jd_schema_donnees WHERE workspace_id=${wsId}`,
+    categoriesOfNotes(rawNotes.map(n => n.id)),
   ])
-  const catName  = new Map(cats.map(r => [r.id, r.nom]))
   const statName = new Map(stats.map(r => [r.id, r.nom]))
   const schemaById = new Map(schemas.map(r => [r.id, r.champs]))
 
@@ -2071,7 +2121,11 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
   function donneesExport(note) {
     const vals = note.donnees_etendues ?? {}
     const rempli = v => v !== null && v !== undefined && String(v).trim() !== ''
-    const champs = schemaById.get(note.schema_donnees_id) ?? []
+    // Champs des schémas FUSIONNÉS de la note (cache schema_donnees_ids), dédupliqués par clé.
+    const champs = []
+    for (const sid of (note.schema_donnees_ids ?? (note.schema_donnees_id ? [note.schema_donnees_id] : [])))
+      for (const ch of (Array.isArray(schemaById.get(sid)) ? schemaById.get(sid) : []))
+        if (ch?.cle && !champs.some(x => x.cle === ch.cle)) champs.push(ch)
     const vus = new Set(), out = []
     for (const ch of Array.isArray(champs) ? champs : []) {
       vus.add(ch.cle)
@@ -2104,7 +2158,10 @@ async function buildExportManifest(wsId, { idList = null, type = 'all', year = '
       id: n.id, type: n.type, nature: n.nature, titre: n.titre, titre_alt: n.titre_alt, date: fmtDate(n.date),
       created_at: n.created_at ? new Date(n.created_at).toISOString() : null,
       contenu: n.contenu, doc_auteur: n.doc_auteur, doc_reference: n.doc_reference, source_url: n.source_url,
-      categorie: catName.get(n.doc_categorie_id) ?? null, statut: statName.get(n.doc_statut_id) ?? null,
+      // Catégories ordonnées ; `categorie` = libellé joint « A | B » (colonne CSV « catégories »).
+      categories: (catMap.get(n.id) ?? []).map(c => c.nom),
+      categorie: (catMap.get(n.id) ?? []).map(c => c.nom).join(' | ') || null,
+      statut: statName.get(n.doc_statut_id) ?? null,
       objets: objets.map(r => r.nom), themes: themes.map(r => r.nom), elements: elements.map(r => r.nom),
       donnees: donneesExport(n),
       donnees_brut: n.donnees_etendues ?? {},   // clé → valeur brute, pour les colonnes CSV
@@ -2150,11 +2207,11 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const { format = 'json', medias: withMediasParam = '0' } = c.req.query()
   const withMedias = withMediasParam === '1'
 
-  const [objets, themes, elements, docCategories, docStatuts, schemasDonnees, rawNotes, rawMedias] = await Promise.all([
+  const [objets, themes, elements, categories, docStatuts, schemasDonnees, rawNotes, rawMedias] = await Promise.all([
     sql`SELECT * FROM jd_objets        WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_themes        WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_elements      WHERE workspace_id=${wsId}`,
-    sql`SELECT * FROM jd_doc_categorie WHERE workspace_id=${wsId}`,
+    sql`SELECT * FROM jd_categorie     WHERE workspace_id=${wsId} ORDER BY ordre, nom`,
     sql`SELECT * FROM jd_doc_statut    WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_schema_donnees WHERE workspace_id=${wsId}`,
     sql`SELECT * FROM jd_notes         WHERE workspace_id=${wsId}`,
@@ -2165,6 +2222,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     ...n,
     objets:   await sql`SELECT o.id,o.nom FROM jd_note_objet no JOIN jd_objets o ON o.id=no.objet_id WHERE no.note_id=${n.id}`,
     themes:   await sql`SELECT t.id,t.nom FROM jd_note_theme nt JOIN jd_themes t ON t.id=nt.theme_id WHERE nt.note_id=${n.id}`,
+    categories: await sql`SELECT c.id,c.nom,nc.ordre FROM jd_note_categorie nc JOIN jd_categorie c ON c.id=nc.categorie_id WHERE nc.note_id=${n.id} ORDER BY nc.ordre`,
     elements: await sql`SELECT e.id,e.nom FROM jd_note_element ne JOIN jd_elements e ON e.id=ne.element_id WHERE ne.note_id=${n.id}`,
     medias:   await sql`SELECT m.id,m.nom_original,m.fichier,m.type_media FROM jd_note_media nm JOIN jd_medias m ON m.id=nm.media_id WHERE nm.note_id=${n.id}`,
     liens:    await sql`SELECT note_cible_id,type_lien FROM jd_note_note WHERE note_source_id=${n.id}`,
@@ -2176,7 +2234,7 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
   const date = new Date().toISOString().slice(0, 10)
 
   if (format === 'json') {
-    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, doc_categories: docCategories, doc_statuts: docStatuts, schemas_donnees: schemasDonnees, notes, medias: rawMedias }, null, 2)
+    const payload = JSON.stringify({ workspace: { id: wsId, name: wsName, exported_at: new Date().toISOString() }, objets, themes, elements, categories, doc_statuts: docStatuts, schemas_donnees: schemasDonnees, notes, medias: rawMedias }, null, 2)
     c.header('Content-Type', 'application/json')
     c.header('Content-Disposition', contentDisposition('attachment', `${slug}-${date}.json`))
     return c.body(payload)
@@ -2229,6 +2287,10 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     sql`SELECT note_id,theme_id FROM jd_note_theme WHERE note_id=${n.id}`
   ))).flat()
 
+  const noteCategories = (await Promise.all(rawNotes.map(n =>
+    sql`SELECT note_id,categorie_id,ordre FROM jd_note_categorie WHERE note_id=${n.id}`
+  ))).flat()
+
   const noteObjets = (await Promise.all(rawNotes.map(n =>
     sql`SELECT note_id,objet_id FROM jd_note_objet WHERE note_id=${n.id}`
   ))).flat()
@@ -2251,12 +2313,13 @@ jourdoc.get('/:wsId/export', wsCheck, async (c) => {
     { name: 'objets.csv',        data: toCsv(objets) },
     { name: 'themes.csv',        data: toCsv(themes) },
     { name: 'elements.csv',      data: toCsv(elements) },
-    { name: 'doc_categories.csv', data: toCsv(docCategories) },
+    { name: 'categories.csv',    data: toCsv(categories) },
     { name: 'doc_statuts.csv',    data: toCsv(docStatuts) },
     { name: 'schemas_donnees.csv', data: toCsv(schemasDonneesCsv) },
     { name: 'notes.csv',         data: toCsv(rawNotesCsv) },
     { name: 'note_objets.csv',   data: toCsv(noteObjets) },
     { name: 'note_themes.csv',   data: toCsv(noteThemes) },
+    { name: 'note_categories.csv', data: toCsv(noteCategories) },
     { name: 'note_elements.csv', data: toCsv(noteElements) },
     { name: 'medias.csv',        data: toCsv(rawMedias) },
     { name: 'note_medias.csv',   data: toCsv(noteMedias) },
@@ -2311,114 +2374,20 @@ ${rawNotes
 // ── SCHÉMAS DE DONNÉES ÉTENDUES (Phase B) ─────────────────────
 //
 // Un schéma définit les champs proposés selon un CONTEXTE de 4 axes, tous nullables
-// (NULL = joker) : objet, thème, catégorie de documentation, nature (journal).
-
-// Profondeur de remontée hiérarchique configurée sur le workspace.
-async function wsDepth(wsId) {
-  const [r] = await sql`SELECT COALESCE(jd_search_depth,3) AS d FROM workspaces WHERE id=${wsId}`
-  return r?.d ?? 3
-}
-
-// Chaîne d'ancêtres [soi, parent, grand-parent, …] limitée à maxDepth remontées.
-// L'INDEX dans le tableau = distance (0 = correspondance exacte) → sert à départager
-// deux schémas de même spécificité. Helper partagé (la remontée était jusqu'ici
-// dupliquée et enfermée dans l'endpoint /analyse).
-async function ancestorChain(table, wsId, id, maxDepth) {
-  if (!id) return []
-  const all = await sql(`SELECT id, parent_id FROM ${table} WHERE workspace_id = $1`, [wsId])
-  const byId = new Map(all.map(r => [r.id, r]))
-  const chain = [Number(id)]
-  let cur = Number(id), d = 0
-  while (d < maxDepth) {
-    const node = byId.get(cur)
-    if (!node || !node.parent_id) break
-    chain.push(node.parent_id)
-    cur = node.parent_id
-    d++
-  }
-  return chain
-}
-
-// Résout le schéma applicable à un contexte. Renvoie la ligne du schéma, ou null.
-//
-// Tri : spécificité DESC (nb d'axes non-joker), puis DISTANCE d'ancêtre ASC, puis
-// priorité d'axe DESC (objet > thème > catégorie|nature), puis id.
-//
-// ⚠️ Nuance essentielle : la distance n'a de sens que pour les axes HIÉRARCHIQUES
-// (objet, thème). Un schéma qui n'utilise QUE des axes non hiérarchiques (nature,
-// catégorie) aurait une distance 0 imméritée et gagnerait toujours → on lui affecte
-// +∞ pour qu'il passe en dernier à spécificité égale.
-// Cette règle réconcilie les deux cas observés en test :
-//   • « Pommier Gala + Semer » → « Pommiers » (objet, dist 1) et non « toute Observation ».
-//   • « Pommier Golden + Traitement » → « Traitement » (thème, dist 0) et non
-//     « Arbres fruitiers » (objet, dist 2) : le plus PROCHE gagne, quel que soit l'axe.
-async function resolveSchemaDonnees(wsId, { objetId, themeId, docCategorieId, nature }) {
-  const depth = await wsDepth(wsId)
-  const [chainO, chainT] = await Promise.all([
-    ancestorChain('jd_objets', wsId, objetId, depth),
-    ancestorChain('jd_themes', wsId, themeId, depth),
-  ])
-  // ANY() sur tableau vide ne matche rien : sentinelle 0 (aucun id réel = 0).
-  const anyO = chainO.length ? chainO : [0]
-  const anyT = chainT.length ? chainT : [0]
-  const nat = nature ?? null
-
-  const candidats = await sql`
-    SELECT * FROM jd_schema_donnees
-    WHERE workspace_id = ${wsId} AND actif = TRUE
-      AND (objet_id IS NULL OR objet_id = ANY(${anyO}))
-      AND (theme_id IS NULL OR theme_id = ANY(${anyT}))
-      AND (doc_categorie_id IS NULL OR doc_categorie_id = ${docCategorieId ?? null})
-      -- Une note « mixte » est à la fois observation et activité (comme les filtres).
-      AND (nature IS NULL OR nature = ${nat}
-           OR (${nat} = 'mixte' AND nature IN ('observation','activite')))
-  `
-  if (!candidats.length) return null
-
-  const scored = candidats.map(c => {
-    const hierarchique = c.objet_id != null || c.theme_id != null
-    return {
-      c,
-      score: (c.objet_id != null) + (c.theme_id != null) + (c.doc_categorie_id != null) + (c.nature != null),
-      // Distance cumulée sur les seuls axes hiérarchiques utilisés ; +∞ si le schéma
-      // n'en utilise aucun (sinon distance 0 imméritée).
-      dist: hierarchique
-        ? (c.objet_id != null ? chainO.indexOf(c.objet_id) : 0)
-          + (c.theme_id != null ? chainT.indexOf(c.theme_id) : 0)
-        : Infinity,
-      prio: (c.objet_id != null ? 4 : 0) + (c.theme_id != null ? 2 : 0)
-          + ((c.doc_categorie_id != null || c.nature != null) ? 1 : 0),
-    }
-  })
-  scored.sort((a, b) => b.score - a.score || a.dist - b.dist || b.prio - a.prio || a.c.id - b.c.id)
-  return scored[0].c
-}
-
-// Recalcule et mémorise le schéma applicable à une note (cache schema_donnees_id).
-async function recalcSchemaNote(wsId, noteId) {
-  const [n] = await sql`
-    SELECT type, nature, objet_principal_id, theme_id, doc_categorie_id
-    FROM jd_notes WHERE id=${noteId} AND workspace_id=${wsId}`
-  if (!n) return null
-  const schema = await resolveSchemaDonnees(wsId, {
-    objetId: n.objet_principal_id,
-    themeId: n.theme_id,
-    docCategorieId: n.type === 'documentation' ? n.doc_categorie_id : null,
-    nature: n.type === 'journal' ? n.nature : null,
-  })
-  await sql`UPDATE jd_notes SET schema_donnees_id=${schema?.id ?? null} WHERE id=${noteId}`
-  return schema
-}
+// (NULL = joker) : objet, thème, catégorie, nature (journal). Une note à plusieurs
+// catégories FUSIONNE les schémas de chacune (union des champs par clé) — résolution et
+// fusion dans server/lib/categories.js.
 
 // Résolution à la volée (appelée par l'éditeur de note avant sauvegarde).
 // ⚠️ Déclarée AVANT /:id, sinon Hono capturerait « resolve » comme un id.
+// `categorie_ids` = liste ordonnée séparée par virgules.
 jourdoc.get('/:wsId/schemas-donnees/resolve', wsCheck, async (c) => {
   const wsId = c.get('wsId')
-  const { objet_id, theme_id, doc_categorie_id, nature } = c.req.query()
-  const schema = await resolveSchemaDonnees(wsId, {
+  const { objet_id, theme_id, categorie_ids, nature } = c.req.query()
+  const schema = await resolveSchemasFusion(wsId, {
     objetId: objet_id ? Number(objet_id) : null,
     themeId: theme_id ? Number(theme_id) : null,
-    docCategorieId: doc_categorie_id ? Number(doc_categorie_id) : null,
+    categorieIds: String(categorie_ids || '').split(',').map(Number).filter(Boolean),
     nature: nature || null,
   })
   return c.json({ schema })
@@ -2428,10 +2397,10 @@ jourdoc.get('/:wsId/schemas-donnees', wsCheck, async (c) => {
   const wsId = c.get('wsId')
   const schemas = await sql`
     SELECT s.*,
-      (SELECT nom FROM jd_objets WHERE id = s.objet_id)         AS objet_nom,
-      (SELECT nom FROM jd_themes WHERE id = s.theme_id)         AS theme_nom,
-      (SELECT nom FROM jd_doc_categorie WHERE id = s.doc_categorie_id) AS categorie_nom,
-      (SELECT COUNT(*) FROM jd_notes n WHERE n.schema_donnees_id = s.id)::int AS notes_count
+      (SELECT nom FROM jd_objets WHERE id = s.objet_id)          AS objet_nom,
+      (SELECT nom FROM jd_themes WHERE id = s.theme_id)          AS theme_nom,
+      (SELECT nom FROM jd_categorie WHERE id = s.categorie_id)   AS categorie_nom,
+      (SELECT COUNT(*) FROM jd_notes n WHERE s.id = ANY(n.schema_donnees_ids))::int AS notes_count
     FROM jd_schema_donnees s
     WHERE s.workspace_id = ${wsId}
     ORDER BY s.nom`
@@ -2444,10 +2413,14 @@ function ctxAxes(body) {
   return {
     objet_id: num(body.objet_id),
     theme_id: num(body.theme_id),
-    doc_categorie_id: num(body.doc_categorie_id),
+    categorie_id: num(body.categorie_id),
     nature: body.nature || null,
   }
 }
+
+// Après modification d'un schéma, rafraîchit le cache des notes du workspace
+// (schema_donnees_ids sert au compteur et aux vues Biblio/Calendrier).
+const recalcWorkspaceSchemas = wsId => recalcSchemasNotes(wsId)
 
 jourdoc.post('/:wsId/schemas-donnees', wsCheck, async (c) => {
   const wsId = c.get('wsId')
@@ -2456,12 +2429,15 @@ jourdoc.post('/:wsId/schemas-donnees', wsCheck, async (c) => {
   if (!nom) return c.json({ error: 'nom requis' }, 400)
   const ax = ctxAxes(body)
   const champs = Array.isArray(body.champs) ? body.champs : []
+  const conflit = await conflitCles(wsId, champs)
+  if (conflit) return c.json({ error: conflit }, 409)
   try {
     const [r] = await sql`
-      INSERT INTO jd_schema_donnees (workspace_id, nom, objet_id, theme_id, doc_categorie_id, nature, champs, actif)
-      VALUES (${wsId}, ${nom}, ${ax.objet_id}, ${ax.theme_id}, ${ax.doc_categorie_id}, ${ax.nature},
+      INSERT INTO jd_schema_donnees (workspace_id, nom, objet_id, theme_id, categorie_id, nature, champs, actif)
+      VALUES (${wsId}, ${nom}, ${ax.objet_id}, ${ax.theme_id}, ${ax.categorie_id}, ${ax.nature},
               ${JSON.stringify(champs)}::jsonb, ${body.actif !== false})
       RETURNING *`
+    await recalcWorkspaceSchemas(wsId)
     return c.json({ schema: r }, 201)
   } catch (e) {
     if (String(e.message).includes('uniq_schema_contexte'))
@@ -2478,13 +2454,16 @@ jourdoc.put('/:wsId/schemas-donnees/:id', wsCheck, async (c) => {
   if (!nom) return c.json({ error: 'nom requis' }, 400)
   const ax = ctxAxes(body)
   const champs = Array.isArray(body.champs) ? body.champs : []
+  const conflit = await conflitCles(wsId, champs, id)
+  if (conflit) return c.json({ error: conflit }, 409)
   try {
     const [r] = await sql`
       UPDATE jd_schema_donnees SET nom=${nom}, objet_id=${ax.objet_id}, theme_id=${ax.theme_id},
-        doc_categorie_id=${ax.doc_categorie_id}, nature=${ax.nature},
+        categorie_id=${ax.categorie_id}, nature=${ax.nature},
         champs=${JSON.stringify(champs)}::jsonb, actif=${body.actif !== false}
       WHERE id=${id} AND workspace_id=${wsId} RETURNING *`
     if (!r) return c.json({ error: 'Not found' }, 404)
+    await recalcWorkspaceSchemas(wsId)
     return c.json({ schema: r })
   } catch (e) {
     if (String(e.message).includes('uniq_schema_contexte'))
@@ -2497,6 +2476,7 @@ jourdoc.delete('/:wsId/schemas-donnees/:id', wsCheck, async (c) => {
   const wsId = c.get('wsId')
   const id = Number(c.req.param('id'))
   await sql`DELETE FROM jd_schema_donnees WHERE id=${id} AND workspace_id=${wsId}`
+  await recalcWorkspaceSchemas(wsId)
   return c.json({ ok: true })
 })
 
@@ -2504,7 +2484,7 @@ jourdoc.delete('/:wsId/schemas-donnees/:id', wsCheck, async (c) => {
 
 jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
   const wsId = c.get('wsId')
-  const { objet_id, objet_dir = 'both', theme_id, theme_dir = 'both', nature } = c.req.query()
+  const { objet_id, objet_dir = 'both', theme_id, theme_dir = 'both', nature, categorie_ids } = c.req.query()
 
   const [wsConf] = await sql`SELECT COALESCE(jd_search_depth,3) AS d FROM workspaces WHERE id=${wsId}`
   const maxDepth = wsConf?.d ?? 3
@@ -2524,7 +2504,8 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
   }
 
   let query = `SELECT n.id, n.date, n.nature, n.type, n.titre_alt, n.titre,
-               (SELECT nom FROM jd_themes WHERE id = n.theme_id) AS theme_nom
+               (SELECT nom FROM jd_themes WHERE id = n.theme_id) AS theme_nom,
+               ${CATS_JSON('n')} AS categories
                FROM jd_notes n WHERE n.workspace_id = $1 AND n.date IS NOT NULL`
   const params = [wsId]; let pi = 2
 
@@ -2538,6 +2519,12 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
     query += ` AND EXISTS (SELECT 1 FROM jd_note_theme nt WHERE nt.note_id=n.id AND nt.theme_id = ANY($${pi++}))`
     params.push(ids)
   }
+  // Catégories : « au moins une des catégories sélectionnées ».
+  const catIds = String(categorie_ids || '').split(',').map(Number).filter(Boolean)
+  if (catIds.length) {
+    query += ` AND EXISTS (SELECT 1 FROM jd_note_categorie nc WHERE nc.note_id=n.id AND nc.categorie_id = ANY($${pi++}))`
+    params.push(catIds)
+  }
   // Nature mixte : une note 'mixte' compte à la fois comme Observation et Activité.
   if (nature === 'observation' || nature === 'activite') {
     query += ` AND n.nature IN ($${pi++}, 'mixte')`; params.push(nature)
@@ -2549,7 +2536,7 @@ jourdoc.get('/:wsId/analyse', wsCheck, async (c) => {
   query += ` ORDER BY n.date ASC`
 
   const notes = await sql(query, params)
-  return c.json({ notes: notes.map(normalizeNote) })
+  return c.json({ notes: notes.map(n => withCats(normalizeNote(n), n.categories ?? [])) })
 })
 
 export default jourdoc

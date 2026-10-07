@@ -54,7 +54,7 @@ export function useIsMobile() {
 export function useJdData(wsId, token) {
   const [objets, setObjets]           = useState([])
   const [themes, setThemes]           = useState([])
-  const [docCategories, setDocCategories] = useState([])
+  const [categories, setCategories]   = useState([])
   const [docStatuts, setDocStatuts]   = useState([])
   const [searchDepth, setSearchDepth] = useState(3)
   const [pickerModes, setPickerModes] = useState({ mobile: 'filter', desktop: 'scroll' })
@@ -68,12 +68,12 @@ export function useJdData(wsId, token) {
         fetch(API_ROUTES.JD_OBJETS(wsId), { headers: authHeader(token) }).then(r => r.json()),
         fetch(API_ROUTES.JD_THEMES(wsId), { headers: authHeader(token) }).then(r => r.json()),
         fetch(API_ROUTES.JD_WS(wsId), { headers: authHeader(token) }).then(r => r.json()),
-        fetch(API_ROUTES.JD_DOC_CATEGORIES(wsId), { headers: authHeader(token) }).then(r => r.json()),
+        fetch(API_ROUTES.JD_CATEGORIES(wsId), { headers: authHeader(token) }).then(r => r.json()),
         fetch(API_ROUTES.JD_DOC_STATUTS(wsId), { headers: authHeader(token) }).then(r => r.json()),
       ])
       setObjets(ro.objets ?? [])
       setThemes(rt.themes ?? [])
-      setDocCategories(rc.categories ?? [])
+      setCategories(rc.categories ?? [])
       setDocStatuts(rs.statuts ?? [])
       setSearchDepth(rw.workspace?.search_depth ?? 3)
       setPickerModes({
@@ -89,7 +89,54 @@ export function useJdData(wsId, token) {
 
   // Mode résolu pour la plateforme courante : 'filter' (réduire) ou 'scroll' (défiler).
   const pickerMode = isMobile ? pickerModes.mobile : pickerModes.desktop
-  return { objets, themes, docCategories, docStatuts, searchDepth, pickerMode, loading, reload }
+  // docCategories : catégories actives de portée documentation (« Apports »), pour les vues
+  // propres à la documentation (Bibliothèque…).
+  const docCategories = categories.filter(c => c.actif && c.applique_documentation)
+  return { objets, themes, categories, docCategories, docStatuts, searchDepth, pickerMode, loading, reload }
+}
+
+// ── Catégories unifiées ──────────────────────────────────────
+//
+// Une catégorie déclare sa portée (applique_observation / _activite / _documentation).
+// Libellé affiché contextuel : « Apports » en documentation, « Interventions » au journal.
+export function libelleCategories(type, { court = false } = {}) {
+  if (type === 'documentation') return court ? 'Apport' : 'Apports'
+  if (type === 'journal') return court ? 'Intervention' : 'Interventions'
+  return court ? 'Catégorie' : 'Catégories'
+}
+
+// La catégorie s'applique-t-elle au contexte (type de note + nature) ?
+// Nature « mixte » = observation OU activité.
+export function categorieApplicable(c, type, nature) {
+  if (type === 'documentation') return !!c.applique_documentation
+  if (nature === 'observation') return !!c.applique_observation
+  if (nature === 'activite') return !!c.applique_activite
+  return !!(c.applique_observation || c.applique_activite)
+}
+
+// Catégories proposées à la saisie : actives et applicables au contexte.
+export function categoriesPourContexte(categories, type, nature) {
+  return categories.filter(c => c.actif && categorieApplicable(c, type, nature))
+}
+
+// Nature suggérée par les catégories choisies (saisie « catégories puis nature ») :
+//   • une catégorie à `nature_defaut` → celle-ci (la 1re qui en porte une) ;
+//   • sinon, dérivée de la portée journal : obs seule → observation, act seule → activité ;
+//   • une catégorie d'observation + une d'activité (univoques) → mixte.
+// Renvoie null si rien ne se déduit.
+export function natureSuggeree(cats) {
+  let obs = false, act = false, defaut = null
+  for (const c of cats) {
+    if (c.nature_defaut && !defaut) defaut = c.nature_defaut
+    const o = !!c.applique_observation, a = !!c.applique_activite
+    if (o && !a) obs = true
+    if (a && !o) act = true
+  }
+  if (obs && act) return 'mixte'
+  if (defaut) return defaut
+  if (obs) return 'observation'
+  if (act) return 'activite'
+  return null
 }
 
 // Style de badge pour la catégorie de documentation (couleur hex → fond translucide)
@@ -98,8 +145,8 @@ export function docCategorieBadgeStyle(couleur) {
   return { background: `${c}22`, color: c, borderColor: `${c}55` }
 }
 
-// Icône + couleur d'une note, en tenant compte de la catégorie de documentation.
-// Journal → nature ; documentation → sa catégorie (sinon repli 📄).
+// Icône + couleur d'une note : sa 1re catégorie (journal ou documentation) donne la
+// pastille ; sans catégorie → nature (journal) ou repli 📄 (documentation).
 const NOTE_VISUAL = {
   observation:   { icon: '👁', couleur: 'var(--success)',    label: 'Observation' },
   activite:      { icon: '⚡', couleur: 'var(--accent)',     label: 'Activité' },
@@ -108,9 +155,10 @@ const NOTE_VISUAL = {
   journal:       { icon: '📔', couleur: 'var(--text-muted)', label: 'Journal' },
 }
 export function noteVisual(note) {
-  if (note?.type === 'documentation' && note.doc_categorie) {
-    const c = note.doc_categorie
-    return { icon: c.icon || '📄', couleur: c.couleur || '#d97706', label: c.nom }
+  const c = note?.categories?.[0] ?? note?.doc_categorie
+  if (c) {
+    const repli = NOTE_VISUAL[note?.nature ?? note?.type] ?? NOTE_VISUAL.documentation
+    return { icon: c.icon || repli.icon, couleur: c.couleur || repli.couleur, label: (note.categories ?? [c]).map(x => x.nom).join(', ') }
   }
   const key = note?.nature ?? note?.type ?? 'journal'
   return NOTE_VISUAL[key] ?? NOTE_VISUAL.journal

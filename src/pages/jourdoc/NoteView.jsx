@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { API_ROUTES } from '@pogil/shared'
-import { authHeader, mediaUrl, resolveContentImages, docCategorieBadgeStyle, noteVisual, useSwipe } from './hooks'
+import { authHeader, mediaUrl, resolveContentImages, noteVisual, useSwipe } from './hooks'
+import CategorieBadges from './CategorieBadges'
 import RichTextView from './RichTextView'
 import { buildToc } from './toc'
 import MediaCard from './MediaCard'
@@ -10,8 +11,6 @@ import Lightbox from './Lightbox'
 import MarkdownModal from './MarkdownModal'
 import TodoistPanel from './TodoistPanel'
 
-const NATURE_ICON = { observation: '👁', activite: '⚡', mixte: '🔀', documentation: '📄', journal: '📔' }
-const NATURE_LABEL = { observation: 'Observation', activite: 'Activité', mixte: 'Observ.→Activité', documentation: 'Documentation', journal: 'Journal' }
 
 function fmtDateLong(iso) {
   if (!iso) return ''
@@ -82,6 +81,11 @@ export default function NoteView() {
     const vals = note?.donnees_etendues ?? {}
     const rempli = v => v !== null && v !== undefined && String(v).trim() !== ''
     const champs = Array.isArray(note?.schema_donnees?.champs) ? note.schema_donnees.champs : []
+    // Plusieurs schémas fusionnés (note multi-catégories) → lignes groupées par schéma
+    // d'origine (3e élément = libellé du groupe, affiché en intertitre).
+    const schemas = note?.schema_donnees?.schemas ?? []
+    const groupe = ch => schemas.length > 1
+      ? (s => s ? (s.categorie_nom || s.nom) : null)(schemas.find(s => s.id === ch._schema)) : null
     const vus = new Set()
     const out = []
     for (const ch of champs) {
@@ -90,12 +94,12 @@ export default function NoteView() {
         const affiche = ch.type === 'booleen' ? (String(v) === 'true' ? '✓ Oui' : '✗ Non')
           : ch.type === 'echelle' ? `${v}/${ch.max ?? 5}`
           : ch.unite ? `${v} ${ch.unite}` : String(v)
-        out.push([ch.label || ch.cle, affiche])
+        out.push([ch.label || ch.cle, affiche, groupe(ch)])
       }
       vus.add(ch.cle)
     }
     for (const [cle, v] of Object.entries(vals)) {
-      if (!vus.has(cle) && rempli(v)) out.push([cle, String(v)])
+      if (!vus.has(cle) && rempli(v)) out.push([cle, String(v), schemas.length > 1 ? 'Autres' : null])
     }
     return out
   }, [note])
@@ -119,7 +123,6 @@ export default function NoteView() {
     </div>
   )
 
-  const typeKey = note.nature ?? note.type ?? 'journal'
   // Médias affichables en lightbox (photos + PDF) — les docs markdown ouvrent le modal dédié
   const lbMedias = (note.medias ?? []).filter(m => m.type_media !== 'markdown')
   const hasChain = (note.liens?.length ?? 0) > 0 || (note.liensEntrants?.length ?? 0) > 0
@@ -164,15 +167,7 @@ export default function NoteView() {
           {/* En-tête */}
           <div className="note-view__head">
             <div className="note-view__head-meta">
-              {note.type === 'documentation' && note.doc_categorie ? (
-                <span className="jd-badge jd-badge--doc-cat" style={docCategorieBadgeStyle(note.doc_categorie.couleur)}>
-                  {note.doc_categorie.icon || '📄'} {note.doc_categorie.nom}
-                </span>
-              ) : (
-                <span className={`jd-badge jd-badge-${typeKey}`}>
-                  {NATURE_ICON[typeKey]} {NATURE_LABEL[typeKey]}
-                </span>
-              )}
+              <CategorieBadges note={note} />
               {note.doc_statut && (
                 <span className="jd-badge jd-badge--doc-cat"
                   style={{ color: note.doc_statut.couleur, borderColor: note.doc_statut.couleur }}>
@@ -194,11 +189,16 @@ export default function NoteView() {
           {donneesRenseignees.length > 0 && (
             <table className="jd-donnees-table">
               <tbody>
-                {donneesRenseignees.map(([cle, valeur]) => (
-                  <tr key={cle}>
-                    <th>{cle}</th>
-                    <td>{String(valeur)}</td>
-                  </tr>
+                {donneesRenseignees.map(([cle, valeur, grp], i) => (
+                  <Fragment key={cle}>
+                    {grp && grp !== donneesRenseignees[i - 1]?.[2] && (
+                      <tr className="jd-donnees-table__groupe"><th colSpan={2}>{grp}</th></tr>
+                    )}
+                    <tr>
+                      <th>{cle}</th>
+                      <td>{String(valeur)}</td>
+                    </tr>
+                  </Fragment>
                 ))}
               </tbody>
             </table>
