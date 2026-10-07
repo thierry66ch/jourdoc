@@ -4,6 +4,18 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 145 — 2026-10-07 — Pastilles : retour aux couleurs de la légende
+
+Retour d'usage sur le build 143 : colorer la pastille par la **1re catégorie** (arbitrage
+par défaut du handoff, MIGRATION §6.2) n'est pas informatif et contredit la légende
+(Observation / Activité / Obs.→Act. / Documentation) des calendriers et de la matrice objets.
+`noteVisual()` : **couleur = nature (journal) ou documentation**, toujours, comme la légende
+(teinte doc alignée sur `.cal-dot--doc`, `#f59e0b`) ; **icône** = celle de la 1re catégorie
+si elle en a une (info complémentaire, sans conflit). Les badges nommés (NoteCard, NoteView)
+et les étagères de la Bibliothèque gardent la couleur des catégories, qui y est légendée.
+
+---
+
 ## Build 144 — 2026-10-07 — Fix : page Schémas de données en écran blanc
 
 Régression du build 143 : dans `SchemaDonneesManager`, `catEdit` lisait `edit` **avant** sa

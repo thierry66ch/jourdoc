@@ -68,8 +68,10 @@ montage et sur `visibilitychange` (throttle 1 min/workspace via `sessionStorage`
 Lightbox photos + PDF (iframe). Navigation contextuelle + swipe.
 
 **`CategorieBadges.jsx`** — badges partagés (NoteCard, NoteView) : nature (journal) puis
-catégories dans l'ordre. **`noteVisual()`** (`hooks.js`) : la **1re catégorie** donne icône +
-couleur (pastilles calendrier, matrices, chips) ; sans catégorie → nature / 📄.
+catégories dans l'ordre. **`noteVisual()`** (`hooks.js`) : la **couleur** des pastilles
+(calendriers, matrice objets) suit **toujours la légende** — nature (journal) ou
+documentation — et non la catégorie (build 145 : une couleur par catégorie rendait la
+légende fausse) ; l'**icône** est celle de la 1re catégorie si elle en a une.
 
 **`NoteCard.jsx`** — compact : badges nature + catégories (max 3), **chips thèmes (multi)**, objets,
 éléments, vignettes médias, chip Todoist. Prop `showDate`.

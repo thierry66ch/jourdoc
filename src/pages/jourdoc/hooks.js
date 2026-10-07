@@ -145,23 +145,23 @@ export function docCategorieBadgeStyle(couleur) {
   return { background: `${c}22`, color: c, borderColor: `${c}55` }
 }
 
-// Icône + couleur d'une note : sa 1re catégorie (journal ou documentation) donne la
-// pastille ; sans catégorie → nature (journal) ou repli 📄 (documentation).
+// Icône + couleur d'une note pour les pastilles (calendriers, matrice objets, chips).
+// COULEUR = toujours celle de la légende : nature (journal) ou documentation — elle code le
+// type de note, pas sa catégorie (une couleur par catégorie rendait la légende fausse et la
+// lecture d'ensemble illisible). ICÔNE = celle de la 1re catégorie si elle en a une (info en
+// plus, sans conflit avec la légende), sinon celle de la nature / du type.
 const NOTE_VISUAL = {
   observation:   { icon: '👁', couleur: 'var(--success)',    label: 'Observation' },
   activite:      { icon: '⚡', couleur: 'var(--accent)',     label: 'Activité' },
   mixte:         { icon: '🔀', couleur: '#db2777',           label: 'Observ.→Activité' },
-  documentation: { icon: '📄', couleur: '#d97706',           label: 'Documentation' },
+  documentation: { icon: '📄', couleur: '#f59e0b',           label: 'Documentation' },   // = .cal-dot--doc
   journal:       { icon: '📔', couleur: 'var(--text-muted)', label: 'Journal' },
 }
 export function noteVisual(note) {
+  const key = note?.type === 'documentation' ? 'documentation' : (note?.nature ?? note?.type ?? 'journal')
+  const base = NOTE_VISUAL[key] ?? NOTE_VISUAL.journal
   const c = note?.categories?.[0] ?? note?.doc_categorie
-  if (c) {
-    const repli = NOTE_VISUAL[note?.nature ?? note?.type] ?? NOTE_VISUAL.documentation
-    return { icon: c.icon || repli.icon, couleur: c.couleur || repli.couleur, label: (note.categories ?? [c]).map(x => x.nom).join(', ') }
-  }
-  const key = note?.nature ?? note?.type ?? 'journal'
-  return NOTE_VISUAL[key] ?? NOTE_VISUAL.journal
+  return c?.icon ? { ...base, icon: c.icon } : base
 }
 
 // Construit une Map id → chemin court (ex. "arb/fru/pom") depuis la liste plate
