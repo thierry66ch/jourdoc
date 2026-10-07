@@ -4,6 +4,14 @@ Journal de bord des itérations. Entrées les plus récentes en tête. (numéros
 
 ---
 
+## Build 144 — 2026-10-07 — Fix : page Schémas de données en écran blanc
+
+Régression du build 143 : dans `SchemaDonneesManager`, `catEdit` lisait `edit` **avant** sa
+déclaration (`useState`) → `ReferenceError` (zone morte temporelle) au premier rendu, page
+vide sans message. Déclaration déplacée après `edit`.
+
+---
+
 ## Build 143 — 2026-10-07 — Catégories unifiées et multiples (chantier Modélisme)
 
 Spec : `docs/chantiers/categories/` (README-handoff, MIGRATION-categories, CDC-Workspace-Modelisme).

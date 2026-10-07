@@ -29,10 +29,11 @@ export default function SchemaDonneesManager() {
   const navigate = useNavigate()
   const { token } = useAuth()
   const { objets, themes, categories, pickerMode } = useJdData(wsId, token)
-  const catEdit = categories.find(c => c.id === edit?.categorie_id)
 
   const [schemas, setSchemas] = useState([])
   const [edit, setEdit] = useState(null)      // null | objet en cours d'édition
+  // Catégorie du schéma édité (après `edit` : sinon accès avant déclaration → écran blanc).
+  const catEdit = categories.find(c => c.id === edit?.categorie_id)
   const champLabelRefs = useRef([])           // focus auto du nouveau champ ajouté
   const [msg, setMsg] = useState('')
 
